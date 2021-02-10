@@ -1,0 +1,45 @@
+import torch
+from transformers import DistilBertForTokenClassification, DistilBertTokenizerFast
+import numpy as np
+
+# unique tags {'O', 'I-object', 'B-color', 'B-object'}
+
+id2tag = [
+    "O",
+    "B-object",
+    "I-object",
+    "B-color"
+]
+
+
+def test_model(model_path):
+    model = DistilBertForTokenClassification.from_pretrained('distilbert-base-cased', num_labels=4)
+    model.load_state_dict(torch.load(model_path))
+    model.eval()
+    tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-cased')
+    run = True
+    while run:
+        print("Input sentence to test:")
+        text = input("> ")
+        encoded = tokenizer(text, is_split_into_words=False, return_offsets_mapping=False, padding=True,
+                                    truncation=True, return_tensors="pt")
+        output = model(**encoded)
+        logits = output.logits
+        logits_softmax = torch.nn.Softmax(dim=2)(logits).detach().cpu()
+        decoded = tokenizer.decode(encoded.input_ids[0])
+        word_list = decoded.split(" ")
+        entities = []
+        for token_index in range(logits_softmax.shape[1]):
+            max_id = torch.argmax(logits_softmax[0, token_index, :]).numpy()
+            max_id_value = logits_softmax[0, token_index, max_id].numpy()
+            word = word_list[token_index]
+            if word == "[CLS]" or word == "[SEP]" or id2tag[max_id] == "O":
+                continue
+            entities.append((word, id2tag[max_id], max_id_value))
+        print("Found entities:")
+        for (word, tag, conf) in entities:
+            print(f"'{word}': {tag} (conf: {conf*100.0:.4f}%)")
+
+
+if __name__ == "__main__":
+    test_model("test/pytorch_model.bin")

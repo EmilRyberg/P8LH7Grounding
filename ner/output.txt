@@ -1,0 +1,196 @@
+Pick	O
+up	O
+the	O
+brown	B-color
+cover	B-object
+.	O
+
+This	O
+is	O
+a	O
+cover	B-object
+.	O
+
+This	O
+is	O
+a	O
+fuse	B-object
+.	O
+
+This	O
+is	O
+a	O
+bottom	B-object
+cover	I-object
+.	O
+
+Pick	O
+up	O
+the	O
+bottom	B-object
+cover	I-object
+.	O
+
+Take	O
+the	O
+bottom	B-object
+cover	I-object
+.	O
+
+Take	O
+the	O
+fuse	B-object
+.	O
+
+Take	O
+the	O
+green	B-color
+cover	B-object
+.	O
+
+Take	O
+the	O
+blue	B-color
+cover	B-object
+.	O
+
+Take	O
+the	O
+red	O
+cover	B-object
+.	O
+
+Take	O
+the	O
+yellow	B-color
+cover	B-object
+.	O
+
+Take	O
+the	O
+white	B-color
+cover	B-object
+.	O
+
+Take	O
+the	O
+black	B-color
+cover	B-object
+.	O
+
+This	O
+is	O
+a	O
+black	B-color
+cover	B-object
+.	O
+
+That	O
+is	O
+a	O
+blue	B-color
+cover	B-object
+.	O
+
+That	O
+is	O
+a	O
+bottom	B-object
+cover	I-object
+.	O
+
+This	O
+is	O
+a	O
+bottom	B-object
+cover	I-object
+.	O
+
+Where	O
+is	O
+the	O
+bottom	B-object
+cover	I-object
+.	O
+
+Where	O
+is	O
+the	O
+brown	B-color
+cover	B-object
+.	O
+
+Where	O
+is	O
+the	O
+fuse	B-object
+.	O
+
+The	O
+fuse	B-object
+is	O
+there	O
+.	O
+
+The	O
+cover	B-object
+is	O
+there	O
+.	O
+
+The	O
+black	B-color
+cover	B-object
+is	O
+there	O
+.	O
+
+The	O
+red	O
+cover	B-object
+is	O
+there	O
+.	O
+
+The	O
+white	B-color
+cover	B-object
+is	O
+here	O
+.	O
+
+Pick	O
+up	O
+the	O
+white	B-color
+cover	B-object
+.	O
+
+Pick	O
+up	O
+the	O
+black	B-color
+cover	B-object
+.	O
+
+Pick	O
+up	O
+the	O
+blue	B-color
+cover	B-object
+.	O
+
+Pick	O
+up	O
+the	O
+green	B-color
+cover	B-object
+.	O
+
+The	O
+bottom	B-object
+cover	I-object
+is	O
+black	B-color
+.	O
+
