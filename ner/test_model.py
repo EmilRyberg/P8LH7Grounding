@@ -24,19 +24,13 @@ def test_model(model_path):
         encoded = tokenizer(text, is_split_into_words=False, return_offsets_mapping=True, padding=True,
                                     truncation=True, return_tensors="pt")
         output = model(encoded.input_ids, encoded.attention_mask)
-        print("offsets", encoded.offset_mapping)
         logits = output.logits
         logits_softmax = torch.nn.Softmax(dim=2)(logits).detach().cpu()
-        decoded = tokenizer.decode(encoded.input_ids[0])
-        word_list = decoded.split(" ")
-        print(decoded)
-        print(logits_softmax)
         entities = []
         for token_index in range(logits_softmax.shape[1]):
             max_id = torch.argmax(logits_softmax[0, token_index, :]).numpy()
             max_id_value = logits_softmax[0, token_index, max_id].numpy()
             current_offsets = encoded.offset_mapping[0, token_index, :]
-            print(current_offsets)
             if current_offsets[0] == 0 and current_offsets[1] == 0:
                 continue
             word = text[current_offsets[0]:current_offsets[1]]
