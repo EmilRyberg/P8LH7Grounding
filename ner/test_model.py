@@ -21,19 +21,26 @@ def test_model(model_path):
     while run:
         print("Input sentence to test:")
         text = input("> ")
-        encoded = tokenizer(text, is_split_into_words=False, return_offsets_mapping=False, padding=True,
+        encoded = tokenizer(text, is_split_into_words=False, return_offsets_mapping=True, padding=True,
                                     truncation=True, return_tensors="pt")
-        output = model(**encoded)
+        output = model(encoded.input_ids, encoded.attention_mask)
+        print("offsets", encoded.offset_mapping)
         logits = output.logits
         logits_softmax = torch.nn.Softmax(dim=2)(logits).detach().cpu()
         decoded = tokenizer.decode(encoded.input_ids[0])
         word_list = decoded.split(" ")
+        print(decoded)
+        print(logits_softmax)
         entities = []
         for token_index in range(logits_softmax.shape[1]):
             max_id = torch.argmax(logits_softmax[0, token_index, :]).numpy()
             max_id_value = logits_softmax[0, token_index, max_id].numpy()
-            word = word_list[token_index]
-            if word == "[CLS]" or word == "[SEP]" or id2tag[max_id] == "O":
+            current_offsets = encoded.offset_mapping[0, token_index, :]
+            print(current_offsets)
+            if current_offsets[0] == 0 and current_offsets[1] == 0:
+                continue
+            word = text[current_offsets[0]:current_offsets[1]]
+            if id2tag[max_id] == "O":
                 continue
             entities.append((word, id2tag[max_id], max_id_value))
         print("Found entities:")
