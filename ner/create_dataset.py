@@ -14,12 +14,35 @@ objects = [
     "fuse"
 ]
 
+grasp_actions = [
+    "pick",
+    "up",
+    "grasp",
+    "take",
+    "Pick",
+    "Grasp",
+    "Take"
+]
+
+find_actions = [
+    "find",
+    "locate",
+    "where",
+    "Find",
+    "Locate",
+    "Where"
+]
+
 CLASS_NONE = 0
 CLASS_O = 1
 CLASS_BColor = 2
 CLASS_IColor = 3
 CLASS_BObject = 4
 CLASS_IObject = 5
+CLASS_BGrasp = 6
+CLASS_IGrasp = 7
+CLASS_BFind = 8
+CLASS_IFind = 9
 
 def create_dataset(file_path, save_path):
     final_output = ""
@@ -41,6 +64,20 @@ def create_dataset(file_path, save_path):
                     else:
                         final_output += f"{word_to_process}\tB-object\n"
                         word_class_before = CLASS_BObject
+                elif word_to_process in grasp_actions:
+                    if word_class_before == CLASS_BGrasp or word_class_before == CLASS_IGrasp:
+                        final_output += f"{word_to_process}\tI-grasp\n"
+                        word_class_before = CLASS_IGrasp
+                    else:
+                        final_output += f"{word_to_process}\tB-grasp\n"
+                        word_class_before = CLASS_BGrasp
+                elif word_to_process in find_actions:
+                    if word_class_before == CLASS_BFind or word_class_before == CLASS_IFind:
+                        final_output += f"{word_to_process}\tI-find\n"
+                        word_class_before = CLASS_IFind
+                    else:
+                        final_output += f"{word_to_process}\tB-find\n"
+                        word_class_before = CLASS_BFind
                 else:
                     final_output += f"{word_to_process}\tO\n"
                     word_class_before = CLASS_O
