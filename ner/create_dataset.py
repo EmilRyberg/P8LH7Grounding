@@ -8,10 +8,22 @@ colors = [
     "green"
 ]
 
+locations = [
+    "left",
+    "right",
+    "above",
+    "below",
+    "middle",
+    "on",
+    "top"
+]
+
 objects = [
     "bottom",
     "cover",
-    "fuse"
+    "fuse",
+    "box",
+    "table"
 ]
 
 grasp_actions = [
@@ -43,6 +55,8 @@ CLASS_BGrasp = 6
 CLASS_IGrasp = 7
 CLASS_BFind = 8
 CLASS_IFind = 9
+CLASS_BLocation = 10
+CLASS_ILocation = 11
 
 def create_dataset(file_path, save_path):
     final_output = ""
@@ -57,6 +71,13 @@ def create_dataset(file_path, save_path):
                 if word_to_process in colors:
                     final_output += f"{word_to_process}\tB-color\n"
                     word_class_before = CLASS_BColor
+                elif word_to_process in locations:
+                    if word_class_before == CLASS_BLocation or word_class_before == CLASS_ILocation:
+                        final_output += f"{word_to_process}\tI-location\n"
+                        word_class_before = CLASS_ILocation
+                    else:
+                        final_output += f"{word_to_process}\tB-location\n"
+                        word_class_before = CLASS_BLocation
                 elif word_to_process in objects:
                     if word_class_before == CLASS_BObject or word_class_before == CLASS_IObject:
                         final_output += f"{word_to_process}\tI-object\n"

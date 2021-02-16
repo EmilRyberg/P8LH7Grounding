@@ -65,7 +65,9 @@ unique_tags = {
     "B-grasp": 4,
     "I-grasp": 5,
     "B-find": 6,
-    "I-find": 7
+    "I-find": 7,
+    "B-location": 8,
+    "I-location": 9
 } #set(tag for doc in tags for tag in doc)
 print("unique tags", unique_tags)
 tag2id = {tag: id for id, tag in enumerate(unique_tags)}
