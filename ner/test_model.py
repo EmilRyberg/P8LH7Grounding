@@ -8,12 +8,18 @@ id2tag = [
     "O",
     "B-object",
     "I-object",
-    "B-color"
+    "B-color",
+    "B-grasp",
+    "I-grasp",
+    "B-find",
+    "I-find",
+    "B-location",
+    "I-location"
 ]
 
 
 def test_model(model_path):
-    model = DistilBertForTokenClassification.from_pretrained('distilbert-base-cased', num_labels=4)
+    model = DistilBertForTokenClassification.from_pretrained('distilbert-base-cased', num_labels=10)
     model.load_state_dict(torch.load(model_path))
     model.eval()
     tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-cased')

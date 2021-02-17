@@ -61,7 +61,13 @@ unique_tags = {
     "O": 0,
     "B-object": 1,
     "I-object": 2,
-    "B-color": 3
+    "B-color": 3,
+    "B-grasp": 4,
+    "I-grasp": 5,
+    "B-find": 6,
+    "I-find": 7,
+    "B-location": 8,
+    "I-location": 9
 } #set(tag for doc in tags for tag in doc)
 print("unique tags", unique_tags)
 tag2id = {tag: id for id, tag in enumerate(unique_tags)}
@@ -84,7 +90,7 @@ model = DistilBertForTokenClassification.from_pretrained('distilbert-base-cased'
 training_args = TrainingArguments(
     output_dir='./results',          # output directory,
     overwrite_output_dir=True,
-    num_train_epochs=100,              # total number of training epochs
+    num_train_epochs=100,            # total number of training epochs
     per_device_train_batch_size=16,  # batch size per device during training
     per_device_eval_batch_size=64,   # batch size for evaluation
     warmup_steps=500,                # number of warmup steps for learning rate scheduler
