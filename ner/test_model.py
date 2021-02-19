@@ -2,23 +2,11 @@ import torch
 from transformers import DistilBertForTokenClassification, DistilBertTokenizerFast
 import numpy as np
 
-# unique tags {'O', 'I-object', 'B-color', 'B-object'}
 
-id2tag = [
-    "O",
-    "B-object",
-    "I-object",
-    "B-color",
-    "B-grasp",
-    "I-grasp",
-    "B-find",
-    "I-find",
-    "B-location",
-    "I-location"
-]
-
-
-def test_model(model_path):
+def test_model(model_path, tag_path):
+    with open(tag_path, "r") as tag_file:
+        file_content = tag_file.read().strip()
+        id_to_tag = file_content.splitlines()
     model = DistilBertForTokenClassification.from_pretrained('distilbert-base-cased', num_labels=10)
     model.load_state_dict(torch.load(model_path))
     model.eval()
@@ -40,13 +28,13 @@ def test_model(model_path):
             if current_offsets[0] == 0 and current_offsets[1] == 0:
                 continue
             word = text[current_offsets[0]:current_offsets[1]]
-            if id2tag[max_id] == "O":
+            if id_to_tag[max_id] == "O":
                 continue
-            entities.append((word, id2tag[max_id], max_id_value))
+            entities.append((word, id_to_tag[max_id], max_id_value))
         print("Found entities:")
         for (word, tag, conf) in entities:
             print(f"'{word}': {tag} (conf: {conf*100.0:.4f}%)")
 
 
 if __name__ == "__main__":
-    test_model("test/pytorch_model.bin")
+    test_model("test/pytorch_model.bin", "tags.txt")

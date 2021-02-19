@@ -48,5 +48,6 @@ def test_model():
         cosine_sim = 1 - cosine(hidden_state_1_avg, hidden_state_2_avg) #np.dot(hidden_state_1_avg.transpose(), hidden_state_2_avg) / (np.linalg.norm(hidden_state_1_avg) * np.linalg.norm(hidden_state_2_avg))
         print(f"Cosine similarity: {cosine_sim}")
 
+
 if __name__ == "__main__":
     test_model()
