@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="sim" default="false"/>
+  <arg name="gui" default="true"/>
+  <arg name="limited" default="false"  doc="If true, limits joint range [-PI, PI] on all joints." />
+  <arg name="prefix" default="" doc="Prefix to robot's joints' and links' names" />
+  <arg name="worldfile" default="Ur_bin_picking" doc="Which world to load from Webots folder" />
+  <param name="prefix" value="" type="str" />
+  <param name="use_sim_time" value="true" type="bool" />
+  <param name="object_class" value="" type="str" />
+
+  <!-- probably useless -->
+  <arg name="min_payload"  default="0.0" doc="lower payload bound for the robot" />
+  <arg name="max_payload"  default="10.0" doc="upper payload bound for the robot" />
+
+  <!-- send robot urdf to param server 
+
+    THIS NEEDS OWN CUSTOM URDF FILE FOR THE GRIPPER
+
+  <include file="$(find dummy)/launch/robot_upload.launch">
+    <arg name="pal" value="$(arg pal)"/>
+  </include>
+  -->
+
+
+  <!-- Robot state publisher -->
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
+    <param name="publish_frequency" type="double" value="50.0" />
+    <!-- <param name="tf_prefix" type="string" value="ur5_right_" /> -->
+  </node>
+
+  <!-- Fake Calibration -->
+  <node pkg="rostopic" type="rostopic" name="fake_joint_calibration" args="pub /calibrated std_msgs/Bool true" />
+
+  <include if="$(arg pal)" file="$(find pal_moveit_config)/launch/move_group.launch">
+    <arg name="sim" value="$(arg sim)"/>
+  </include>
+
+  <include unless="$(arg pal)" file="$(find temp_moveit_config)/launch/move_group.launch">
+    <arg name="sim" value="$(arg sim)"/>
+  </include>
+
+  <arg name="no-gui" default="$(arg gui)" doc="Start Webots with minimal GUI"/>
+  <arg name="mode" value="realtime"/>
+  <arg name="world" value="$(find dummy)/../Webots/worlds/$(arg worldfile).wbt" doc="Path to the world to load"/>
+  <node name="webots" pkg="dummy" type="webots_launcher.py" args="world=$(arg world) mode=$(arg mode) no-gui=$(arg no-gui)" required="true"/>
+
+
+  <arg name="auto-close" default="false" doc="Startup mode"/>
+  <node name="test" pkg="webots_ros" type="robot_information_parser" required="$(arg auto-close)"/>
+
+</launch>
