@@ -132,3 +132,9 @@ dmypy.json
 src/ner/logs/**/*
 *.bin
 
+
+.vscode/
+
+devel/
+
+.catkin_workspace
