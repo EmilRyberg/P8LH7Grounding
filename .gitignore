@@ -129,6 +129,12 @@ dmypy.json
 .pyre/
 
 .idea/
-ner/logs/**/*
+src/ner/logs/**/*
 *.bin
 
+
+.vscode/
+
+devel/
+
+.catkin_workspace
