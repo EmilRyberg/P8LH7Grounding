@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 import rospy
 from std_msgs.msg import String
+from ner_stuff.ner_stuff import ner_test
 
 
 def talker():
     pub = rospy.Publisher('chatter', String, queue_size=10)
     rospy.init_node('talker', anonymous=True)
     rate = rospy.Rate(10)  # 10hz
+    ner_test()
 
     while not rospy.is_shutdown():
         hello_str = "hello world %s" % rospy.get_time()

@@ -5,7 +5,7 @@ package_name = 'ner'
 setup(
     name=package_name,
     version='0.0.0',
-    packages=find_packages(),
+    packages=["ner_stuff"],
     install_requires=['setuptools',
                         'torch',
                         'opencv-python',
