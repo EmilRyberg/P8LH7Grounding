@@ -14,21 +14,22 @@ def parse_keywords_to_entities(file_path):
             output_dict[keyword] = entity_name
     return output_dict
 
-
-def save_keyword_entity_mapping_to_file(file_path, mapping_dict):
+def get_reverse_mapping(mapping_dict):
     reverse_mapping = {}
     for keyword, entity in mapping_dict.items():
         if entity in reverse_mapping.keys():
             reverse_mapping[entity].append(keyword)
         else:
             reverse_mapping[entity] = [keyword]
-    print("reverse mapping", reverse_mapping)
+    return reverse_mapping
+
+def save_keyword_entity_mapping_to_file(file_path, mapping_dict):
+    reverse_mapping = get_reverse_mapping(mapping_dict)
     with open(file_path, "w") as file:
         for entity, keywords in reverse_mapping.items():
             keyword_string = ",".join(keywords)
             line = f"{entity},{keyword_string}\n"
             file.write(line)
-
 
 def create_dataset():
     keyword_to_entity_mapping = {}
@@ -108,6 +109,18 @@ def create_dataset():
     save_path = input("> ")
     with open(save_path, "w") as sf:
         sf.write(final_output)
+    print("Create tag file?")
+    choice = get_valid_input("[Y/N] ", False, "y", "n")
+    if choice == "y":
+        print("Write save path for tag file:")
+        tag_file_path = input("> ")
+        reverse_mapping = get_reverse_mapping(keyword_to_entity_mapping)
+        entity_names = reverse_mapping.keys()
+        lines = "O\n"
+        for en in entity_names:
+            lines += f"B-{en}\nI-{en}\n"
+        with open(tag_file_path, "w") as tag_file:
+            tag_file.write(lines)
     print("Done!")
 
 
