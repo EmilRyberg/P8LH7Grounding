@@ -24,7 +24,7 @@ class DatabaseHandler:
         self.conn.commit()
         print("Records created successfully")
 
-    def select(self, name):
+    def get_feature(self, name):
         result = self.conn.execute("SELECT FEATURE_VECTOR from FEATURES \
                         WHERE NAME=?;", (name, ))
         features = None
@@ -34,6 +34,15 @@ class DatabaseHandler:
         if features is not None:
             features = np.fromstring(features, dtype=float, sep = ', ')
         return features
+
+    def get_all_features(self):
+        result = self.conn.execute("SELECT NAME, FEATURE_VECTOR from FEATURES;")
+        db_objects = []
+        for row in result:
+            name = row[0]
+            features = row[1]
+            db_objects.append((name, features))
+        return db_objects
 
     def update(self, name, feature_vector):
         self.conn.execute("UPDATE FEATURES set FEATURE_VECTOR = ? where NAME = ?;", (str(feature_vector), name))
@@ -48,10 +57,12 @@ class DatabaseHandler:
 
 if __name__ == "__main__":
     db = DatabaseHandler()
-    feature = np.random.rand(5)
+    #feature = np.random.rand(5)
     #db.conn.execute("DROP TABLE FEATURES")
     #db.create_table()
     #db.delete("black cover")
-    db.insert_feature("blue cover", feature)
+    #db.insert_feature("blue cover", feature)
     #features = db.select("red cover")
+    objects = db.get_all_features()
+    print(objects)
     db.conn.close()
