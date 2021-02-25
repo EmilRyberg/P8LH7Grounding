@@ -36,8 +36,9 @@ class NER:
             current_offsets = encoded.offset_mapping[0, token_index, :]
             word = sentence[current_offsets[0]:current_offsets[1]]
             tag_name = self.id_to_tag[max_id]
+            #print(f"{word} - {tag_name} - {max_id_value}")
             entity_name = tag_name if tag_name == "O" else tag_name[2:]
-            if (current_offsets[0] == 0 and current_offsets[1] == 0) or self.id_to_tag[max_id] == "O":
+            if (current_offsets[0] == 0 and current_offsets[1] == 0) or self.id_to_tag[max_id] == "O" or word == "to":
                 if current_entity_word != "":
                     entities.append((EntityType(current_entity), current_entity_word))
                     current_entity_word = ""

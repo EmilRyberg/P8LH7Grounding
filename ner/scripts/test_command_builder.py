@@ -7,7 +7,7 @@ def test_ner(model_path, tag_path):
         print("Input sentence to test:")
         text = input("> ")
         task = cmd_builder.get_task(text)
-        print("Task", task)
+        print(task)
 
 
 if __name__ == "__main__":

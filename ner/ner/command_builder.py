@@ -3,19 +3,22 @@ from enum import Enum
 
 
 class SpatialType(Enum):
-    NEXT_TO = "next to"
+    NEXT_TO = "next"
     ABOVE = "above"
     BELOW = "below"
-    RIGHT_OF = "right of"
-    LEFT_OF = "left of"
-    BOTTOM_OF = "bottom of"
-    TOP_OF = "top of"
+    RIGHT_OF = "right"
+    LEFT_OF = "left"
+    BOTTOM_OF = "bottom"
+    TOP_OF = "top"
 
 
 class SpatialDescription:
     def __init__(self, spatial_type, entities):
         self.spatial_type = spatial_type
         self.object_entity = ObjectEntity().build_object(entities)
+
+    def __str__(self):
+        return f"({self.spatial_type}){self.object_entity}"
 
 
 class ObjectEntity:
@@ -43,6 +46,12 @@ class ObjectEntity:
         self.build_name()
         return self
 
+    def __str__(self):
+        output = f"[{self.name}]"
+        if self.spatial_descriptor:
+            output += f" --> {self.spatial_descriptor}"
+        return output
+
 
 class BaseTask:
     def __init__(self):
@@ -58,6 +67,9 @@ class PickUpTask(BaseTask):
         self.object_to_pick_up.build_object(entities)
         return self
 
+    def __str__(self):
+        return f"Task type: {PickUpTask.__name__}\n\tObject to pick up: {self.object_to_pick_up}"
+
 
 class FindTask(BaseTask):
     def __init__(self):
@@ -71,19 +83,20 @@ class CommandBuilder:
 
     def get_task(self, sentence):
         entities = self.ner.get_entities(sentence)
+        #print(entities)
         task = None
         task_type = None
         for index, (entity_type, word) in enumerate(entities):
             if entity_type == EntityType.TAKE:
                 if task_type is not None:
-                    print("Found another task, which is not allowed") # for now
+                    print("Found another task, which is not allowed")  # for now
                     raise NotImplementedError()
                 else:
                     task_type = EntityType.TAKE
                     task = PickUpTask().build_task(entities[index+1:])
             elif entity_type == EntityType.FIND:
                 if task_type is not None:
-                    print("Found another task, which is not allowed") # for now
+                    print("Found another task, which is not allowed")  # for now
                     raise NotImplementedError()
                 else:
                     task_type = EntityType.FIND
