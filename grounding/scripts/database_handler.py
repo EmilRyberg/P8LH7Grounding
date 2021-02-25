@@ -5,7 +5,7 @@ import numpy as np
 # but also has a few functions like the 'create_table' that should be modified from here and called by running this module.
 class DatabaseHandler:
     def __init__(self):
-        self.conn = sqlite3.connect('grounding.db')
+        self.conn = sqlite3.connect('../grounding.db')
         print("Opened database successfully")
 
     def __del__(self):

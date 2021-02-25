@@ -1,10 +1,33 @@
-import database_handler
+from scripts.database_handler import DatabaseHandler
 import numpy as np
+import rospy
 from typing import Optional
 
-class Grounding:
-    def __init__(self):
-        self.db=database_handler.DatabaseHandler()
+class Grounding():
+    def __init__(self, ros=False):
+        self.db=DatabaseHandler()
+        self.last_vision = None
+        self.last_spatial = None
+        if ros==True:
+            self.entitypub = rospy.Publisher('GroundingEntity', msgs.ObjectEntity.msg, queue_size=10)
+            self.infopub = rospy.Publisher('GroundingInfo', msgs.ObjectInfo.msg, queue_size=10)
+
+            while not rospy.is_shutdown():
+                self.listener()
+
+    def listener(self):
+        rospy.Subscriber('SpatialRelations', msgs.ObjectInfo.msg, self.spatial_callback)
+        rospy.Subscriber('VisionData', int, self.vision_callback)  # TODO replace type
+        rospy.Subscriber('MainLearn', int, self.learn_new_object)  # TODO replace type
+        rospy.Subscriber('MainFind', int, self.find_object)  # TODO replace type
+        # Wait for messages on topic, go to callback function when new messages arrive.
+        rospy.spin()
+
+    def spatial_callback(self, data):
+        self.last_spatial = data  # TODO update
+
+    def vision_callback(self, data):
+        self.last_vision = data  # TODO update
 
     def find_object(self, object_entity):
         (id, name, spatial_desc) = object_entity
@@ -72,7 +95,8 @@ class Grounding:
                     objects.append((id, bbox, name))
 
         #object_info = spatial_relations.locateSpecificObject(object_entity, objects)
-        object_info = (0, 0, 0)
+        object_info = self.last_spatial
+        self.last_spatial = None
         return object_info
 
     def learn_new_object(self, entity):
@@ -116,7 +140,8 @@ class Grounding:
 
 
 if __name__ == "__main__":
-    test = Grounding()
-    #test.learnNewObject("black cover")
-    test.find_object('red cover')
-    #test.update_features("blue cover")
+    rospy.init_node('grounding')
+    try:
+        Grounding()
+    except rospy.ROSInterruptException:
+        pass
