@@ -1,116 +1,85 @@
-"""camera_controller controller."""
+"""camera controller."""
 
-from controller import Robot
-from controller import RangeFinder
+# You may need to import some classes of the controller module. Ex:
+#  from controller import Robot, Motor, DistanceSensor
+
+import rospy
 from controller import Camera
+from controller import RangeFinder
+from controller import Robot
+from std_msgs.msg import String, Bool
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
+from rosgraph_msgs.msg import Clock
+import cv2
 import numpy as np
-import socket
-import struct
-import pickle
-import threading
-from PIL import Image as pimg
-np.set_printoptions(precision=4, suppress=True)
-
-
-def send_msg(msg):
-    # Prefix each message with a 4-byte length (network byte order)
-    msg = struct.pack('>I', len(msg)) + msg
-    conn.sendall(msg)
-
-def recv_msg():
-    # Read message length and unpack it into an integer
-    raw_msglen = recvall(4)
-    if not raw_msglen:
-        return None
-    msglen = struct.unpack('>I', raw_msglen)[0]
-    # Read the message data
-    return recvall(msglen)
-
-def recvall(n):
-    # Helper function to recv n bytes or return None if EOF is hit
-    data = bytearray()
-    while len(data) < n:
-        packet = conn.recv(n - len(data))
-        if not packet:
-            return None
-        data.extend(packet)
-    return data
-
-def respond(result, data = None):
-    cmd = {}
-    cmd["result"] = result
-    cmd["data"] = data
-    send_msg(pickle.dumps(cmd))
-
-def continous_timestep():
-    while robot.step(timestep) != -1:
-        pass
 
 
 
+def camera_CB(msg):
+    global rscam
+    global depthcam
+    global camPub
+    global rangePub
+    rospy.sleep(1)
+    cameraImgToROS(rscam, camPub)
+    rospy.sleep(1)
+    rangeImgToROS(depthcam, rangePub)
+
+def cameraImgToROS(camera, pub):
+    Img = camera.getImageArray()
+    Img = np.array(Img, dtype=np.uint8)
+    Img = np.fliplr(Img)
+    rotatedImg = np.rot90(Img)
+    test = np.zeros((camera.getHeight(), camera.getWidth(), 3), np.uint8)
+    bridge = CvBridge()
+    rosmsg = bridge.cv2_to_imgmsg(rotatedImg, 'rgb8')
+
+    pub.publish(rosmsg)
+
+def rangeImgToROS(camera, pub):
+    Img = camera.getRangeImageArray()
+    Img = np.array(Img)
+    Img = np.fliplr(Img)
+    rotatedImg = np.rot90(Img)
+    #norm_img = cv2.normalize(rotatedImg, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+    #norm_img.astype(np.uint8)
+    bridge = CvBridge()
+    rosmsg = bridge.cv2_to_imgmsg(rotatedImg, encoding = "passthrough")
+
+    pub.publish(rosmsg)
+
+rospy.init_node('camera_test_node')
 robot = Robot()
-
-cameraRGB = Camera("cameraRGB")
-cameraDepth = RangeFinder("cameraDepth")
+global camPub
+global rangePub
+camPub = rospy.Publisher('/camera/image', Image, queue_size=20)
+rangePub = rospy.Publisher('/range_finder/image', Image, queue_size=20)
+# get the time step of the current world.
 timestep = int(robot.getBasicTimeStep())
+SAMPLE_TIME = 100
+camera = robot.getDevice('camera')
+depth = robot.getDevice('range-finder')
+global rscam
+global depthcam
+rscam = Camera('camera')
+depthcam = RangeFinder('range-finder')
+depthcam.enable(SAMPLE_TIME)
+rscam.enable(SAMPLE_TIME)
+rospy.Subscriber('publish_images', Bool, camera_CB)
 
-current_task = "idle"
-args = None
-command_is_executing = False
-print_once_flag = True
-rgb_enabled = False
-depth_enabled = False
+clockPublisher = rospy.Publisher('clock', Clock, queue_size=1)
+if not rospy.get_param('use_sim_time', False):
+    rospy.logwarn('use_sim_time is not set!')
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind(('localhost', 2001))
-server.listen()
-print("Waiting for connection")
-robot.step(1) # webots won't print without a step
-conn, addr = server.accept()
-print("Connected")
-
-x = threading.Thread(target=continous_timestep)
-x.start()
 
 # Main loop:
 # - perform simulation steps until Webots is stopping the controller
-while robot.step(timestep) != -1:
-    if current_task == "idle":
-        if print_once_flag:
-            print("Waiting for command")
-            robot.step(1)
-            print_once_flag = False
-        msg = recv_msg()
-        if msg != None:
-            cmd = pickle.loads(msg)
-            print(cmd)
-            current_task = cmd["name"]
-            args = cmd["args"]
-            print("Executing: " + current_task + " " + str(args))
-            print_once_flag = True
+while robot.step(timestep) != -1 and not rospy.is_shutdown():
+    msg = Clock()
+    time = robot.getTime()
+    msg.clock.secs = int(time)
+    # round prevents precision issues that can cause problems with ROS timers
+    msg.clock.nsecs = round(1000 * (time - msg.clock.secs)) * 1.0e+6
+    clockPublisher.publish(msg)
 
-    if current_task == "get_image":
-        if not rgb_enabled:
-            cameraRGB.enable(timestep)
-            rgb_enabled = True
-        else:
-            np_img = np.array(cameraRGB.getImageArray(), dtype=np.uint8)
-            respond("done", np_img)
-            current_task = "idle"
-            cameraRGB.disable()
-            rgb_enabled = False
-
-    if current_task == "get_depth":
-        if not depth_enabled:
-            cameraDepth.enable(timestep)
-            depth_enabled = True
-        else:
-            np_dep = np.array(cameraDepth.getRangeImageArray())
-            respond("done", np_dep)
-            current_task = "idle"
-            cameraDepth.disable()
-            depth_enabled = False
-
-
-conn.close()
-print("Camera controller ended")
