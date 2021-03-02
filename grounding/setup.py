@@ -5,7 +5,7 @@ package_name = 'grounding'
 setup(
     name=package_name,
     version='0.0.0',
-    packages=["grounding_node"],
+    packages=["grounding"],
     install_requires=['setuptools',
                         'numpy,'
                         'sqlite3'],
