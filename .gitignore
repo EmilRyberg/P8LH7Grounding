@@ -138,3 +138,4 @@ src/ner/logs/**/*
 devel/
 
 .catkin_workspace
+*.pt

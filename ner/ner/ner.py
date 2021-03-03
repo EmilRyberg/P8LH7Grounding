@@ -5,8 +5,11 @@ from enum import Enum
 
 
 class EntityType(Enum):
-    COLOUR = "colour",
+    COLOUR = "colour"
     OBJECT = "object"
+    LOCATION = "location"
+    FIND = "find"
+    TAKE = "take"
 
 
 class NER:
@@ -14,7 +17,7 @@ class NER:
         with open(tag_path, "r") as tag_file:
             file_content = tag_file.read().strip()
             self.id_to_tag = file_content.splitlines()
-        self.model = DistilBertForTokenClassification.from_pretrained('distilbert-base-cased', num_labels=10)
+        self.model = DistilBertForTokenClassification.from_pretrained('distilbert-base-cased', num_labels=len(self.id_to_tag))
         self.model.load_state_dict(torch.load(model_path))
         self.model.eval()
         self.tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-cased')
@@ -33,14 +36,18 @@ class NER:
             current_offsets = encoded.offset_mapping[0, token_index, :]
             word = sentence[current_offsets[0]:current_offsets[1]]
             tag_name = self.id_to_tag[max_id]
+            #print(f"{word} - {tag_name} - {max_id_value}")
             entity_name = tag_name if tag_name == "O" else tag_name[2:]
-            if (current_offsets[0] == 0 and current_offsets[1] == 0) or self.id_to_tag[max_id] == "O":
-                entities.append((EntityType(current_entity), current_entity_word))
+            if (current_offsets[0] == 0 and current_offsets[1] == 0) or self.id_to_tag[max_id] == "O" or word == "to":
+                if current_entity_word != "":
+                    entities.append((EntityType(current_entity), current_entity_word))
+                    current_entity_word = ""
                 continue
             if tag_name[0] == "B":
-                entities.append((EntityType(current_entity), current_entity_word))
+                if current_entity_word != "":
+                    entities.append((EntityType(current_entity), current_entity_word))
                 current_entity = entity_name
                 current_entity_word = word
             elif tag_name[0] == "I":
-                current_entity_word += f" {entity_name}"
+                current_entity_word += f" {word}"
         return entities
