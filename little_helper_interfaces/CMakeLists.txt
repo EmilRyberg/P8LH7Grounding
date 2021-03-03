@@ -50,6 +50,7 @@ add_message_files(
   ObjectEntity.msg
   SpatialDescription.msg
   OuterObjectEntity.msg
+  OuterTask.msg
   Task.msg
 )
 

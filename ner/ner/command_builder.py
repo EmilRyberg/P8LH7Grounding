@@ -68,13 +68,6 @@ class ObjectEntity:
         return output
 
 
-class ROSObjectEntity:
-    def __init__(self, object_entity: ObjectEntity):
-        self.name = None
-        self.spatial_descriptions = []
-        reached_bottom = False
-
-
 class BaseTask:
     def __init__(self):
         self.child_tasks = []
