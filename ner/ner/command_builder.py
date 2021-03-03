@@ -13,19 +13,22 @@ class SpatialType(Enum):
 
 
 class SpatialDescription:
-    def __init__(self, spatial_type, entities):
+    def __init__(self, spatial_type):
         self.spatial_type = spatial_type
-        self.object_entity = ObjectEntity().build_object(entities)
+        self.object_entity = ObjectEntity()
 
     def __str__(self):
         return f"({self.spatial_type}){self.object_entity}"
 
+    def get_sub_descriptions(self):
+        return [self].extend(self.object_entity.spatial_descriptions)
+
 
 class ObjectEntity:
-    def __init__(self):
+    def __init__(self, name=None):
         self.name = None
         self.object_descriptors = []
-        self.spatial_descriptor = None
+        self.spatial_descriptions = []
 
     def build_name(self):
         name = ""
@@ -34,25 +37,42 @@ class ObjectEntity:
         self.name = name.strip()
 
     def build_object(self, entities):
+        is_building_own_name = True
+        current_spatial_descriptor = None
         for index, (entity_type, word) in enumerate(entities):
-            if entity_type == EntityType.COLOUR:
-                self.object_descriptors.append(word)
-            elif entity_type == EntityType.OBJECT:
-                self.object_descriptors.append(word)
+            if entity_type == EntityType.COLOUR or entity_type == EntityType.OBJECT:
+                if is_building_own_name:
+                    self.object_descriptors.append(word)
+                else:
+                    self.spatial_descriptions[current_spatial_descriptor].object_entity.object_descriptors.append(word)
             elif entity_type == EntityType.LOCATION:
                 spatial_type = SpatialType(word.lower())
-                self.spatial_descriptor = SpatialDescription(spatial_type, entities[index+1:])
-                break
+                if is_building_own_name:
+                    is_building_own_name = False
+                    self.build_name()
+                    current_spatial_descriptor = 0
+                else:
+                    self.spatial_descriptions[current_spatial_descriptor].object_entity.build_name()
+                    current_spatial_descriptor += 1
+                self.spatial_descriptions.append(SpatialDescription(spatial_type))
             elif entity_type == EntityType.TAKE or entity_type == EntityType.FIND:
                 break
-        self.build_name()
+        self.spatial_descriptions[current_spatial_descriptor].object_entity.build_name() # build name for last object
         return self
 
     def __str__(self):
         output = f"[{self.name}]"
-        if self.spatial_descriptor is not None:
-            output += f" --> {self.spatial_descriptor}"
+        if len(self.spatial_descriptions) > 0:
+            for spatial_description in self.spatial_descriptions:
+                output += f" --> {spatial_description}"
         return output
+
+
+class ROSObjectEntity:
+    def __init__(self, object_entity: ObjectEntity):
+        self.name = None
+        self.spatial_descriptions = []
+        reached_bottom = False
 
 
 class BaseTask:

@@ -34,3 +34,4 @@ class NERService:
 if __name__ == '__main__':
     service = NERService()
     service.ner_server()
+
