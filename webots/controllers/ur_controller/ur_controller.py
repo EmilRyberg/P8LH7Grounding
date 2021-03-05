@@ -90,7 +90,7 @@ wait_time = 2000
 # - perform simulation steps until Webots is stopping the controller
 while robot.step(timestep) != -1 and not rospy.is_shutdown():
     if flag == True:
-        rospy.Subscriber("/gripper/set_state/", Bool, gripper_cb)
+        rospy.Subscriber("/gripper/set_state", Bool, gripper_cb)
         rospy.Subscriber("/suction/set_state", Bool, suction_cb)
         flag = False
     jointStatePublisher.publish()
