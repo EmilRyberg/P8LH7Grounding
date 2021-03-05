@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>ner</name>
-  <version>0.0.0</version>
+  <version>0.0.1</version>
   <description>The ner package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
@@ -49,6 +49,7 @@
   <!-- Use doc_depend for packages you need only for building documentation: -->
   <!--   <doc_depend>doxygen</doc_depend> -->
   <depend>rospy</depend>
+  <depend>little_helper_interfaces</depend>
   <buildtool_depend>catkin</buildtool_depend>
   <exec_depend>std_msgs</exec_depend>
 
