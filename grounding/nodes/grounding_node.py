@@ -17,6 +17,7 @@ class GroundingNode():
         rospy.Subscriber('VisionData', String, self.grounding.vision_callback)  # TODO replace type
         rospy.Subscriber('MainLearn', String, self.grounding.learn_new_object)  # TODO replace type
         rospy.Subscriber('MainFind',  ObjectEntity, self.find_object_callback)  # TODO replace type
+        rospy.Subscriber('MainUpdate', String, self.grounding.update_features)  # TODO replace type
         # Wait for messages on topic, go to callback function when new messages arrive.
         rospy.spin()
 
@@ -26,7 +27,6 @@ class GroundingNode():
         else:
             object = self.grounding.find_object_with_spatial_desc(object)
         self.infopub.publish(object)
-
 
 
 if __name__ == '__main__':

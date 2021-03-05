@@ -45,7 +45,7 @@ class DatabaseHandler:
         return db_objects
 
     def update(self, name, feature_vector):
-        self.conn.execute("UPDATE FEATURES set FEATURE_VECTOR = ? where NAME = ?;", (str(feature_vector), name))
+        self.conn.execute("UPDATE FEATURES set FEATURE_VECTOR = ? where NAME = ?;", (",".join([str(x) for x in feature_vector]),name))
         self.conn.commit()
         print("Update operation was successful")
 
@@ -57,12 +57,13 @@ class DatabaseHandler:
 
 if __name__ == "__main__":
     db = DatabaseHandler()
-    #feature = np.random.rand(5)
-    #db.conn.execute("DROP TABLE FEATURES")
-    #db.create_table()
-    #db.delete("black cover")
-    #db.insert_feature("blue cover", feature)
-    #features = db.select("red cover")
+    feature = np.array([0.71637168, 0.54895908, 0.69006481, 0.00490511, 0.22038214])
+    # db.conn.execute("DROP TABLE FEATURES")
+    # db.create_table()
+    db.delete("green cover")
+    # db.delete("blue cover")
+    # db.insert_feature("blue cover", feature)
+    # print(db.get_feature("green cover"))
     objects = db.get_all_features()
     print(objects)
     db.conn.close()

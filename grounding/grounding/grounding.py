@@ -3,8 +3,8 @@ import numpy as np
 from typing import Optional
 
 class Grounding():
-    def __init__(self):
-        self.db=DatabaseHandler()
+    def __init__(self, db = DatabaseHandler()):
+        self.db=db
         self.last_vision = None
         self.last_spatial = None
 
@@ -17,6 +17,7 @@ class Grounding():
     def find_object(self, object_entity):
         (id, name, spatial_desc) = object_entity
         found_object = False
+        known_object = False
         features_below_threshold = []
         distances = []
         db_features = self.db.get_feature(name)
@@ -28,9 +29,13 @@ class Grounding():
                 self.learnNewObject(name)
             else:
                 # HRI.TextToSpeech("Okay.")
-                return
-        # features = vision.getBoundingBoxesWithFeatures()
+                return known_object
+        else: known_object = True
         features = []
+        test_bbox = np.array([1, 2, 3, 4])
+        test_feature = np.array([1, 1, 1, 1, 1])
+        # features = vision.getBoundingBoxesWithFeatures()
+        features.append((test_bbox, test_feature))
 
         for i, (bbox, feature) in enumerate(features):
             distance = self.embedding_distance(db_features, feature)
@@ -44,7 +49,7 @@ class Grounding():
             print("Could not find the object")
             # HRI.TextToSpeech("I could not find the object you requested. Please make sure it is present.")
             # Maybe start grabbing random objects here to see if it shows up?
-            return
+            return found_object
 
         if len(features_below_threshold)>1:
             if spatial_desc is None:
@@ -84,21 +89,37 @@ class Grounding():
         self.last_spatial = None
         return object_info
 
-    def learn_new_object(self, entity):
-        # features = vision.getBoundingBoxesWithFeatures()
-        features = np.array([0.34529281, 0.26564698, 0.66764128, 0.0916638, 0.60056184]) # TODO remove
-        self.db.insert_feature(entity, features)
-        print("New object learnt: ", entity)
-        # HRI.TextToSpeech("I have now learned the features of the object you presented to me.")
+    def learn_new_object(self, object_entity):
+        (id, entity_name, spatial_desc) = object_entity
+        db_features = self.db.get_feature(entity_name)
+        features = None
+        if db_features is None:
+            # features = vision.getBoundingBoxesWithFeatures()
+            features = np.array([1, 1, 1, 1, 1]) # TODO remove
+            if features is None:
+                raise Exception("Failed to get features")
+            else:
+                self.db.insert_feature(entity_name, features)
+                print("New object learnt: ", entity_name)
+                # HRI.TextToSpeech("I have now learned the features of the object you presented to me.")
+        else:
+            # Should probably ask here, if you meant to update the features?
+            return "known"
 
-    def update_features(self, entity):
+    def update_features(self, object_entity):
+        (id, entity, spatial_desc) = object_entity
         db_features = self.db.get_feature(entity)
-        # HRI.TextToSpeech("please place the object you want me to update features for on the table")
-        # Wait for affirmation
-        # features = vision.getBoundingBoxesWithFeatures()
-        features = 0  # TODO remove
-        new_features = db_features * 0.9 + features * 0.10  # TODO discuss this
-        self.db.update(entity, new_features)
+        if db_features is None:
+            return "unknown"
+        else:
+            # HRI.TextToSpeech("please place the object you want me to update features for on the table")
+            # Wait for affirmation
+            # features = vision.getBoundingBoxesWithFeatures()
+            features = np.array([1, 1, 1, 1, 1])  # TODO remove
+            # new_features = db_features * 0.9 + features * 0.10  # TODO discuss this
+            new_features = features   # TODO remove
+            self.db.update(entity, new_features)
+            return new_features
 
     def embedding_distance(self, features_1, features_2):
         return np.linalg.norm(features_1 - features_2)
