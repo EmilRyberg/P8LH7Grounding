@@ -1,0 +1,11 @@
+Webots Proto Cache File version 1.5
+protoFileHash: a2d7069600b46ad1d27d0685b5377283
+needsRobotAncestor: 1
+baseType: Robot
+slotType: 
+parameters: translation,rotation,name,controller,controllerArgs,synchronization,selfCollision,toolSlot,staticBase,supervisor
+tags: static
+license:  Apache License 2.0
+licenseUrl:  http://www.apache.org/licenses/LICENSE-2.0
+documentationUrl: https://www.cyberbotics.com/doc/guide/universal_robots
+info: An\sUniversal\sRobots\sUR5e\srobotic\sarm.\n
