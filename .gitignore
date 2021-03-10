@@ -144,3 +144,5 @@ src/universal_robot/
 feature_test/data/**/*
 
 feature_test/SpineNet-Pytorch/
+
+*.wbproj
