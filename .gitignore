@@ -135,9 +135,12 @@ src/ner/logs/**/*
 .catkin_workspace
 build/**/*
 devel/**/*
-.vscode/**/*
+**/.vscode/**/*
 
 
 src/universal_robot/
 
 *.pt
+feature_test/data/**/*
+
+feature_test/SpineNet-Pytorch/
