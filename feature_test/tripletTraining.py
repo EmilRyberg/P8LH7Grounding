@@ -1,11 +1,11 @@
-import torchvision.datasets as dset
 from pycocotools.coco import COCO
 from PIL import Image, ImageDraw, ImageChops
 import torch
 import random
 from torchvision import transforms
-from pytorch_metric_learning import miners
 import numpy
+from collections import OrderedDict
+import gc
 
 def get_ann_ids_for_all_categories():
     # get all category ids
@@ -15,7 +15,6 @@ def get_ann_ids_for_all_categories():
     imgIds = [] # ids for each image for each category
     for id in catIds:
         temp = coco.getAnnIds(catIds=id, iscrowd=0)
-        #temp.remove()
         imgIds.append(temp)
 
     return imgIds
@@ -23,7 +22,7 @@ def get_ann_ids_for_all_categories():
 
 class feature_CNN:
     def __init__(self):
-        self.model = torch.load("./MobileNetV2/MNV2_1.pt")
+        self.model = torch.load("F:/P8/temp_triplet/triplet-epoch-0-loss-0.094870-14.pth")
 
         for param in self.model.parameters():
             param.requires_grad = False
@@ -65,6 +64,9 @@ class feature_CNN:
 
         resultNoResize = resultFullImage.crop(bbox)
 
+        if resultNoResize.size[0] == 0 or resultNoResize.size[1] == 0:
+            return 0
+
         # sample execution (requires torchvision)
         preprocess = transforms.Compose([
             transforms.Resize(224),
@@ -78,7 +80,9 @@ class feature_CNN:
         if torch.cuda.is_available():
             input_batch = input_batch.cuda()
 
-        return self.model(input_batch)
+        result = self.model(input_batch)
+        del input_batch
+        return result
 
 def getTripletLoss(anchor, positive, negative, margin):
     return max(torch.norm(anchor - positive) - torch.norm(anchor - negative) + margin, 0)
@@ -92,14 +96,20 @@ if __name__ == '__main__':
 
     coco = COCO(path2json)
 
+    if torch.cuda.is_available():
+        print("Cuda ON")
+
     AllAnnIds = get_ann_ids_for_all_categories()
 
     FCNN = feature_CNN()
 
+    annTemp = coco.loadAnns(AllAnnIds[0][0])
+    FCNN.ann_to_embedding(annTemp[0])
+
     margin = 0.1
     criterion = torch.nn.modules.loss.TripletMarginLoss(margin=margin, p=2)
 
-    optimizer = torch.optim.SGD(FCNN.model.parameters(), lr=0.25, weight_decay=0.001, momentum=0.9)
+    optimizer = torch.optim.SGD(FCNN.model.parameters(), lr=0.15, weight_decay=0.001, momentum=0.9)
 
     running_loss = 0.0
     mini_batches = 0
@@ -118,7 +128,7 @@ if __name__ == '__main__':
             positive = positive.cuda()
             negative = negative.cuda()
 
-        for i in range(256):
+        for i in range(512):
             # Getting data for triplet
             r2 = random.sample(AllAnnIds, 2)
             anchorPosAnn = random.sample(r2[0], 2)
@@ -146,15 +156,19 @@ if __name__ == '__main__':
                     negative = torch.cat((negative, negativeTemp))
                     break
 
+            del anchorTemp, positiveTemp, negativeTemp
+
         # Adjusting model parameters
         loss = criterion(anchor, positive, negative)
         loss.backward()
         optimizer.step()
-        running_loss += loss.item()
-        epoch_loss += loss.item()
+        running_loss += float(loss)
+        epoch_loss += float(loss)
+
+        del anchor, positive, negative
 
         avg_loss = running_loss
-        print(f"[{epoch + 1}, {i + 1}] loss: {avg_loss:.10f}")
+        print(f"[{epoch + 1}] loss: {avg_loss:.10f}")
         running_loss = 0.0
         mini_batches += 1
         epoch_mini_batches += 1
@@ -167,10 +181,9 @@ if __name__ == '__main__':
             print(f"[{vers + 1}] loss: {avg_epoch_loss:.10f}")
 
             epoch_loss += loss.item()
-            checkpoint_name = f"triplet-epoch-{vers}-loss-{avg_epoch_loss:.5f}.pth"
-            checkpoint_full_name = os.path.join(checkpoint_dir, checkpoint_name)
-            torch.save(FCNN.model, checkpoint_full_name)
-            print(f"[{epoch + 1}] Saving checkpoint as {checkpoint_full_name}")
+            checkpoint_name = f"./triplet-epoch-{vers}-loss-{avg_epoch_loss:.5f}" + str(vers) +  "-15" + ".pth"
+            torch.save(FCNN.model, checkpoint_name)
+            print(f"[{epoch + 1}] Saving checkpoint as {checkpoint_name}")
 
     print("Done, done diego")
 
