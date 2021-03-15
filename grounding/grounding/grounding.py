@@ -1,12 +1,13 @@
 from scripts.database_handler import DatabaseHandler
+from scripts.spatial import Spatial_Relations
 import numpy as np
 from typing import Optional
 
 class Grounding():
     def __init__(self, db = DatabaseHandler()):
         self.db=db
+        self.spatial = Spatial_Relations()
         self.last_vision = None
-        self.last_spatial = None
 
     def spatial_callback(self, data):
         self.last_spatial = data  # TODO update
@@ -57,7 +58,7 @@ class Grounding():
                 new_spatial_desc = None # TODO add NLP link to get a new spatial descriptor.. 0 = don't care
             if spatial_desc is not None:
                 new_object_entity = (id, name, new_spatial_desc)
-                object_info = self.find_object_with_spatial_desc(new_object_entity)
+                object_info = self.find_object_with_spatial_desc(new_object_entity, features)
                 return object_info
 
         # This part of the code will be executed if there is only 1 of the requested objects in the scene or
@@ -67,11 +68,9 @@ class Grounding():
         object_info = (id, bbox, name)
         return object_info
 
-    def find_object_with_spatial_desc(self, object_entity):
+    def find_object_with_spatial_desc(self, object_entity, features):
         objects = []
         db_objects = self.db.get_all_features()
-        # features = vision.getBoundingBoxesWithFeatures()
-        features = []
         features_below_threshold = []
         distances = []
 
@@ -82,11 +81,9 @@ class Grounding():
                 if is_below_threshold:
                     distances.append(distance)
                     features_below_threshold.append(id)
-                    objects.append((id, bbox, name))
+                    objects.append((name, bbox))
 
-        #object_info = spatial_relations.locateSpecificObject(object_entity, objects)
-        object_info = self.last_spatial
-        self.last_spatial = None
+        object_info = self.spatial.locate_specific_object(object_entity, objects)
         return object_info
 
     def learn_new_object(self, object_entity):
