@@ -31,6 +31,7 @@ class Spatial_Relations():
                 correct_object = self.match_bounding_boxes(last_location, bbox, last_bbox)
                 if correct_object:
                     return name, bbox
+        print("Couldn't find object: ", entity_name)
 
 
     def match_bounding_boxes(self, location, bbox, last_bbox):
@@ -44,25 +45,25 @@ class Spatial_Relations():
                 return False
 
         elif location == "above":  # Assumes that top left corner of image is (0, 0)
-            if current_y < last_y+last_size and math.sqrt((current_x-last_x) ** 2) < current_size*2:
+            if current_y < last_y+last_size/2.5 and math.sqrt((current_x-last_x) ** 2) < current_size*2:
                 return True
             else:
                 return False
 
         elif location == "below":  # Assumes that top left corner of image is (0, 0)
-            if current_y > last_y - last_size and math.sqrt((current_x - last_x) ** 2) < current_size * 2:
+            if current_y > last_y - last_size/2.5 and math.sqrt((current_x - last_x) ** 2) < current_size * 2:
                 return True
             else:
                 return False
 
         elif location == "right":  # Assumes that top left corner of image is (0, 0)
-            if current_x > last_x + last_size and math.sqrt((current_y - last_y) ** 2) < current_size * 2:
+            if current_x > last_x + last_size/2.5 and math.sqrt((current_y - last_y) ** 2) < current_size * 2:
                 return True
             else:
                 return False
 
         elif location == "left":  # Assumes that top left corner of image is (0, 0)
-            if current_x < last_x - last_size and math.sqrt((current_y - last_y) ** 2) < current_size * 2:
+            if current_x < last_x - last_size/2.5 and math.sqrt((current_y - last_y) ** 2) < current_size * 2:
                 return True
             else:
                 return False
