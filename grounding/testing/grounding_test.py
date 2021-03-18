@@ -12,7 +12,7 @@ from ner.ner.ner import NER, EntityType
 class FindObjectIsolatedTest(unittest.TestCase):
     def setUp(self):
         self.db_mock = Mock()
-        self.grounding = Grounding(db = self.db_mock)
+        self.grounding = Grounding(db=self.db_mock)
 
     def test_failFindObject(self):
         self.db_mock.get_feature = Mock(return_value=np.array([5, 5, 5, 5, 5]))
@@ -40,12 +40,13 @@ class FindObjectIsolatedTest(unittest.TestCase):
         object_name = "albert is cool"
         object_spatial_desc = None
         object_entity = (object_id, object_name, object_spatial_desc)
-        self.assertFalse(self.grounding.find_object(object_entity)) #Should return false if the object is unknown
+        self.assertFalse(self.grounding.find_object(object_entity))  # Should return false if the object is unknown
+
 
 class LearnObjectIsolatedTest(unittest.TestCase):
     def setUp(self):
         self.db_mock = Mock()
-        self.grounding = Grounding(db = self.db_mock)
+        self.grounding = Grounding(db=self.db_mock)
 
     def test_newObject(self):
         self.db_mock.get_feature = Mock(return_value=None)
@@ -67,10 +68,11 @@ class LearnObjectIsolatedTest(unittest.TestCase):
         object_entity = (object_id, object_name, object_spatial_desc)
         self.assertEqual(self.grounding.learn_new_object(object_entity), "known")
 
+
 class UpdateFeaturesIsolatedTest(unittest.TestCase):
     def setUp(self):
         self.db_mock = Mock()
-        self.grounding = Grounding(db = self.db_mock)
+        self.grounding = Grounding(db=self.db_mock)
 
     def test_updateCorrectObject(self):
         self.db_mock.get_feature = Mock(return_value=1)
@@ -91,7 +93,8 @@ class UpdateFeaturesIsolatedTest(unittest.TestCase):
         object_entity = (object_id, object_name, object_spatial_desc)
         self.assertEqual(self.grounding.update_features(object_entity), "unknown")
 
-class SpatialModuleIsolatedTest(unittest.TestCase):
+
+class SpatialModuleOneOfEach(unittest.TestCase):
     def setUp(self):
         self.ner_mock = Mock()
         self.spatial = Spatial_Relations()
@@ -208,6 +211,131 @@ class SpatialModuleIsolatedTest(unittest.TestCase):
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = (1, task.object_to_pick_up.name, task.object_to_pick_up.spatial_descriptions)
         self.assertEqual(self.objects[0], self.spatial.locate_specific_object(object_entity, self.objects))
+
+
+class SpatialModuleTwoOfEach(unittest.TestCase):
+    def setUp(self):
+        self.ner_mock = Mock()
+        self.spatial = Spatial_Relations()
+        self.cmd_builder = CommandBuilder("", "", self.ner_mock)
+
+        self.objects = [  # bbox = [x1, x2, y1, y2] and images spans from 0,0 to 1500,2000
+            ("blue cover", [100, 400, 100, 300]),
+            ("blue cover", [700, 1100, 100, 300]),
+            ("fuse", [100, 400, 800, 1000]),
+            ("bottom cover", [700, 1100, 800, 1000]),
+            ("white cover", [100, 400, 1500, 1600]),
+            ("white cover", [700, 700, 1500, 1600])
+        ]
+
+    def test_above(self):
+        entities = [
+            (EntityType.TAKE, "pick up"),
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "above"),
+            (EntityType.OBJECT, "bottom cover")
+        ]
+
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
+        object_entity = (1, task.object_to_pick_up.name, task.object_to_pick_up.spatial_descriptions)
+        self.assertEqual(self.objects[1], self.spatial.locate_specific_object(object_entity, self.objects))
+
+    def test_right(self):
+        entities = [
+            (EntityType.TAKE, "pick up"),
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "right"),
+            (EntityType.OBJECT, "fuse")
+        ]
+
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
+        object_entity = (1, task.object_to_pick_up.name, task.object_to_pick_up.spatial_descriptions)
+        self.assertEqual(self.objects[1], self.spatial.locate_specific_object(object_entity, self.objects))
+
+    def test_left(self):
+        entities = [
+            (EntityType.TAKE, "pick up"),
+            (EntityType.COLOUR, "white"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "left"),
+            (EntityType.OBJECT, "bottom cover")
+        ]
+
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
+        object_entity = (1, task.object_to_pick_up.name, task.object_to_pick_up.spatial_descriptions)
+        self.assertEqual(self.objects[4], self.spatial.locate_specific_object(object_entity, self.objects))
+
+    def test_below(self):
+        entities = [
+            (EntityType.TAKE, "pick up"),
+            (EntityType.COLOUR, "white"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "below"),
+            (EntityType.OBJECT, "fuse")
+        ]
+
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
+        object_entity = (1, task.object_to_pick_up.name, task.object_to_pick_up.spatial_descriptions)
+        self.assertEqual(self.objects[4], self.spatial.locate_specific_object(object_entity, self.objects))
+
+    def test_diagonalRightUp(self):
+        entities = [
+            (EntityType.TAKE, "pick up"),
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "right"),
+            (EntityType.OBJECT, "fuse")
+        ]
+
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
+        object_entity = (1, task.object_to_pick_up.name, task.object_to_pick_up.spatial_descriptions)
+        self.assertEqual(self.objects[1], self.spatial.locate_specific_object(object_entity, self.objects))
+
+    def test_serial(self):
+        entities = [
+            (EntityType.TAKE, "pick up"),
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "right"),
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "above"),
+            (EntityType.OBJECT, "fuse"),
+            (EntityType.LOCATION, "left"),
+            (EntityType.OBJECT, "bottom cover")
+        ]
+
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
+        object_entity = (1, task.object_to_pick_up.name, task.object_to_pick_up.spatial_descriptions)
+        self.assertEqual(self.objects[1], self.spatial.locate_specific_object(object_entity, self.objects))
+
+    def test_twoOfReference(self):
+        entities = [
+            (EntityType.TAKE, "pick up"),
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "above"),
+            (EntityType.COLOUR, "white"),
+            (EntityType.OBJECT, "cover")]
+        raised = False
+
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
+        object_entity = (1, task.object_to_pick_up.name, task.object_to_pick_up.spatial_descriptions)
+        try:
+            self.spatial.locate_specific_object(object_entity, self.objects)
+        except:
+            raised = True
+        self.assertTrue(raised)
+
 
 ################################# ISOLATED UNIT TESTS ----- END ##########################################################
 
