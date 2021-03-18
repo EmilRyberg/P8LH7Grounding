@@ -1,0 +1,6 @@
+string action
+int32 percentage
+---
+bool success
+---
+int32 ping

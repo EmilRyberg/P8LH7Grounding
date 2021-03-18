@@ -3,18 +3,22 @@
   <name>ur_e_webots</name>
   <version>1.2.1</version>
   <description>
-      Webots wrapper for the Universal UR5e robot arm.
+      Webots wrapper for the Universal UR5e robot arm. This is a forked version.
+      Original version made by David Mansolino (David.Mansolino@cyberbotics.com)
   </description>
 
 
-  <author>David Mansolino</author>
-  <maintainer email="David.Mansolino@cyberbotics.com">David Mansolino</maintainer>
+  <author>Emil Albin Ryberg</author>
+  <maintainer email="eryber17@student.aau.dk">Emil Albin Ryberg</maintainer>
 
   <license>Apache 2.0</license>
 
   <url type="website">http://ros.org/wiki/ur_e_webots</url>
 
   <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>actionlib_msgs</build_depend>
+  <build_depend>actionlib</build_depend>
+  <build_depend>message_generation</build_depend>
   <test_depend>roslaunch</test_depend>
   <run_depend>joint_state_controller</run_depend>
   <run_depend>joint_trajectory_controller</run_depend>
@@ -22,6 +26,9 @@
   <run_depend>robot_state_publisher</run_depend>
   <run_depend>rostopic</run_depend>
   <run_depend>controller_manager</run_depend>
+  <run_depend>actionlib</run_depend>
+  <run_depend>actionlib_msgs</run_depend>
+  <run_depend>message_runtime</run_depend>
 
 
   <export>

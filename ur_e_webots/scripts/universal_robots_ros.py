@@ -22,6 +22,7 @@ import rospy
 from controller import Robot
 from ur_e_webots.joint_state_publisher import JointStatePublisher
 from ur_e_webots.trajectory_follower import TrajectoryFollower
+from ur_e_webots.gripper_action_server import GripperActionServer
 from rosgraph_msgs.msg import Clock
 
 
@@ -39,7 +40,9 @@ robot = Robot()
 nodeName = arguments.nodeName + '/' if arguments.nodeName != 'ur_driver' else ''
 jointStatePublisher = JointStatePublisher(robot, jointPrefix, nodeName)
 trajectoryFollower = TrajectoryFollower(robot, jointStatePublisher, jointPrefix, nodeName)
+gripperServer = GripperActionServer(robot, jointPrefix, nodeName)
 trajectoryFollower.start()
+gripperServer.start()
 
 # we want to use simulation time for ROS
 clockPublisher = rospy.Publisher('clock', Clock, queue_size=1)
@@ -51,6 +54,7 @@ timestep = int(robot.getBasicTimeStep())
 while robot.step(timestep) != -1 and not rospy.is_shutdown():
     jointStatePublisher.publish()
     trajectoryFollower.update()
+    gripperServer.update()
     # pulish simulation clock
     msg = Clock()
     time = robot.getTime()
