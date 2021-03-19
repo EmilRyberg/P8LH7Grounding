@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # Copyright 1996-2021 Cyberbotics Ltd.
 #
@@ -19,7 +19,7 @@
 import argparse
 import rospy
 
-from controller import Robot
+from controller import Robot, Connector
 from ur_e_webots.joint_state_publisher import JointStatePublisher
 from ur_e_webots.trajectory_follower import TrajectoryFollower
 from ur_e_webots.gripper_action_server import GripperActionServer
@@ -38,9 +38,12 @@ if jointPrefix:
 
 robot = Robot()
 nodeName = arguments.nodeName + '/' if arguments.nodeName != 'ur_driver' else ''
+suction = Connector("suction")
+gripper_connector = Connector("gripper_connector")
+gripper_connector_for_box = Connector("gripper_connector_for_box")
 jointStatePublisher = JointStatePublisher(robot, jointPrefix, nodeName)
 trajectoryFollower = TrajectoryFollower(robot, jointStatePublisher, jointPrefix, nodeName)
-gripperServer = GripperActionServer(robot, jointPrefix, nodeName)
+gripperServer = GripperActionServer(robot, jointPrefix, nodeName, suction, gripper_connector, gripper_connector_for_box)
 trajectoryFollower.start()
 gripperServer.start()
 

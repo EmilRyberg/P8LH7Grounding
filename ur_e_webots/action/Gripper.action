@@ -1,5 +1,8 @@
 string action
-int32 percentage
+int32 width
+float32 speed
+bool lock
+bool grip_box
 ---
 bool success
 ---
