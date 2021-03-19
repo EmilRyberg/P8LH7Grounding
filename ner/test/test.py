@@ -49,6 +49,19 @@ class CommandBuilderTestCase(unittest.TestCase):
         self.assertIsNotNone(task.object_to_pick_up.spatial_descriptions[1].object_entity)
         self.assertEqual("bottom cover", task.object_to_pick_up.spatial_descriptions[1].object_entity.name)
 
+    def test_get_task__entities_with_pick_up_task_with_no_spatial_relations__returns_pick_up_task(self):
+        entities = [
+            (EntityType.TAKE, "pick up"),
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+        ]
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
+        self.assertIsInstance(task, PickUpTask)
+        self.assertIsNotNone(task.object_to_pick_up)
+        self.assertEqual("blue cover", task.object_to_pick_up.name)
+        self.assertEqual(0, len(task.object_to_pick_up.spatial_descriptions))
+
     def test_get_task__entities_with_find_task__returns_find_task_and_locations(self):
         entities = [
             (EntityType.FIND, "find"),

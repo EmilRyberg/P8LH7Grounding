@@ -1,6 +1,7 @@
 # P8LH7Grounding
 
 ## Compiling the Catkin Workspace
+There is a name conflict between the em and empy packages on python3, so run `pip3 uninstall em` and then `pip3 install empy`
 Python 3 is used for the Python modules. To ensure that Catkin uses Python 3 for compiling the packages, use 
 `catkin_make -DPYTHON_EXECUTABLE=[path to your python 3 executable]` in the root of the Catkin workspace.
 
@@ -29,6 +30,8 @@ To get up and running:
    - Remember to install for the correct ROS distro
 
 5. Make sure that the catkin workspace that **this** project/package is inside is built and sourced.
+
+6. (Re)build the main workspace with the UR-ROS ws sourced.
 
 ### Test that you got it right / it is working
 1. Start roscore
