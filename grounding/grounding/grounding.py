@@ -2,21 +2,19 @@ from scripts.database_handler import DatabaseHandler
 from scripts.spatial import Spatial_Relations
 import numpy as np
 from typing import Optional
+from ner.ner.command_builder import SpatialDescription, ObjectEntity, SpatialType
+from vision.vision_controller import VisionController
+
 
 class Grounding():
-    def __init__(self, db = DatabaseHandler()):
-        self.db=db
-        self.spatial = Spatial_Relations()
-        self.last_vision = None
-
-    def spatial_callback(self, data):
-        self.last_spatial = data  # TODO update
-
-    def vision_callback(self, data):
-        self.last_vision = data  # TODO update
+    def __init__(self, db=DatabaseHandler(), vision_controller=VisionController(), spatial=Spatial_Relations()):
+        self.db = db
+        self.spatial = spatial
+        self.vision = vision_controller
 
     def find_object(self, object_entity):
-        (id, name, spatial_desc) = object_entity
+        name = object_entity.name
+        spatial_desc = object_entity.spatial_descriptions
         found_object = False
         known_object = False
         features_below_threshold = []
@@ -27,16 +25,14 @@ class Grounding():
             # HRI.TextToSpeech("I dont know the object you asked about, do you want me to learn it?")
             # affirmation = NLP.AffirmationCheck
             if affirmation:
-                self.learnNewObject(name)
+                self.learnNewObject(object_entity)
             else:
                 # HRI.TextToSpeech("Okay.")
                 return known_object
-        else: known_object = True
+        else:
+            known_object = True
         features = []
-        test_bbox = np.array([1, 2, 3, 4])
-        test_feature = np.array([1, 1, 1, 1, 1])
-        # features = vision.getBoundingBoxesWithFeatures()
-        features.append((test_bbox, test_feature))
+        features = self.vision.get_bounding_with_features()
 
         for i, (bbox, feature) in enumerate(features):
             distance = self.embedding_distance(db_features, feature)
@@ -52,12 +48,17 @@ class Grounding():
             # Maybe start grabbing random objects here to see if it shows up?
             return found_object
 
-        if len(features_below_threshold)>1:
-            if spatial_desc is None:
+        if len(features_below_threshold) > 1:
+            if not spatial_desc:
                 # HRI.TextToSpeech("I have found more than one of the requested objects. Which one do you want me to pick up?")
-                new_spatial_desc = None # TODO add NLP link to get a new spatial descriptor.. 0 = don't care
-            if spatial_desc is not None:
-                new_object_entity = (id, name, new_spatial_desc)
+                new_spatial_desc = [] # TODO add NLP link to get a new spatial descriptor.. 0 = don't care
+            else:
+                object_info = self.find_object_with_spatial_desc(object_entity, features)
+                return object_info
+            if new_spatial_desc:
+                new_object_entity = ObjectEntity()
+                new_object_entity.name = name
+                new_object_entity.spatial_descriptions = new_spatial_desc
                 object_info = self.find_object_with_spatial_desc(new_object_entity, features)
                 return object_info
 
@@ -65,7 +66,7 @@ class Grounding():
         # if the user does not care about what part is picked up.
         best_match = self.find_best_match(features_below_threshold, distances)
         (bbox, _) = features[best_match]
-        object_info = (id, bbox, name)
+        object_info = (name, bbox)
         return object_info
 
     def find_object_with_spatial_desc(self, object_entity, features):
@@ -87,16 +88,15 @@ class Grounding():
         return object_info
 
     def learn_new_object(self, object_entity):
-        (id, entity_name, spatial_desc) = object_entity
+        entity_name = object_entity.name
         db_features = self.db.get_feature(entity_name)
-        features = None
+        features = []
         if db_features is None:
-            # features = vision.getBoundingBoxesWithFeatures()
-            features = np.array([1, 1, 1, 1, 1]) # TODO remove
-            if features is None:
+            features = self.vision.get_bounding_with_features()
+            if not features:
                 raise Exception("Failed to get features")
             else:
-                self.db.insert_feature(entity_name, features)
+                self.db.insert_feature(entity_name, features[0][1])
                 print("New object learnt: ", entity_name)
                 # HRI.TextToSpeech("I have now learned the features of the object you presented to me.")
         else:
@@ -104,15 +104,14 @@ class Grounding():
             return "known"
 
     def update_features(self, object_entity):
-        (id, entity, spatial_desc) = object_entity
+        entity = object_entity.name
         db_features = self.db.get_feature(entity)
         if db_features is None:
             return "unknown"
         else:
             # HRI.TextToSpeech("please place the object you want me to update features for on the table")
             # Wait for affirmation
-            # features = vision.getBoundingBoxesWithFeatures()
-            features = np.array([1, 1, 1, 1, 1])  # TODO remove
+            features = self.vision.get_bounding_with_features()
             # new_features = db_features * 0.9 + features * 0.10  # TODO discuss this
             new_features = features   # TODO remove
             self.db.update(entity, new_features)

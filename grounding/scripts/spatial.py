@@ -4,8 +4,8 @@ import math
 
 class Spatial_Relations():
     def locate_specific_object(self, object_entity, objects):
-        (id, entity_name, spatial_desc) = object_entity
-
+        entity_name = object_entity.name
+        spatial_desc = object_entity.spatial_descriptions
         last_bbox = []
         last_location = None
 
@@ -122,9 +122,3 @@ class Spatial_Relations():
         diagonal_length = math.dist([bbox[0], bbox[2]], [bbox[1],bbox[3]])
         center = (x,y, diagonal_length)
         return center
-
-    def calculate_dist(self):
-        return
-
-    def calculate_angle(self):
-        return
