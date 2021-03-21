@@ -145,3 +145,7 @@ feature_test/data/**/*
 
 feature_test/SpineNet-Pytorch/
 feature_test/pycocotools/
+feature_test/data/
+feature_test/ownDataFeatureExtractor/feature_extractor_P7/
+feature_test/checkpoints/
+feature_test/SpineNet/
