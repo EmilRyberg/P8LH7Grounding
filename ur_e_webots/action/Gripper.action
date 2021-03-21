@@ -5,5 +5,7 @@ bool lock
 bool grip_box
 ---
 bool success
+sensor_msgs/CompressedImage rgb_compressed
+sensor_msgs/CompressedImage depth_compressed
 ---
 int32 ping

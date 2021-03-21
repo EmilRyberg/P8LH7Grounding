@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 
 project(ur_e_webots)
 
-find_package(catkin REQUIRED genmsg actionlib_msgs message_generation)
+find_package(catkin REQUIRED genmsg actionlib_msgs message_generation sensor_msgs)
 
 catkin_python_setup()
 
@@ -14,6 +14,7 @@ add_action_files(
 
 generate_messages(
   DEPENDENCIES
+  sensor_msgs
   actionlib_msgs
 )
 
