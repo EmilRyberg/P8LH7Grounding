@@ -11,9 +11,13 @@ class DialogFlow:
         self.grounding = grounding()
         self.object_info = None
         self.sentence = ""
+
+        #ROS Publishers
         self.tts_pub = rospy.Publisher('chatter', String, queue_size=10)
         self.find_pub = rospy.Publisher('MainFind', ObjectEntity, queue_size=10)
         self.learn_pub = rospy.Publisher('MainLearn', String, queue_size=10)
+
+        #this is for connecting to the robot_controller action server which i hope will be made later
         self.robot_controller_client = actionlib.SimpleActionClient(
                                                                 #'robot_controller',
                                                                 #task.action
@@ -76,6 +80,7 @@ class DialogFlow:
         spoken_sentence = "I will try to pick up %s"
         #tts_pub(spoken_sentence %object_info.name)
         #robot_controller_client.send_goal(object_info)
+        #robot_controller_client.wait_for_result()
 
 if __name__ == '__main__':
     try:
