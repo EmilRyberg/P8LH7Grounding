@@ -39,6 +39,8 @@ class GripperActionServer:
         rospy.loginfo("The gripper action server for this driver has been started")
 
     def on_goal(self, goal_handle):
+        if self.goal_handle:
+            self.goal_handle.set_canceled()  # if we have an old one, cancel it
         self.goal_handle = goal_handle
         goal_handle.set_accepted()
         if self.goal_handle.get_goal().action == "close":
@@ -97,14 +99,17 @@ class GripperActionServer:
                     if self.finger_sensors[0].getValue() - 0.0001 <= self.finger_position[1] <= self.finger_sensors[0].getValue() + 0.0001:
                         if self.goal_handle.get_goal().lock:
                             self.gripper_connector.lock()
-                        if self.goal_handle.get_goal().gripping_box:
+                        if self.goal_handle.get_goal().grip_box:
                             self.gripper_connector_for_box.lock()
                         self.goal_handle.set_succeeded()
+                        self.goal_handle = None
                 elif action == "open":
-                    if self.finger_sensors[0].getValue() - 0.0001 <= GripperActionServer.FINGER_OPEN_POSITION[1] <= self.finger_sensors[0].getValue() + 0.0001:
+                    if self.finger_sensors[0].getValue() - 0.0001 <= GripperActionServer.FINGER_OPEN_POSITION[0] <= self.finger_sensors[0].getValue() + 0.0001:
                         self.goal_handle.set_succeeded()
+                        self.goal_handle = None
                 elif action == "suction_on" or action == "suction_off":
                     self.goal_handle.set_succeeded() # could maybe just be done in the on_goal
+                    self.goal_handle = None
                 elif action == "get_image" and self.camera_enabled:
                     np_img = np.array(self.camera_rgb.getImageArray(), dtype=np.uint8)
                     np_img = np_img.transpose((1, 0, 2))
@@ -115,11 +120,13 @@ class GripperActionServer:
                     response.rgb_compressed = image_message
                     self.goal_handle.set_succeeded(response)
                     self.camera_enabled = False
+                    self.goal_handle = None
                 elif action == "get_depth" and self.camera_enabled:
                     np_img = np.array(self.camera_depth.getRangeImageArray())
                     self.camera_enabled = False
-                    image_message = self.cv_bridge.cv2_to_compressed_imgmsg(np_img)
+                    image_message = self.cv_bridge.cv2_to_imgmsg(np_img, encoding="passthrough")
                     response = GripperResult()
                     response.success = True
-                    response.depth_compressed = image_message
+                    response.depth = image_message
                     self.goal_handle.set_succeeded(response)
+                    self.goal_handle = None
