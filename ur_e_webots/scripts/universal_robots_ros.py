@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # Copyright 1996-2021 Cyberbotics Ltd.
 #
@@ -19,9 +19,10 @@
 import argparse
 import rospy
 
-from controller import Robot
+from controller import Robot, Connector
 from ur_e_webots.joint_state_publisher import JointStatePublisher
 from ur_e_webots.trajectory_follower import TrajectoryFollower
+from ur_e_webots.gripper_action_server import GripperActionServer
 from rosgraph_msgs.msg import Clock
 
 
@@ -37,9 +38,14 @@ if jointPrefix:
 
 robot = Robot()
 nodeName = arguments.nodeName + '/' if arguments.nodeName != 'ur_driver' else ''
+suction = Connector("suction")
+gripper_connector = Connector("gripper_connector")
+gripper_connector_for_box = Connector("gripper_connector_for_box")
 jointStatePublisher = JointStatePublisher(robot, jointPrefix, nodeName)
 trajectoryFollower = TrajectoryFollower(robot, jointStatePublisher, jointPrefix, nodeName)
+gripperServer = GripperActionServer(robot, jointPrefix, nodeName, suction, gripper_connector, gripper_connector_for_box)
 trajectoryFollower.start()
+gripperServer.start()
 
 # we want to use simulation time for ROS
 clockPublisher = rospy.Publisher('clock', Clock, queue_size=1)
@@ -51,6 +57,7 @@ timestep = int(robot.getBasicTimeStep())
 while robot.step(timestep) != -1 and not rospy.is_shutdown():
     jointStatePublisher.publish()
     trajectoryFollower.update()
+    gripperServer.update()
     # pulish simulation clock
     msg = Clock()
     time = robot.getTime()
