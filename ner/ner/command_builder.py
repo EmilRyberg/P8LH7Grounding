@@ -57,7 +57,10 @@ class ObjectEntity:
                 self.spatial_descriptions.append(SpatialDescription(spatial_type))
             elif entity_type == EntityType.TAKE or entity_type == EntityType.FIND:
                 break
-        self.spatial_descriptions[current_spatial_descriptor].object_entity.build_name() # build name for last object
+        if current_spatial_descriptor is not None:
+            self.spatial_descriptions[current_spatial_descriptor].object_entity.build_name() # build name for last object
+        else:
+            self.build_name()
         return self
 
     def __str__(self):

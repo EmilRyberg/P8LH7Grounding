@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 import rospy
 from std_msgs.msg import String
-from little_helper_interfaces.msg import ObjectEntity, ObjectInfo
+from little_helper_interfaces.msg import ObjectEntity, ObjectInfo, OuterObjectEntity
 from grounding.grounding import Grounding
 
 class GroundingNode():
     def __init__(self):
-        self.entitypub = rospy.Publisher('GroundingEntity', ObjectEntity, queue_size=10)
         self.infopub = rospy.Publisher('GroundingInfo', ObjectInfo, queue_size=10)
         self.grounding = Grounding()
 
@@ -14,18 +13,14 @@ class GroundingNode():
             self.listener()
 
     def listener(self):
-        rospy.Subscriber('VisionData', String, self.grounding.vision_callback)  # TODO replace type
-        rospy.Subscriber('MainLearn', String, self.grounding.learn_new_object)  # TODO replace type
-        rospy.Subscriber('MainFind',  ObjectEntity, self.find_object_callback)  # TODO replace type
-        rospy.Subscriber('MainUpdate', String, self.grounding.update_features)  # TODO replace type
+        rospy.Subscriber('MainLearn', OuterObjectEntity, self.grounding.learn_new_object)  # TODO replace type
+        rospy.Subscriber('MainFind',  OuterObjectEntity, self.find_object_callback)  # TODO replace type
+        rospy.Subscriber('MainUpdate', OuterObjectEntity, self.grounding.update_features)  # TODO replace type
         # Wait for messages on topic, go to callback function when new messages arrive.
         rospy.spin()
 
     def find_object_callback(self, object):
-        if object.spatial_desc is None:
-            object = self.grounding.find_object(object)
-        else:
-            object = self.grounding.find_object_with_spatial_desc(object)
+        object = self.grounding.find_object(object)
         self.infopub.publish(object)
 
 

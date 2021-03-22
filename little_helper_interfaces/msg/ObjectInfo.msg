@@ -1,3 +1,3 @@
-int32 id
-string bbox
 string name
+float32[] bbox
+
