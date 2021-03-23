@@ -56,7 +56,7 @@ class ClassificationDataset(Dataset):
         resultNoResize = resultFullImage.crop(bbox)
 
         image = self.data_transform(resultNoResize)
-        image = F.interpolate(image.unsqueeze(0), (224, 244)).squeeze(0)
+        image = F.interpolate(image.unsqueeze(0), (224, 224)).squeeze(0)
         #image = image.squeeze(0) # image = F.interpolate(image.unsqueeze(0), (224, 224)).squeeze(0)
 
         return image, class_id

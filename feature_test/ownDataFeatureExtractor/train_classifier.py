@@ -18,6 +18,7 @@ def create_model(num_features=64, num_classes=5):
 
     classifier = torch.nn.Sequential(OrderedDict([
                             ('fc1', torch.nn.Linear(classifier_input_size, num_features)),
+                            ('relu1', torch.nn.ReLU()),
                             ('fc2', torch.nn.Linear(num_features, num_classes)),
                             ]))
 
@@ -49,7 +50,7 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=30,
     count = 0
     for child in model.features.children(): #model.backbone.children(): #19 children, not sure why but rolling with it
         count += 1
-        if count >= 16: # This will make the last 4 layers trainable
+        if count >= 15: # This will make the last 4 layers trainable
             for param in child.parameters():
                 param.requires_grad = True
         else:
