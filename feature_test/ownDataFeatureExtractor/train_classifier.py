@@ -28,7 +28,7 @@ def create_model(num_features=64, num_classes=5):
 
 # function for first step in training, train a classifier
 def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=30,
-                  on_gpu=True, checkpoint_dir="checkpoints", batch_size=24, print_interval=50, num_classes=5):
+                  on_gpu=True, checkpoint_dir="checkpoints", batch_size=100, print_interval=50, num_classes=5):
 
     writer = SummaryWriter(f"runs/{run_name}")
 
@@ -41,15 +41,14 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=30,
     test_length = dataset_length - train_length
     train_set, test_set = torch.utils.data.random_split(dataset, [train_length, test_length])
 
-    dataloader = torch.utils.data.DataLoader(train_set, shuffle=True, batch_size=batch_size, num_workers=4)
-    test_dataloader = torch.utils.data.DataLoader(test_set, shuffle=False, batch_size=batch_size, num_workers=4)
+    dataloader = torch.utils.data.DataLoader(train_set, shuffle=True, batch_size=batch_size, num_workers=0)
+    test_dataloader = torch.utils.data.DataLoader(test_set, shuffle=False, batch_size=batch_size, num_workers=0)
 
     model = create_model() #FeatureExtractorNet(use_classifier=True, num_features=32, num_classes=num_classes)
 
     count = 0
     for child in model.features.children(): #model.backbone.children(): #19 children, not sure why but rolling with it
         count += 1
-        print(count)
         if count >= 16: # This will make the last 4 layers trainable
             for param in child.parameters():
                 param.requires_grad = True
@@ -57,10 +56,10 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=30,
             for param in child.parameters():
                 param.requires_grad = False
 
-    """for param in model.bottleneck.parameters():
+    for param in model.classifier.parameters():
         param.requires_grad = True
 
-    for param in model.classifier.parameters():
+    """for param in model.bottleneck.parameters():
         param.requires_grad = True"""
 
 
@@ -91,13 +90,13 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=30,
 
     # here we start training
     for epoch in range(epochs):
-        model.train()
+        print("Training")
         for i, data in enumerate(dataloader, 0):
+            model.train()
             inputs, labels = data
 
             if on_gpu:
                 inputs = inputs.cuda()
-                labels = labels.cuda()
                 labels = labels.cuda()
 
             optimizer.zero_grad()
@@ -119,7 +118,7 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=30,
         total_test_correct = 0
         total_img = 0
         total_runs = 0
-        print("Running on test set")
+        print("Testing")
 
         for i, data in enumerate(test_dataloader, 0):
             model.eval()
@@ -166,4 +165,4 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=30,
     writer.close()
 
 
-train_softmax(dataset_dir="data/dataset_output/", run_name="run1", checkpoint_dir="checkpoints", num_classes=5)
+train_softmax(dataset_dir="./dataset_output/", run_name="run4", checkpoint_dir="checkpoints4", num_classes=5)

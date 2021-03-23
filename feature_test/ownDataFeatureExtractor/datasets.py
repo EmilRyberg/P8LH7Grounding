@@ -5,6 +5,8 @@ from torchvision import transforms
 from PIL import Image, ImageDraw, ImageChops
 from pycocotools.coco import COCO
 
+Image.MAX_IMAGE_PIXELS = None
+
 class ClassificationDataset(Dataset):
     def __init__(self, dataset_dir, json_name):
         if dataset_dir[-1] != '/':
@@ -58,8 +60,3 @@ class ClassificationDataset(Dataset):
         #image = image.squeeze(0) # image = F.interpolate(image.unsqueeze(0), (224, 224)).squeeze(0)
 
         return image, class_id
-
-
-CD = ClassificationDataset("data/dataset_output/", "dataset.json")
-
-x = CD.__getitem__(0)
