@@ -141,14 +141,13 @@ devel/**/*
 src/universal_robot/
 
 *.pt
-feature_test/data/**/*
+feature_extractor/data/**/*
 
-feature_test/SpineNet-Pytorch/
-feature_test/pycocotools/
-feature_test/data/
-feature_test/ownDataFeatureExtractor/feature_extractor_P7/
-feature_test/checkpoints/
-feature_test/SpineNet/
+feature_extractor/SpineNet-Pytorch/
+feature_extractor/pycocotools/
+feature_extractor/data/
+feature_extractor/checkpoints/
+feature_extractor/SpineNet/
 *.pth
 *.png
 *.jpg
