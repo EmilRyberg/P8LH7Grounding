@@ -13,20 +13,15 @@ class FeatureExtractorNet(torch.nn.Module):
         self.bottleneck = nn.Linear(bottleneck_input_size, num_features)
         self.classifier = nn.Linear(num_features, num_classes)
         self.use_classifier = use_classifier
+        self.dropout = torch.nn.Dropout(0.2)
 
     def forward(self, x):
         x = self.backbone(x)
-        x = x.view(-1, num_flat_features(x))
+        x = torch.nn.functional.adaptive_avg_pool2d(x, (1, 1))
+        x = torch.flatten(x, 1)
+        x = self.dropout(x)
         x = self.bottleneck(x)
         if self.use_classifier:
             x = self.classifier(x)
         return x
-
-
-def num_flat_features(x):
-    size = x.size()[1:]  # all dimensions except the batch dimension
-    num_features = 1
-    for s in size:
-        num_features *= s
-    return num_features
 
