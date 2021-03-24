@@ -6,7 +6,7 @@ import numpy as np
 
 
 class FeatureExtractorNet(torch.nn.Module):
-    def __init__(self, bottleneck_input_size=1280 * 11 * 4, use_classifier=False, num_features=32, num_classes=5):
+    def __init__(self, bottleneck_input_size=1280, use_classifier=False, num_features=32, num_classes=5):
         super(FeatureExtractorNet, self).__init__()
         mn = mobilenet_v2(pretrained=True)
         self.backbone = mn.features
@@ -17,7 +17,7 @@ class FeatureExtractorNet(torch.nn.Module):
 
     def forward(self, x):
         x = self.backbone(x)
-        x = torch.nn.functional.adaptive_avg_pool2d(x, (1, 1))
+        x = F.adaptive_avg_pool2d(x, (1, 1))
         x = torch.flatten(x, 1)
         x = self.dropout(x)
         x = self.bottleneck(x)
