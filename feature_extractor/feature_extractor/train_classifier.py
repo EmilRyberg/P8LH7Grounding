@@ -1,24 +1,36 @@
-from datasets import ClassificationDataset
-from model import FeatureExtractorNet
+from feature_extractor.datasets import ClassificationDataset
 import torch
-from tensorboardX import SummaryWriter
+import torchvision
+from torch.utils.tensorboard import SummaryWriter
 import os
+from torchvision.models.mobilenet import mobilenet_v2
 from collections import OrderedDict
 import math
+from tqdm import tqdm
+
+from feature_extractor.model import FeatureExtractorNet
+
+
+def unnormalize_image(tensor, mean, std):
+    for t, m, s in zip(tensor, mean, std):
+        t.mul_(s).add_(m)
+        # The normalize code -> t.sub_(m).div_(s)
+    return tensor
 
 def create_model(num_features=64, num_classes=5):
     # Load pretrained model
-    model = torch.hub.load('pytorch/vision:v0.9.0', 'mobilenet_v2', pretrained=True)
+    model = mobilenet_v2(pretrained=True)#torch.hub.load('pytorch/vision:v0.9.0', 'mobilenet_v2', pretrained=True)
 
     # Remove classification FC layer
     classifier_name, old_classifier = model._modules.popitem()
 
     # Add new feature and classification layer
     classifier_input_size = old_classifier[1].in_features
+    print("in features", classifier_input_size)
 
     classifier = torch.nn.Sequential(OrderedDict([
                             ('fc1', torch.nn.Linear(classifier_input_size, num_features)),
-                            ('relu1', torch.nn.ReLU()),
+                            #('relu1', torch.nn.ReLU()),
                             ('fc2', torch.nn.Linear(num_features, num_classes)),
                             ]))
 
@@ -29,7 +41,7 @@ def create_model(num_features=64, num_classes=5):
 
 # function for first step in training, train a classifier
 def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=30,
-                  on_gpu=True, checkpoint_dir="checkpoints", batch_size=100, print_interval=50, num_classes=5):
+                  on_gpu=True, checkpoint_dir="checkpoints", batch_size=64, print_interval=50, num_classes=5):
 
     writer = SummaryWriter(f"runs/{run_name}")
 
@@ -42,15 +54,14 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=30,
     test_length = dataset_length - train_length
     train_set, test_set = torch.utils.data.random_split(dataset, [train_length, test_length])
 
-    dataloader = torch.utils.data.DataLoader(train_set, shuffle=True, batch_size=batch_size, num_workers=0)
-    test_dataloader = torch.utils.data.DataLoader(test_set, shuffle=False, batch_size=batch_size, num_workers=0)
+    dataloader = torch.utils.data.DataLoader(train_set, shuffle=True, batch_size=batch_size, num_workers=4)
+    test_dataloader = torch.utils.data.DataLoader(test_set, shuffle=False, batch_size=batch_size, num_workers=4)
 
-    model = create_model() #FeatureExtractorNet(use_classifier=True, num_features=32, num_classes=num_classes)
+    #t = create_model(64, 5)
+    model = FeatureExtractorNet(use_classifier=True, num_features=3, num_classes=num_classes)
 
-    count = 0
-    for child in model.features.children(): #model.backbone.children(): #19 children, not sure why but rolling with it
-        count += 1
-        if count >= 15: # This will make the last 4 layers trainable
+    for index, child in enumerate(model.backbone.children()):
+        if index >= 15: # This will make the last 4 layers trainable
             for param in child.parameters():
                 param.requires_grad = True
         else:
@@ -63,7 +74,6 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=30,
     """for param in model.bottleneck.parameters():
         param.requires_grad = True"""
 
-
     if not os.path.isdir(checkpoint_dir):
         os.makedirs(checkpoint_dir)
 
@@ -71,13 +81,13 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=30,
         print(f"Continuing training using weights {weights_dir}")
         model.load_state_dict(torch.load(weights_dir))
 
-    """example_input = None
+    example_input = None
     for data in dataloader:
         images, labels = data
         example_input = images
-        break"""
+        break
 
-    #writer.add_graph(model, example_input)
+    writer.add_graph(model, example_input)
 
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0005, weight_decay=0.01) # lr 0.001 default
@@ -90,11 +100,23 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=30,
     running_loss = 0.0
 
     # here we start training
+    got_examples = False
     for epoch in range(epochs):
         print("Training")
-        for i, data in enumerate(dataloader, 0):
-            model.train()
+        model.train()
+        for i, data in enumerate(tqdm(dataloader)):
             inputs, labels = data
+            if not got_examples:
+                unnormalized_inputs = None #unnormalize_image(inputs, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+                for batch_i, batch_img in enumerate(inputs):
+                    unnormalized_image = unnormalize_image(batch_img, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+                    if batch_i == 0:
+                        unnormalized_inputs = unnormalized_image.unsqueeze(0)
+                    else:
+                        unnormalized_inputs = torch.cat((unnormalized_inputs, unnormalized_image.unsqueeze(0)), dim=0)
+                grid = torchvision.utils.make_grid(unnormalized_inputs)
+                got_examples = True
+                writer.add_image("images", grid, 0)
 
             if on_gpu:
                 inputs = inputs.cuda()
@@ -166,4 +188,5 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=30,
     writer.close()
 
 
-train_softmax(dataset_dir="./dataset_output/", run_name="run4", checkpoint_dir="checkpoints4", num_classes=5)
+if __name__ == "__main__":
+    train_softmax(dataset_dir="./dataset_output/", run_name="run2", checkpoint_dir="checkpoints2", num_classes=5, on_gpu=True)

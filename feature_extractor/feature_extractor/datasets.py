@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from torch.utils.data import Dataset
 import torch.nn.functional as F
 from torchvision import transforms
@@ -21,7 +22,7 @@ class ClassificationDataset(Dataset):
             self.allAnn.append(annTemp[0])
             
         self.data_transform = transforms.Compose([
-            transforms.Resize(224),
+            #transforms.Resize(224),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
@@ -55,7 +56,10 @@ class ClassificationDataset(Dataset):
 
         resultNoResize = resultFullImage.crop(bbox)
 
+        #image = np.zeros((224, 224, 3))
+        #print("img", image)
         image = self.data_transform(resultNoResize)
+        #image = self.data_transform(image)
         image = F.interpolate(image.unsqueeze(0), (224, 224)).squeeze(0)
         #image = image.squeeze(0) # image = F.interpolate(image.unsqueeze(0), (224, 224)).squeeze(0)
 
