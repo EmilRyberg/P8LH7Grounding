@@ -1,27 +1,28 @@
 import sys
 import rospy
 from ner.srv import NER
+from little_helper_interfaces.msg import Task, ObjectEntity, OuterObjectEntity, SpatialDescription, OuterTask
+from vision.vision.ros_camera_interface import ROSCamera
 from speech_to_text.speechtotext import Speech_to_text
-import actionlib
-
+#from robot_controller.robot_controller import RobotController #TODO actually make this controller
+from grounding import Grounding
+"""
+Man i wish we followed the uml better
+"""
 class DialogFlow:
     def __init__(self):
         self.stt = Speech_to_text()
         self.first_convo_flag = True
-        self.grounding = grounding()
+        self.grounding = Grounding()
         self.object_info = None
         self.sentence = ""
+        self.robot = RobotController()
+        self.camera = ROSCamera()
 
         #ROS Publishers
         self.tts_pub = rospy.Publisher('chatter', String, queue_size=10)
         self.find_pub = rospy.Publisher('MainFind', ObjectEntity, queue_size=10)
         self.learn_pub = rospy.Publisher('MainLearn', String, queue_size=10)
-
-        #this is for connecting to the robot_controller action server which i hope will be made later
-        self.robot_controller_client = actionlib.SimpleActionClient(
-                                                                #'robot_controller',
-                                                                #task.action
-                                                                )
 
     def controller(self):
         #check to see if initialising conversation and gets sentence
@@ -39,23 +40,28 @@ class DialogFlow:
         except rospy.ServiceException as e:
                 print("Service call failed: %s"%e)
 
-        #find object based on the ner results
-        self.find_pub.publish(task.object1)  #this should be a service tbh
-        rospy.Subscriber('GroundingInfo', ObjectInfo, self.grounding_cb)
+        np_rgb_image = self.camera.get_image()
+        np_depth_image = self.camera.get_depth()
 
-        if self.object_info.known == False: #check if object is known
-            self.learn_pub.publish(task.object1, task.object2)
+        #TODO decide if we want the grounding node to be a service or just to use at as class normally
+        try:
+            grounding_service = rospy.ServiceProxy('grounding', Grounding)
+            self.object_info = grounding_service(task.object1, np_rgb_image)
+        except rospy.ServiceException as e:
+            print("Service call failed: %s"%e)
 
-        #logical flow for different tasks
-        if task.type == "find":
-            self.find_task_control(object_info)
-        else if task.type == "pick_up":
-            self.pick_up_task_control(object_info)
+        #TODO add known flag in the return from grounding
+        if object_info.known == 0:
+            learn_control(task.object1.name, np_rgb_image)
 
-        """ possible thing to implement later
-        else if task.type == "place":
-            self.place_pub.publish(task.object1, location)
-        """
+        #TODO update when robot_controller is made
+        else object_info.known == 1:
+            if task.type == "pick":
+                pick_control(object_info, np_rgb_image, np_depth_image)
+            if task.type == "find":
+                find_control(object_info)
+            if task.type == "learn":
+                learn_control(task.object1.name, np_rgb_image)
 
     def first_conversation(self):
         spoken_sentence = "Hello. What would you like me to do?"
@@ -69,18 +75,17 @@ class DialogFlow:
         recognized_text = self.stt.Recognizer(captured_audio)
         return recognized_text        
 
-    def grounding_cb(self, cb):
-        self.object_info = cb
+    def learn_control(self, name, image):
+        self.tts_pub.publish("I will try and learn the new object")
+        self.grounding.learn_new_object(name, image)
 
-    def find_task_control(self, object_info):
-        spoken_sentence = "I will try to find %s"
-        #tts_pub(spoken_sentence %object_info.name)
-        
-    def pick_up_task_control(self, object_info):
-        spoken_sentence = "I will try to pick up %s"
-        #tts_pub(spoken_sentence %object_info.name)
-        #robot_controller_client.send_goal(object_info)
-        #robot_controller_client.wait_for_result()
+    def pick_control(self, object_info, rgb, depth):
+        self.tts_pub.publish("Okay, I will try to pick up the %s" %object_info.name) #might need to rework if we take the name out of objectinfo
+        self.robot.pick(object_info, rgb, depth)
+
+    def find_control(self, object_info, rgb):
+        self.tts_pub.publish("Okay, I will try to find the %s" %object_info.name)
+        self.robot.find(object_info, rgb)
 
 if __name__ == '__main__':
     try:
