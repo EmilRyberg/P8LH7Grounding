@@ -6,6 +6,8 @@ from PIL import Image, ImageDraw, ImageChops
 from pycocotools.coco import COCO
 import numpy as np
 
+Image.MAX_IMAGE_PIXELS = None
+
 class ClassificationDataset(Dataset):
     def __init__(self, dataset_dir, json_name):
         if dataset_dir[-1] != '/':
