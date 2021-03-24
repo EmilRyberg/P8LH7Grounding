@@ -57,7 +57,6 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=30,
     dataloader = torch.utils.data.DataLoader(train_set, shuffle=True, batch_size=batch_size, num_workers=4)
     test_dataloader = torch.utils.data.DataLoader(test_set, shuffle=False, batch_size=batch_size, num_workers=4)
 
-    #t = create_model(64, 5)
     model = FeatureExtractorNet(use_classifier=True, num_features=3, num_classes=num_classes)
 
     for index, child in enumerate(model.backbone.children()):

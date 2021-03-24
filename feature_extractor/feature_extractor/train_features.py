@@ -2,8 +2,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from person_detector.feature_extractor.model import FeatureExtractorNet
-from person_detector.feature_extractor.datasets import TripletDataset
+from feature_extractor.model import FeatureExtractorNet
+from feature_extractor.datasets import TripletDataset
 from torch.utils.data import DataLoader
 from torchvision import transforms
 import os
@@ -13,9 +13,7 @@ import random
 
 def train_triplet(dataset_dir, weights_dir=None, run_name="run1", epochs=30, on_gpu=True, checkpoint_dir="checkpoints_triplet", batch_size=150):
     writer = SummaryWriter(f"runs/triplet_{run_name}")
-    
     dataset = TripletDataset(dataset_dir, "dataset.json")
-    
     dataloader = DataLoader(dataset, shuffle=True, batch_size=batch_size, num_workers=4)
 
     model = FeatureExtractorNet(use_classifier=False)
@@ -26,16 +24,17 @@ def train_triplet(dataset_dir, weights_dir=None, run_name="run1", epochs=30, on_
     example_input = None
     if not os.path.isdir(checkpoint_dir):
         os.makedirs(checkpoint_dir)
-    # for data in dataloader:
-    #     _, example_input, _ = data
-    #     break
-    # writer.add_graph(model, example_input)
+
+    for data in dataloader:
+        _, example_input, _ = data
+        break
+    writer.add_graph(model, example_input)
+
     for param in model.backbone.parameters():
         param.requires_grad = False
     criterion = nn.TripletMarginLoss(margin=0.4)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.25, weight_decay=0.001, momentum=0.9)
 
-    #print(f"Training with {train_length} train images, and {test_length} test images")
     if on_gpu:
         model = model.cuda()
     running_loss = 0.0
@@ -135,5 +134,6 @@ def get_all_other_images_and_embeddings(class_ids_np, current_class_id):
             original_indices.append(i)
     return original_indices
 
+
 if __name__ == '__main__':
-    train_triplet(dataset_dir="data/dataset_output/", run_name="run1",checkpoint_dir="checkpoints_triplet"):
+    train_triplet(dataset_dir="data/dataset_output/", run_name="run1", checkpoint_dir="checkpoints_triplet")
