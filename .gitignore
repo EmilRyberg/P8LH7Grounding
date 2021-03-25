@@ -151,3 +151,11 @@ feature_extractor/SpineNet/
 *.pth
 *.png
 *.jpg
+
+*.0
+
+*.tsv
+
+*.pbtxt
+
+*.json

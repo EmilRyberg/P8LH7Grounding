@@ -1,5 +1,6 @@
 from feature_extractor.datasets import ClassificationDataset
 import torch
+import torch.nn.functional as F
 import torchvision
 from torch.utils.tensorboard import SummaryWriter
 import os
@@ -7,42 +8,13 @@ from torchvision.models.mobilenet import mobilenet_v2
 from collections import OrderedDict
 import math
 from tqdm import tqdm
-
+from feature_extractor.image_utils import unnormalize_image
 from feature_extractor.model import FeatureExtractorNet
 
 
-def unnormalize_image(tensor, mean, std):
-    for t, m, s in zip(tensor, mean, std):
-        t.mul_(s).add_(m)
-        # The normalize code -> t.sub_(m).div_(s)
-    return tensor
-
-def create_model(num_features=64, num_classes=5):
-    # Load pretrained model
-    model = mobilenet_v2(pretrained=True)#torch.hub.load('pytorch/vision:v0.9.0', 'mobilenet_v2', pretrained=True)
-
-    # Remove classification FC layer
-    classifier_name, old_classifier = model._modules.popitem()
-
-    # Add new feature and classification layer
-    classifier_input_size = old_classifier[1].in_features
-    print("in features", classifier_input_size)
-
-    classifier = torch.nn.Sequential(OrderedDict([
-                            ('fc1', torch.nn.Linear(classifier_input_size, num_features)),
-                            #('relu1', torch.nn.ReLU()),
-                            ('fc2', torch.nn.Linear(num_features, num_classes)),
-                            ]))
-
-    model.add_module(classifier_name, classifier)
-
-    return model
-
-
 # function for first step in training, train a classifier
-def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=30,
-                  on_gpu=True, checkpoint_dir="checkpoints", batch_size=64, print_interval=50, num_classes=5):
-
+def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=80, continue_epoch=None,
+                  on_gpu=True, checkpoint_dir="checkpoints", batch_size=64, print_interval=50, num_classes=5, num_features=3):
     writer = SummaryWriter(f"runs/{run_name}")
 
     if dataset_dir[-1] != '/':
@@ -57,7 +29,7 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=30,
     dataloader = torch.utils.data.DataLoader(train_set, shuffle=True, batch_size=batch_size, num_workers=4)
     test_dataloader = torch.utils.data.DataLoader(test_set, shuffle=False, batch_size=batch_size, num_workers=4)
 
-    model = FeatureExtractorNet(use_classifier=True, num_features=3, num_classes=num_classes)
+    model = FeatureExtractorNet(use_classifier=True, num_features=num_features, num_classes=num_classes)
 
     for index, child in enumerate(model.backbone.children()):
         if index >= 15: # This will make the last 4 layers trainable
@@ -100,8 +72,9 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=30,
 
     # here we start training
     got_examples = False
-    for epoch in range(epochs):
-        print("Training")
+    start = 0 if continue_epoch is None else continue_epoch
+    for epoch in range(start, epochs):
+        #print("Training")
         model.train()
         for i, data in enumerate(tqdm(dataloader)):
             inputs, labels = data
@@ -140,7 +113,7 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=30,
         total_test_correct = 0
         total_img = 0
         total_runs = 0
-        print("Testing")
+        #print("Testing")
 
         for i, data in enumerate(test_dataloader, 0):
             model.eval()
@@ -154,8 +127,7 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=30,
                 
                 loss = criterion(outputs, labels)
                 test_loss += loss.item()
-
-                softmax_output = torch.nn.functional.softmax(outputs, dim=0)
+                softmax_output = F.softmax(outputs, dim=0)
                 output_np = softmax_output.cpu().data.numpy()
                 predicted_ids = output_np.argmax(1)
                 labels_np = labels.cpu().data.numpy()
@@ -188,4 +160,6 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=30,
 
 
 if __name__ == "__main__":
-    train_softmax(dataset_dir="./dataset_output/", run_name="run2", checkpoint_dir="checkpoints2", num_classes=5, on_gpu=True)
+    train_softmax(dataset_dir="dataset_output/", run_name="run4", continue_epoch=45, print_interval=20,
+                  weights_dir="checkpoints4_3emb/epoch-45-loss-0.19246-90.92.pth", checkpoint_dir="checkpoints4_3emb",
+                  num_classes=5, num_features=3, on_gpu=True, epochs=100)
