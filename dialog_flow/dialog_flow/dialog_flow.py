@@ -1,5 +1,8 @@
+#!/usr/bin/env python
+
 import sys
 import rospy
+from command_builder import SpatialType
 from ner.srv import NER
 from little_helper_interfaces.msg import Task, ObjectEntity, OuterObjectEntity, SpatialDescription, OuterTask
 from vision.vision.ros_camera_interface import ROSCamera
@@ -38,7 +41,20 @@ class DialogFlow:
             ner_service = rospy.ServiceProxy('ner', NER)
             task = ner_service(sentence)
         except rospy.ServiceException as e:
-                print("Service call failed: %s"%e)
+                print(f"Service call failed: {e}")
+
+        self.tts_pub.publish("Ok, just to be sure. You want me to: {} the {} which is located {}}".format(task.type, task.object1.name, task.object1.spatial_descirption[0].spatial_type))
+        #TODO make it an audible user input
+        userinput = input()
+        if userinput == "no" or "NO" or "n" or "No":
+            self.tts_pub.publish("Okay, I will restart my program")
+            return
+
+        self.tts_pub.publish("Okay, I will now look for the {}".format(task.object1.name))
+
+        #To make sure robot is out of view, might be unecesarry if the robot controller does this
+        while self.robot.is_home()
+            self.robot.move_home()
 
         np_rgb_image = self.camera.get_image()
         np_depth_image = self.camera.get_depth()
@@ -48,14 +64,16 @@ class DialogFlow:
             grounding_service = rospy.ServiceProxy('grounding', Grounding)
             self.object_info = grounding_service(task.object1, np_rgb_image)
         except rospy.ServiceException as e:
-            print("Service call failed: %s"%e)
+            print(f"Service call failed: {e}")
 
         #TODO add known flag in the return from grounding
         if object_info.known == 0:
-            learn_control(task.object1.name, np_rgb_image)
+            self.tts_pub.publish("Sorry, I could not find the object you wanted.")
+            self.tts_pub.publish("I am able to learn objects")
+            return #TODO maybe just look for new sentence here, instead of looping back to the beginning
 
         #TODO update when robot_controller is made
-        else object_info.known == 1:
+        elif object_info.known == 1:
             if task.type == "pick":
                 pick_control(object_info, np_rgb_image, np_depth_image)
             if task.type == "find":
@@ -77,15 +95,15 @@ class DialogFlow:
 
     def learn_control(self, name, image):
         self.tts_pub.publish("I will try and learn the new object")
-        self.grounding.learn_new_object(name, image)
+        self.grounding.learn_new_object(name, image) #placeholder
 
     def pick_control(self, object_info, rgb, depth):
-        self.tts_pub.publish("Okay, I will try to pick up the %s" %object_info.name) #might need to rework if we take the name out of objectinfo
-        self.robot.pick(object_info, rgb, depth)
+        self.tts_pub.publish("Okay, I will try to pick up the {}".format(object_info.name)) #might need to rework if we take the name out of objectinfo
+        self.robot.pick(object_info, rgb, depth) #placeholder
 
     def find_control(self, object_info, rgb):
-        self.tts_pub.publish("Okay, I will try to find the %s" %object_info.name)
-        self.robot.find(object_info, rgb)
+        self.tts_pub.publish("Okay, I will try to find the {}".format(object_info.name))
+        self.robot.find(object_info, rgb) #placeholder
 
 if __name__ == '__main__':
     try:

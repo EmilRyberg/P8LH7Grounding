@@ -9,6 +9,8 @@ project(dialog_flow)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   rospy
+  std_msgs
+  little_helper_interfaces
 )
 
 ## System dependencies are found with CMake's conventions
@@ -117,7 +119,7 @@ catkin_package(
 include_directories(
 # include
 #  ${catkin_INCLUDE_DIRS}
-#)
+)
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -158,7 +160,7 @@ include_directories(
 
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
-catkin_install_python(PROGRAMS dialog_flow/dialog_flow.py
+catkin_install_python(PROGRAMS dialog_control/dialog_flow.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 # catkin_install_python(PROGRAMS
