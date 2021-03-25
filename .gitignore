@@ -146,3 +146,13 @@ feature_test/data/**/*
 feature_test/SpineNet-Pytorch/
 
 *.wbproj
+
+*.pth
+
+*.png
+
+*.tsv
+
+*.0
+
+*.pbtxt
