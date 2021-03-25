@@ -4,6 +4,7 @@ import actionlib_msgs
 import numpy as np
 from cv_bridge import CvBridge
 from ur_e_webots.msg import GripperAction, GripperResult
+import sys
 
 
 class GripperActionServer:
@@ -31,6 +32,7 @@ class GripperActionServer:
         self.camera_depth = robot.getDevice("cameraDepth")
         self.camera_enabled = False
         self.cv_bridge = CvBridge()
+        self.gripper_close_start_time = None
         for sensor in self.finger_sensors:
             sensor.enable(self.timestep)
 
@@ -44,6 +46,7 @@ class GripperActionServer:
         self.goal_handle = goal_handle
         goal_handle.set_accepted()
         if self.goal_handle.get_goal().action == "close":
+            self.gripper_close_start_time = self.robot.getTime()
             width = self.goal_handle.get_goal().width
             speed = self.goal_handle.get_goal().speed
             self.should_lock = self.goal_handle.get_goal().lock
@@ -92,11 +95,11 @@ class GripperActionServer:
 
     def update(self):
         if self.robot and self.goal_handle:
-            #now = self.robot.getTime()
+            now = self.robot.getTime()
             action = self.goal_handle.get_goal().action
             if self.goal_handle.get_goal_status().status == actionlib_msgs.msg.GoalStatus.ACTIVE:
                 if action == "close":
-                    if self.finger_sensors[0].getValue() - 0.0001 <= self.finger_position[1] <= self.finger_sensors[0].getValue() + 0.0001:
+                    if self.finger_sensors[0].getValue() - 0.0001 <= self.finger_position[1] <= self.finger_sensors[0].getValue() + 0.0001 or now-self.gripper_close_start_time > 2:
                         if self.goal_handle.get_goal().lock:
                             self.gripper_connector.lock()
                         if self.goal_handle.get_goal().grip_box:
