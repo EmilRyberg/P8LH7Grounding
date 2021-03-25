@@ -1,4 +1,4 @@
-from ner.ner import NER, EntityType
+from ner.ner.ner import NER, EntityType
 from enum import Enum
 
 

@@ -1,0 +1,3 @@
+bool is_success
+string error_code
+ObjectInfo object_info

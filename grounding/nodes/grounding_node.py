@@ -1,32 +1,46 @@
 #!/usr/bin/env python3
 import rospy
 from std_msgs.msg import String
-from little_helper_interfaces.msg import ObjectEntity, ObjectInfo, OuterObjectEntity
-from grounding.grounding import Grounding
+from little_helper_interfaces.msg import ObjectEntity, ObjectInfo, OuterObjectEntity, ROSGroundingReturn
+from grounding.srv import Grounding
+from grounding.grounding import Grounding, GroundingReturn, ErrorType
 
-class GroundingNode():
+
+def create_ros_return(non_ros_return):
+    object_info = non_ros_return.object_info
+    ros_info = ObjectInfo(mask=object_info.mask, cropped_rbg=object_info.cropped_rgb, bbox=object_info.bbox)
+    ros_return = ROSGroundingReturn(is_success=non_ros_return.is_success, error_code=non_ros_return.error_code.value,
+                                    object_info=ros_info)
+    return Grounding(grounding_return=ros_return)
+
+
+class GroundingService():
     def __init__(self):
-        self.infopub = rospy.Publisher('GroundingInfo', ObjectInfo, queue_size=10)
         self.grounding = Grounding()
+        self.returned = GroundingReturn()
 
-        while not rospy.is_shutdown():
-            self.listener()
+    def handle_grounding_request(self, request: Grounding):
+        if request.command == "find":
+            self.returned = self.grounding.find_object(request.entity)
+            ros_return = create_ros_return(self.returned)
+            return Grounding(grounding_return=ros_return)
+        elif request.command == "update":
+            self.returned = self.grounding.update_features(request.entity)
+            ros_return = create_ros_return(self.returned)
+            return Grounding(grounding_return=ros_return)
+        elif request.command == "learn":
+            self.returned = self.grounding.learn_new_object(request.entity)
+            ros_return = create_ros_return(self.returned)
+            return Grounding(grounding_return=ros_return)
+        else:
+            raise Exception("unknown command passed to grounding service, commands can be find, update, learn")
 
-    def listener(self):
-        rospy.Subscriber('MainLearn', OuterObjectEntity, self.grounding.learn_new_object)  # TODO replace type
-        rospy.Subscriber('MainFind',  OuterObjectEntity, self.find_object_callback)  # TODO replace type
-        rospy.Subscriber('MainUpdate', OuterObjectEntity, self.grounding.update_features)  # TODO replace type
-        # Wait for messages on topic, go to callback function when new messages arrive.
+    def grounding_server(self):
+        rospy.init_node("grounding_server")
+        s = rospy.Service("grounding", grounding, self.handle_grounding_request)
         rospy.spin()
-
-    def find_object_callback(self, object):
-        object = self.grounding.find_object(object)
-        self.infopub.publish(object)
 
 
 if __name__ == '__main__':
-    try:
-        rospy.init_node('grounding', anonymous=True)
-        GroundingNode()
-    except rospy.ROSInterruptException:
-        pass
+    service = GroundingService()
+    service.grounding_server()

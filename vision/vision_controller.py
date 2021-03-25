@@ -3,7 +3,11 @@ import numpy as np
 class VisionController():
     def get_bounding_with_features(self):  # dummy function so i can mock it
         features = []
-        features.append((np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1, 1])))
+        feature = np.array([1, 1, 1, 1, 1])
+        bbox = np.array([1, 2, 3, 4])
+        mask = np.array([4, 3, 2 ,1])
+        cropped_rbg = np.array([5, 5, 5, 5])
+        features.append((feature, bbox, mask, cropped_rbg))
         return features
 
 if __name__ == "__main__":

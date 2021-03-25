@@ -1,9 +1,9 @@
-from grounding.grounding import Grounding
+from grounding.grounding import Grounding, GroundingReturn, ErrorType
 from scripts.spatial import Spatial_Relations
 import numpy as np
 import unittest
 from unittest.mock import MagicMock, Mock
-from ner.ner.command_builder import CommandBuilder, SpatialDescription, ObjectEntity
+from ner.ner.command_builder import CommandBuilder, ObjectEntity
 from ner.ner.ner import EntityType
 from vision.vision_controller import VisionController
 
@@ -16,6 +16,7 @@ class FindObjectIsolatedTest(unittest.TestCase):
         self.db_mock = Mock()
         self.spatial_mock = Mock()
         self.vision_mock = Mock()
+        self.returned = GroundingReturn()
         self.cmd_builder = CommandBuilder("", "", self.ner_mock)
         self.grounding = Grounding(db=self.db_mock, vision_controller=self.vision_mock, spatial=self.spatial_mock)
         self.objects = [  # bbox = [x1, x2, y1, y2] and images spans from 0,0 to 1500,2000
@@ -28,15 +29,21 @@ class FindObjectIsolatedTest(unittest.TestCase):
         ]
 
     def test_failFindObject(self):
-        self.vision_mock.get_bounding_with_features = Mock(return_value=[(np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1, 1]))])
+        features = []
+        feature = np.array([1, 1, 1, 1, 1])
+        bbox = np.array([1, 2, 3, 4])
+        mask = np.array([4, 3, 2 ,1])
+        cropped_rbg = np.array([5, 5, 5, 5])
+        features.append((feature, bbox, mask, cropped_rbg))
+        self.vision_mock.get_bounding_with_features = Mock(return_value=features)
         self.db_mock.get_feature = Mock(return_value=np.array([5, 5, 5, 5, 5]))
         object_name = "black cover"
         object_spatial_desc = None
         object_entity = ObjectEntity()
         object_entity.name = object_name
         object_entity.spatial_descriptions = object_spatial_desc
-        found = self.grounding.find_object(object_entity)
-        self.assertFalse(found)
+        self.returned = self.grounding.find_object(object_entity)
+        self.assertEqual(self.returned.error_code, ErrorType.CANT_FIND)
 
     def test_bestMatch(self):
         indexes = [1, 2, 3, 4, 5]
@@ -50,14 +57,21 @@ class FindObjectIsolatedTest(unittest.TestCase):
         self.assertTrue(self.grounding.is_same_object(features_1, features_2))
 
     def test_unknownObject(self):
-        self.vision_mock.get_bounding_with_features = Mock(return_value=[(np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1, 1]))])
+        features = []
+        feature = np.array([1, 1, 1, 1, 1])
+        bbox = np.array([1, 2, 3, 4])
+        mask = np.array([4, 3, 2 ,1])
+        cropped_rbg = np.array([5, 5, 5, 5])
+        features.append((feature, bbox, mask, cropped_rbg))
+        self.vision_mock.get_bounding_with_features = Mock(return_value=features)
         self.db_mock.get_feature = Mock(return_value=None)
         object_name = "albert is cool"
         object_spatial_desc = None
         object_entity = ObjectEntity()
         object_entity.name = object_name
         object_entity.spatial_descriptions = object_spatial_desc
-        self.assertFalse(self.grounding.find_object(object_entity))  # Should return false if the object is unknown
+        self.returned = self.grounding.find_object(object_entity)
+        self.assertEqual(self.returned.error_code, ErrorType.UNKNOWN)  # Should return false if the object is unknown
 
     def test_spatialPart(self):
         entities = [
@@ -67,11 +81,25 @@ class FindObjectIsolatedTest(unittest.TestCase):
             (EntityType.LOCATION, "above"),
             (EntityType.OBJECT, "bottom cover")
         ]
-        features = [
-            (np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1, 1])),
-            (np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1, 1])),
-            (np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1, 1]))
-        ]
+        features = []
+        feature = [np.array([1, 1, 1, 1, 1]),
+                   np.array([1, 1, 1, 1, 1]),
+                   np.array([1, 1, 1, 1, 1])
+                   ]
+        bbox = [np.array([1, 2, 3, 4]),
+                np.array([1, 2, 3, 4]),
+                np.array([1, 2, 3, 4])
+                ]
+        mask = [np.array([4, 3, 2 ,1]),
+                np.array([4, 3, 2, 1]),
+                np.array([4, 3, 2, 1])
+                ]
+        cropped_rbg = [np.array([5, 5, 5, 5]),
+                       np.array([5, 5, 5, 5]),
+                       np.array([5, 5, 5, 5])
+                       ]
+        for i in range(3):
+            features.append((feature[i], bbox[i], mask[i], cropped_rbg[i]))
         db_features = [
             ("dummy name", np.array([1, 1, 1, 1, 1])),
             ("dummy name", np.array([1, 1, 1, 1, 1])),
@@ -81,32 +109,38 @@ class FindObjectIsolatedTest(unittest.TestCase):
         self.db_mock.get_feature = Mock(return_value=np.array([1, 1, 1, 1, 1]))
         self.db_mock.get_all_features = Mock(return_value=db_features)
         self.ner_mock.get_entities = Mock(return_value=entities)
-        self.spatial_mock.locate_specific_object = Mock(return_value=("blue cover", [700, 1100, 100, 300]))
+        self.spatial_mock.locate_specific_object = Mock(return_value=(1, 1, [700, 1100, 100, 300]))
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_pick_up
-        (name, bbox) = self.grounding.find_object(object_entity)
-        self.assertEqual("blue cover", name)
-        self.assertIsNotNone(bbox)
+        self.returned = self.grounding.find_object(object_entity)
+        (_, _, bbox_returned) = self.returned.object_info
+        self.assertTrue(self.returned.is_success)
+        self.assertIsNotNone(self.returned.object_info)
+
 
 class LearnObjectIsolatedTest(unittest.TestCase):
     def setUp(self):
         self.db_mock = Mock()
         self.grounding = Grounding(db=self.db_mock)
         self.vision_mock = Mock()
+        self.returned = GroundingReturn()
 
     def test_newObject(self):
-        self.vision_mock.get_bounding_with_features = Mock(return_value=[(np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1, 1]))])
+        features = []
+        feature = np.array([1, 1, 1, 1, 1])
+        bbox = np.array([1, 2, 3, 4])
+        mask = np.array([4, 3, 2 ,1])
+        cropped_rbg = np.array([5, 5, 5, 5])
+        features.append((feature, bbox, mask, cropped_rbg))
+        self.vision_mock.get_bounding_with_features = Mock(return_value=features)
         self.db_mock.get_feature = Mock(return_value=None)
         entity_name = "green cover"  # Make sure this is a new object.
         spatial_desc = None
         object_entity = ObjectEntity()
         object_entity.name = entity_name
         object_entity.spatial_descriptions = spatial_desc
-        self.grounding.learn_new_object(object_entity)
-        self.db_mock.get_feature = Mock(
-            return_value=np.array([1, 1, 1, 1, 1]))
-        (name, bbox) = self.grounding.find_object(object_entity)
-        self.assertEqual(entity_name, name)
+        self.returned = self.grounding.learn_new_object(object_entity)
+        self.assertTrue(self.returned.is_success)
 
     def test_learnKnownObject(self):
         self.db_mock.get_feature = Mock(return_value=123)
@@ -115,7 +149,8 @@ class LearnObjectIsolatedTest(unittest.TestCase):
         object_entity = ObjectEntity()
         object_entity.name = object_name
         object_entity.spatial_descriptions = object_spatial_desc
-        self.assertEqual(self.grounding.learn_new_object(object_entity), "known")
+        self.returned = self.grounding.learn_new_object(object_entity)
+        self.assertEqual(self.returned.error_code, ErrorType.ALREADY_KNOWN)
 
 
 class UpdateFeaturesIsolatedTest(unittest.TestCase):
@@ -123,29 +158,37 @@ class UpdateFeaturesIsolatedTest(unittest.TestCase):
         self.db_mock = Mock()
         self.grounding = Grounding(db=self.db_mock)
         self.vision_mock = Mock()
+        self.returned = GroundingReturn()
 
     def test_updateCorrectObject(self):
         self.db_mock.get_feature = Mock(return_value=1)
         self.db_mock.update = Mock(return_value=None)
+
         self.vision_mock.get_bounding_with_features = Mock(return_value=[(np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1, 1]))])
         object_name = "green cover"
         object_spatial_desc = None
         object_entity = ObjectEntity()
         object_entity.name = object_name
         object_entity.spatial_descriptions = object_spatial_desc
-        updated_features = self.grounding.update_features(object_entity)
-        self.assertIsNotNone(updated_features)
-        self.assertNotEqual("unknown", updated_features)
+        self.returned = self.grounding.update_features(object_entity)
+        self.assertTrue(self.returned.is_success)
 
     def test_updateUnknownObject(self):
+        features = []
+        feature = np.array([1, 1, 1, 1, 1])
+        bbox = np.array([1, 2, 3, 4])
+        mask = np.array([4, 3, 2 ,1])
+        cropped_rbg = np.array([5, 5, 5, 5])
+        features.append((feature, bbox, mask, cropped_rbg))
         self.db_mock.get_feature = Mock(return_value=None)
-        self.vision_mock.get_bounding_with_features = Mock(return_value=[(np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1, 1]))])
+        self.vision_mock.get_bounding_with_features = Mock(return_value=features)
         object_name = "albert is cool"
         object_spatial_desc = None
         object_entity = ObjectEntity()
         object_entity.name = object_name
         object_entity.spatial_descriptions = object_spatial_desc
-        self.assertEqual(self.grounding.update_features(object_entity), "unknown")
+        self.returned = self.grounding.update_features(object_entity)
+        self.assertEqual(self.returned.error_code, ErrorType.UNKNOWN)
 
 
 class SpatialModuleOneOfEach(unittest.TestCase):
@@ -155,12 +198,12 @@ class SpatialModuleOneOfEach(unittest.TestCase):
         self.cmd_builder = CommandBuilder("", "", self.ner_mock)
 
         self.objects = [  # bbox = [x1, x2, y1, y2] and images spans from 0,0 to 1500,2000
-            ("black cover", [100, 400, 100, 300]),
-            ("blue cover", [700, 1100, 100, 300]),
-            ("fuse", [100, 400, 800, 1000]),
-            ("bottom cover", [700, 1100, 800, 1000]),
-            ("white cover", [100, 400, 1500, 1600]),
-            ("green cover", [700, 700, 1500, 1600])
+            ("black cover", [100, 400, 100, 300], 1, 1),
+            ("blue cover", [700, 1100, 100, 300], 1, 1),
+            ("fuse", [100, 400, 800, 1000], 1, 1),
+            ("bottom cover", [700, 1100, 800, 1000], 1, 1),
+            ("white cover", [100, 400, 1500, 1600], 1, 1),
+            ("green cover", [700, 700, 1500, 1600], 1, 1)
         ]
 
     def test_above(self):
@@ -175,7 +218,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_pick_up
-        self.assertEqual(self.objects[1], self.spatial.locate_specific_object(object_entity, self.objects))
+        self.assertEqual(self.objects[1][1], self.spatial.locate_specific_object(object_entity, self.objects)[2])
 
     def test_right(self):
         entities = [
@@ -190,7 +233,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_pick_up
-        self.assertEqual(self.objects[1], self.spatial.locate_specific_object(object_entity, self.objects))
+        self.assertEqual(self.objects[1][1], self.spatial.locate_specific_object(object_entity, self.objects)[2])
 
     def test_left(self):
         entities = [
@@ -203,7 +246,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_pick_up
-        self.assertEqual(self.objects[2], self.spatial.locate_specific_object(object_entity, self.objects))
+        self.assertEqual(self.objects[2][1], self.spatial.locate_specific_object(object_entity, self.objects)[2])
 
     def test_below(self):
         entities = [
@@ -217,7 +260,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_pick_up
-        self.assertEqual(self.objects[4], self.spatial.locate_specific_object(object_entity, self.objects))
+        self.assertEqual(self.objects[4][1], self.spatial.locate_specific_object(object_entity, self.objects)[2])
 
     def test_diagonalRightUp1(self):
         entities = [
@@ -231,7 +274,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_pick_up
-        self.assertEqual(self.objects[1], self.spatial.locate_specific_object(object_entity, self.objects))
+        self.assertEqual(self.objects[1][1], self.spatial.locate_specific_object(object_entity, self.objects)[2])
 
     def test_diagonalRightUp2(self):
         entities = [
@@ -245,7 +288,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_pick_up
-        self.assertEqual(self.objects[1], self.spatial.locate_specific_object(object_entity, self.objects))
+        self.assertEqual(self.objects[1][1], self.spatial.locate_specific_object(object_entity, self.objects)[2])
 
     def test_serial(self):
         entities = [
@@ -264,7 +307,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_pick_up
-        self.assertEqual(self.objects[0], self.spatial.locate_specific_object(object_entity, self.objects))
+        self.assertEqual(self.objects[0][1], self.spatial.locate_specific_object(object_entity, self.objects)[2])
 
 
 class SpatialModuleTwoOfEach(unittest.TestCase):
@@ -274,12 +317,12 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
         self.cmd_builder = CommandBuilder("", "", self.ner_mock)
 
         self.objects = [  # bbox = [x1, x2, y1, y2] and images spans from 0,0 to 1500,2000
-            ("blue cover", [100, 400, 100, 300]),
-            ("blue cover", [700, 1100, 100, 300]),
-            ("fuse", [100, 400, 800, 1000]),
-            ("bottom cover", [700, 1100, 800, 1000]),
-            ("white cover", [100, 400, 1500, 1600]),
-            ("white cover", [700, 700, 1500, 1600])
+            ("blue cover", [100, 400, 100, 300], 1, 1),
+            ("blue cover", [700, 1100, 100, 300], 1, 1),
+            ("fuse", [100, 400, 800, 1000], 1, 1),
+            ("bottom cover", [700, 1100, 800, 1000], 1, 1),
+            ("white cover", [100, 400, 1500, 1600], 1, 1),
+            ("white cover", [700, 700, 1500, 1600], 1, 1)
         ]
 
     def test_above(self):
@@ -294,7 +337,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_pick_up
-        self.assertEqual(self.objects[1], self.spatial.locate_specific_object(object_entity, self.objects))
+        self.assertEqual(self.objects[1][1], self.spatial.locate_specific_object(object_entity, self.objects)[2])
 
     def test_right(self):
         entities = [
@@ -308,7 +351,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_pick_up
-        self.assertEqual(self.objects[1], self.spatial.locate_specific_object(object_entity, self.objects))
+        self.assertEqual(self.objects[1][1], self.spatial.locate_specific_object(object_entity, self.objects)[2])
 
     def test_left(self):
         entities = [
@@ -322,7 +365,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_pick_up
-        self.assertEqual(self.objects[4], self.spatial.locate_specific_object(object_entity, self.objects))
+        self.assertEqual(self.objects[4][1], self.spatial.locate_specific_object(object_entity, self.objects)[2])
 
     def test_below(self):
         entities = [
@@ -336,7 +379,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_pick_up
-        self.assertEqual(self.objects[4], self.spatial.locate_specific_object(object_entity, self.objects))
+        self.assertEqual(self.objects[4][1], self.spatial.locate_specific_object(object_entity, self.objects)[2])
 
     def test_diagonalRightUp(self):
         entities = [
@@ -350,7 +393,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_pick_up
-        self.assertEqual(self.objects[1], self.spatial.locate_specific_object(object_entity, self.objects))
+        self.assertEqual(self.objects[1][1], self.spatial.locate_specific_object(object_entity, self.objects)[2])
 
     def test_serial(self):
         entities = [
@@ -369,7 +412,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_pick_up
-        self.assertEqual(self.objects[1], self.spatial.locate_specific_object(object_entity, self.objects))
+        self.assertEqual(self.objects[1][1], self.spatial.locate_specific_object(object_entity, self.objects)[2])
 
     def test_twoOfReference(self):
         entities = [
@@ -384,11 +427,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_pick_up
-        try:
-            self.spatial.locate_specific_object(object_entity, self.objects)
-        except:
-            raised = True
-        self.assertTrue(raised)
+        self.assertEqual(-1, self.spatial.locate_specific_object(object_entity, self.objects))
 
 
 ################################# ISOLATED UNIT TESTS ----- END ##########################################################
@@ -399,16 +438,23 @@ class FindObjectIntegrationTest(unittest.TestCase):
     def setUp(self):
         self.grounding = Grounding()
         self.vision_mock = Mock()  # TODO remove this once we have a vision module
+        self.returned = GroundingReturn()
 
     def test_failFindObject(self):
-        self.vision_mock.get_bounding_with_features = Mock(return_value=[(np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1, 1]))])
+        features = []
+        feature = np.array([1, 1, 1, 1, 1])
+        bbox = np.array([1, 2, 3, 4])
+        mask = np.array([4, 3, 2 ,1])
+        cropped_rbg = np.array([5, 5, 5, 5])
+        features.append((feature, bbox, mask, cropped_rbg))
+        self.vision_mock.get_bounding_with_features = Mock(return_value=features)
         object_name = "blue cover"
         object_spatial_desc = None
         object_entity = ObjectEntity()
         object_entity.name = object_name
         object_entity.spatial_descriptions = object_spatial_desc
-        found = self.grounding.find_object(object_entity)
-        self.assertFalse(found)
+        self.returned = self.grounding.find_object(object_entity)
+        self.assertEqual(self.returned.error_code, ErrorType.CANT_FIND)
 
     def test_bestMatch(self):
         indexes = [1, 2, 3, 4, 5]
@@ -422,65 +468,96 @@ class FindObjectIntegrationTest(unittest.TestCase):
         self.assertTrue(self.grounding.is_same_object(features_1, features_2))
 
     def test_unknownObject(self):
-        self.vision_mock.get_bounding_with_features = Mock(return_value=[(np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1, 1]))])
+        features = []
+        feature = np.array([1, 1, 1, 1, 1])
+        bbox = np.array([1, 2, 3, 4])
+        mask = np.array([4, 3, 2 ,1])
+        cropped_rbg = np.array([5, 5, 5, 5])
+        features.append((feature, bbox, mask, cropped_rbg))
+        self.vision_mock.get_bounding_with_features = Mock(return_value=features)
         object_name = "albert is cool"
         object_spatial_desc = None
         object_entity = ObjectEntity()
         object_entity.name = object_name
-        object_entity.spatial_descriptions = object_spatial_desc
-        self.assertFalse(self.grounding.find_object(object_entity))  # Should return false if the object is unknown
+        self.returned = self.grounding.find_object(object_entity)
+        self.assertEqual(self.returned.error_code, ErrorType.UNKNOWN)
 
 
 class LearnObjectIntegrationTest(unittest.TestCase):
     def setUp(self):
         self.grounding = Grounding()
         self.vision_mock = Mock()
+        self.returned = GroundingReturn()
 
     def test_learnKnownObject(self):
-        self.vision_mock.get_bounding_with_features = Mock(return_value=[(np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1, 1]))])
+        features = []
+        feature = np.array([1, 1, 1, 1, 1])
+        bbox = np.array([1, 2, 3, 4])
+        mask = np.array([4, 3, 2 ,1])
+        cropped_rbg = np.array([5, 5, 5, 5])
+        features.append((feature, bbox, mask, cropped_rbg))
+        self.vision_mock.get_bounding_with_features = Mock(return_value=features)
         object_name = "black cover"
         object_spatial_desc = None
         object_entity = ObjectEntity()
         object_entity.name = object_name
         object_entity.spatial_descriptions = object_spatial_desc
-        learn_new_object_return = self.grounding.learn_new_object(object_entity)
-        self.assertEqual(learn_new_object_return, "known")
+        self.returned = self.grounding.learn_new_object(object_entity)
+        self.assertEqual(self.returned.error_code, ErrorType.ALREADY_KNOWN)
 
     def test_newObject(self):
-        self.vision_mock.get_bounding_with_features = Mock(return_value=[(np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1, 1]))])
+        features = []
+        feature = np.array([1, 1, 1, 1, 1])
+        bbox = np.array([1, 2, 3, 4])
+        mask = np.array([4, 3, 2 ,1])
+        cropped_rbg = np.array([5, 5, 5, 5])
+        features.append((feature, bbox, mask, cropped_rbg))
+        self.vision_mock.get_bounding_with_features = Mock(return_value=features)
         entity_name = "green cover"  # Make sure this is a new object.
         spatial_desc = None
         object_entity = ObjectEntity()
         object_entity.name = entity_name
         object_entity.spatial_descriptions = spatial_desc
-        self.grounding.learn_new_object(object_entity)
-        (name, bbox) = self.grounding.find_object(object_entity)
-        self.assertEqual(entity_name, name)
+        self.returned = self.grounding.learn_new_object(object_entity)
+        self.assertTrue(self.returned.is_success)
 
 
 class UpdateFeaturesIntegrationTest(unittest.TestCase):
     def setUp(self):
         self.grounding = Grounding()
         self.vision_mock = Mock()
+        self.returned = GroundingReturn()
 
     def test_updateCorrectObject(self):
-        self.vision_mock.get_bounding_with_features = Mock(return_value=[(np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1, 1]))])
-        object_name = "green cover"
+        features = []
+        feature = np.array([1, 1, 1, 1, 1])
+        bbox = np.array([1, 2, 3, 4])
+        mask = np.array([4, 3, 2 ,1])
+        cropped_rbg = np.array([5, 5, 5, 5])
+        features.append((feature, bbox, mask, cropped_rbg))
+        self.vision_mock.get_bounding_with_features = Mock(return_value=features)
+        object_name = "black cover"
         object_spatial_desc = None
         object_entity = ObjectEntity()
         object_entity.name = object_name
         object_entity.spatial_descriptions = object_spatial_desc
-        updated_features = self.grounding.update_features(object_entity)
-        self.assertIsNotNone(updated_features)
-        self.assertNotEqual("unknown", updated_features)
+        self.returned = self.grounding.update_features(object_entity)
+        self.assertTrue(self.returned.is_success)
 
     def test_updateUnknownObject(self):
-        self.vision_mock.get_bounding_with_features = Mock(return_value=[(np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1, 1]))])
+        features = []
+        feature = np.array([1, 1, 1, 1, 1])
+        bbox = np.array([1, 2, 3, 4])
+        mask = np.array([4, 3, 2 ,1])
+        cropped_rbg = np.array([5, 5, 5, 5])
+        features.append((feature, bbox, mask, cropped_rbg))
+        self.vision_mock.get_bounding_with_features = Mock(return_value=features)
         object_name = "albert is cool"
         object_spatial_desc = None
         object_entity = ObjectEntity()
         object_entity.name = object_name
         object_entity.spatial_descriptions = object_spatial_desc
-        self.assertEqual(self.grounding.update_features(object_entity), "unknown")
+        self.returned = self.grounding.update_features(object_entity)
+        self.assertEqual(self.returned.error_code, ErrorType.UNKNOWN)
 
 ################################# INTEGRATION TESTS ----- END ##########################################################
