@@ -1,6 +1,15 @@
 import cv2
 import numpy as np
 
+class ObjectInfo:
+    def __init__(self):
+        self.mask_full = None
+        self.mask_cropped = None
+        self.object_img_cutout_full = None
+        self.object_img_cutout_cropped = None
+        self.bbox_xxyy = None
+        self.bbox_xywh = None
+
 class FindObjects:
 
     def __init__(self, background_img=None, crop_widths=None):
@@ -52,27 +61,35 @@ class FindObjects:
         contours_img = cv2.drawContours(contours_img, contours, -1, (0,255,0), 1)
         if debug: cv2.imshow("cont", contours_img)
 
-        list_of_masked_images = []
+        list_of_objects = []
         for i, contour in enumerate(contours):
             area = cv2.contourArea(contour)
             if area < self.size_threshold:
                 continue
             empty_img = np.zeros(diff.shape, dtype=np.uint8)
-            mask = cv2.drawContours(empty_img, contours, i, (255, 255, 255), -1)
-            mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+            mask_full = cv2.drawContours(empty_img, contours, i, (255, 255, 255), -1)
+            mask_full = cv2.cvtColor(mask_full, cv2.COLOR_BGR2GRAY)
             #cv2.imshow("mask", mask)
-            masked_img = cv2.bitwise_and(original_img, original_img, mask=mask)
+            object_cutout_full = cv2.bitwise_and(original_img, original_img, mask=mask_full)
             x, y, w, h = cv2.boundingRect(contour)
-            cropped_img = masked_img[y:y+h, x:x+w].copy()
-            if debug: cv2.imshow("masked"+str(i), masked_img)
-            list_of_masked_images.append([masked_img, cropped_img])
-        return list_of_masked_images
+            mask_cropped = mask_full[y:y+h, x:x+w].copy()
+            object_cutout_cropped = object_cutout_full[y:y+h, x:x+w].copy()
+            if debug: cv2.imshow("object cutout cropped"+str(i), object_cutout_cropped)
+            object_info = ObjectInfo()
+            object_info.mask_full = mask_full
+            object_info.mask_cropped = mask_cropped
+            object_info.object_img_cutout_full = object_cutout_full
+            object_info.object_img_cutout_cropped = object_cutout_cropped
+            object_info.bbox_xywh = [x, y, w, h]
+            object_info.bbox_xxyy = [x, x+w, y, y+h]
+            list_of_objects.append(object_info)
+        return list_of_objects
 
 if __name__ == "__main__":
     background_img = cv2.imread("a.png")
     img = cv2.imread("b.png")
     object_finder = FindObjects(background_img, crop_widths=[50, 50, 200, 600])
-    object_finder.scale = 0.4
+    #object_finder.scale = 0.4
     result = object_finder.find_objects(img, debug=True)
     #result2 = object_finder.find_objects(img, debug=True)
     cv2.waitKey()

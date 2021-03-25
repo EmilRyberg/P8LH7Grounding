@@ -1,0 +1,3 @@
+[submodule "bin_picking"]
+	path = bin_picking
+	url = https://github.com/EmilRyberg/bin_picking.git

@@ -16,13 +16,13 @@ class FindObjectsTestCase(unittest.TestCase):
         result = self.object_finder.find_objects(self.img)
         self.assertIsInstance(result, list)
         self.assertEqual(len(result), 4)
-        self.assertIsInstance(result[0][0], np.ndarray)
-        self.assertEqual(result[0][0].shape[0], 1080)
+        self.assertIsInstance(result[0].mask_full, np.ndarray)
+        self.assertEqual(result[0].mask_full.shape[0], 1080)
         result = self.object_finder.find_objects(self.img)
         self.assertIsInstance(result, list)
         self.assertEqual(len(result), 4)
-        self.assertIsInstance(result[0][1], np.ndarray)
-        self.assertLess(result[0][1].shape[0], 500)
+        self.assertIsInstance(result[0].object_img_cutout_cropped, np.ndarray)
+        self.assertLess(result[0].object_img_cutout_cropped.shape[0], 500)
 
     def test_find_objects__edge_cases(self):
         self.object_finder.background_img = self.img
