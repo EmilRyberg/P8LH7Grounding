@@ -33,7 +33,7 @@ def train_triplet(dataset_dir, weights_dir=None, run_name="run1", epochs=10, on_
 
     for param in model.backbone.parameters():
         param.requires_grad = False
-    criterion = nn.TripletMarginLoss(margin=0.4)
+    criterion = nn.TripletMarginLoss(margin=0.6)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.25, weight_decay=0.001, momentum=0.9)
 
     if on_gpu:
@@ -74,7 +74,7 @@ def train_triplet(dataset_dir, weights_dir=None, run_name="run1", epochs=10, on_
             new_negative_embeddings = model(new_negatives)
             new_negative_embeddings = F.normalize(new_negative_embeddings, p=2)
 
-            if i == len(dataloader) - 1:
+            if i == len(dataloader) - 2 or (epoch == 0 and i == 0):
                 stacked_images = torch.cat((anchor.detach().cpu(), positive.detach().cpu(), new_negatives.detach().cpu()), dim=0)
                 unnormalized_images = None
                 for batch_i, batch_img in enumerate(stacked_images):
@@ -84,7 +84,10 @@ def train_triplet(dataset_dir, weights_dir=None, run_name="run1", epochs=10, on_
                     else:
                         unnormalized_images = torch.cat((unnormalized_images, unnormalized_image.unsqueeze(0)), dim=0)
                 stacked_embeddings = torch.cat((anchor_embeddings.detach().cpu(), positive_embeddings.detach().cpu(), new_negative_embeddings.detach().cpu()), dim=0)
-                writer.add_embedding(stacked_embeddings, label_img=unnormalized_images, global_step=epoch) #, global_step=mini_batches
+                meta = []
+                for ii, emb in enumerate(stacked_embeddings):
+                    meta.append([ii, str(emb.data.numpy())])
+                writer.add_embedding(stacked_embeddings, label_img=unnormalized_images, metadata=meta, metadata_header=["index", "embedding"], global_step=(0 if epoch == 0 and i == 0 else epoch+1)) #, global_step=mini_batches
 
             # compute the triplet loss
             loss = criterion(anchor_embeddings, positive_embeddings, new_negative_embeddings)
@@ -149,4 +152,4 @@ def get_all_other_images_and_embeddings(class_ids_np, current_class_id):
 
 
 if __name__ == '__main__':
-    train_triplet(dataset_dir="dataset_output/", run_name="run3", checkpoint_dir="checkpoints_triplet2", weights_dir="checkpoints3/epoch-75-loss-0.16110-95.22.pth", num_features=3, batch_size=200)
+    train_triplet(dataset_dir="dataset_output/", run_name="run6", checkpoint_dir="checkpoints_triplet6_3emb", weights_dir="checkpoints4_3emb/epoch-100-loss-0.08342-97.45.pth", num_features=3, batch_size=200)
