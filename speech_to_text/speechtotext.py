@@ -25,7 +25,7 @@ class Speech_to_text:
         return word
 
 if __name__ == "__main__":
-    speech_recog = Speech_recog()
+    speech_recog = Speech_to_text()
     while True:
         audio = speech_recog.Listener()
         word = speech_recog.Recognizer(audio)
