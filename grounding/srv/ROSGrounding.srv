@@ -1,4 +1,4 @@
 little_helper_interfaces/OuterObjectEntity entity
 string command
 ---
-little_helper_interfaces/GroundingReturn grounding_return
+little_helper_interfaces/ROSGroundingReturn grounding_return

@@ -57,7 +57,7 @@ catkin_python_setup()
 ## Generate services in the 'srv' folder
 add_service_files(
   FILES
-  Grounding.srv
+  ROSGrounding.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -71,6 +71,7 @@ add_service_files(
 generate_messages(
   DEPENDENCIES
   little_helper_interfaces
+  std_msgs
 )
 
 ################################################

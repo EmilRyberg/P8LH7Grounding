@@ -2,8 +2,8 @@ from scripts.database_handler import DatabaseHandler
 from scripts.spatial import Spatial_Relations
 import numpy as np
 from typing import Optional
-from ner.ner.command_builder import SpatialDescription, ObjectEntity, SpatialType
-from vision.vision_controller import VisionController
+from ner.command_builder import SpatialDescription, ObjectEntity, SpatialType
+from scripts.vision_controller import VisionController
 from enum import Enum
 
 

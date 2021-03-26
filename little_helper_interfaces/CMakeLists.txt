@@ -52,6 +52,8 @@ add_message_files(
   OuterObjectEntity.msg
   OuterTask.msg
   Task.msg
+  ROSGroundingReturn.msg
+  ObjectInfo.msg
 )
 
 ## Generate services in the 'srv' folder
