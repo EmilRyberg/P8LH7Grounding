@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys
 import rospy
@@ -46,6 +46,7 @@ class DialogFlow:
         rospy.wait_for_service('ner')
         try:
             ner_service = rospy.ServiceProxy('ner', NER)
+            rospy.wait_for_service(ner_service)
             task = ner_service(sentence)
         except rospy.ServiceException as e:
                 print(f"Service call failed: {e}")
