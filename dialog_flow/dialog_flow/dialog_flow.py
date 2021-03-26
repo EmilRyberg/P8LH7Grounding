@@ -2,11 +2,15 @@
 
 import sys
 import rospy
+from utility.find_objets.find_objects import ObjectInfo
 from command_builder import SpatialType
 from ner.srv import NER
 from little_helper_interfaces.msg import Task, ObjectEntity, OuterObjectEntity, SpatialDescription, OuterTask
 from vision.vision.ros_camera_interface import ROSCamera
 from speech_to_text.speechtotext import Speech_to_text
+from cv_bridge import CvBridge
+import numpy as np 
+import cv_bridge
 #from robot_controller.robot_controller import RobotController #TODO actually make this controller
 from grounding import Grounding
 """
@@ -17,10 +21,13 @@ class DialogFlow:
         self.stt = Speech_to_text()
         self.first_convo_flag = True
         self.grounding = Grounding()
-        self.object_info = None
         self.sentence = ""
+        self.object_info = ObjectInfo()
         self.robot = RobotController()
         self.camera = ROSCamera()
+
+        self.np_depth
+        self.np_rgb
 
         #ROS Publishers
         self.tts_pub = rospy.Publisher('chatter', String, queue_size=10)
@@ -43,21 +50,21 @@ class DialogFlow:
         except rospy.ServiceException as e:
                 print(f"Service call failed: {e}")
 
-        self.tts_pub.publish("Ok, just to be sure. You want me to: {} the {} which is located {}}".format(task.type, task.object1.name, task.object1.spatial_descirption[0].spatial_type))
+        self.tts_pub.publish(f"Ok, just to be sure. You want me to: {task.type} the {task.object1.name} which is located {task.object1.spatial_descirption[0].spatial_type}"
         #TODO make it an audible user input
         userinput = input()
         if userinput == "no" or "NO" or "n" or "No":
             self.tts_pub.publish("Okay, I will restart my program")
             return
 
-        self.tts_pub.publish("Okay, I will now look for the {}".format(task.object1.name))
+        self.tts_pub.publish(f"Okay, I will now look for the {task.object1.name}")
 
-        #To make sure robot is out of view, might be unecesarry if the robot controller does this
+        #To make sure robot is out of view, might be unecesarry
         while self.robot.is_home()
             self.robot.move_home()
 
-        np_rgb_image = self.camera.get_image()
-        np_depth_image = self.camera.get_depth()
+        np_rgb = self.camera.get_image()
+        np_depth = self.camera.get_depth()
 
         #TODO decide if we want the grounding node to be a service or just to use at as class normally
         try:
@@ -98,11 +105,11 @@ class DialogFlow:
         self.grounding.learn_new_object(name, image) #placeholder
 
     def pick_control(self, object_info, rgb, depth):
-        self.tts_pub.publish("Okay, I will try to pick up the {}".format(object_info.name)) #might need to rework if we take the name out of objectinfo
-        self.robot.pick(object_info, rgb, depth) #placeholder
+        self.tts_pub.publish(f"Okay, I will try to pick up the {object_info.name}") #might need to rework if we take the name out of objectinfo
+        self.robot.pick_up(object_info, rgb, depth) #placeholder
 
     def find_control(self, object_info, rgb):
-        self.tts_pub.publish("Okay, I will try to find the {}".format(object_info.name))
+        self.tts_pub.publish(f"Okay, I will try to find the {object_info.name}")
         self.robot.find(object_info, rgb) #placeholder
 
 if __name__ == '__main__':
