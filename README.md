@@ -61,3 +61,31 @@ Type: std_msgs/Bool
 Value: 1 = close gripper/start suction
 	   0 = open gripper/stop suction
 
+## Speech to text
+To get speech to text working, several libraries need to be installed - some compiled from source.
+
+For Azure Cognitive Services (what we are using now):
+1. `pip install azure-cognitiveservices-speech`
+
+Below is for using SpeechRecognition python library:
+
+To setup using Sphinx:
+1. Download PCRE from here: https://ftp.pcre.org/pub/pcre/ - select version pcre-8.44 (**make sure you dont take pcre2-xxx!!!**)
+   1. Run `./configure --prefix=/usr` in the pcre folder
+   2. Run `make` then `sudo make install`
+2. Download SWIG from here: http://www.swig.org/download.html
+   1. Run `./configure`, then `make` and finally `(sudo) make install`
+   2. Test that it works by running `swig` in a new terminal. If installed correctly it should say "*Must specify an input file. Use -help for available options.*". If it complains about libpcre.so.1, you did something wrong in the previous step.
+3. Run `sudo apt install libpulse-dev portaudio19-dev` - these dependencies are need for PyAudio and PocketSphinx.
+4. Run `pip install PyAudio`
+5. Run `pip install --upgrade pocketsphinx`
+6. Run `pip install SpeechRecognition`
+
+To setup for Google Speech API:
+1. Run `sudo apt install libpulse-dev portaudio19-dev` - these dependencies are need for PyAudio and PocketSphinx.
+2. Run `pip install PyAudio`
+3. Run `pip install SpeechRecognition`
+4. Run `pip install oauth2client`
+5. Run `pip install google-api-python-client`
+
+Note: You will probably get a lot of warnings when running the code, in the form of *ALSA lib pcm.c:2495:(snd_pcm_open_noupdate) Unknown PCM cards.pcm.rear*. This is a common issue, but are just warnings, and can be disabled by uncommenting lines in some config files.
