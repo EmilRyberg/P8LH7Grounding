@@ -28,6 +28,7 @@ class Grounding():
         self.spatial = spatial
         self.vision = vision_controller
         self.return_object = GroundingReturn()
+        self.object_info = None
 
     def find_object(self, object_entity):
         if not USING_FEATURES:
@@ -46,7 +47,7 @@ class Grounding():
         else:
             known_object = True
         features = []
-        features = self.vision.get_bounding_with_features()
+        features = self.vision.get_masks_with_features()  # list of
         for i, (feature, bbox, _, _) in enumerate(features):
             distance = self.embedding_distance(db_features, feature)
             is_below_threshold = self.is_same_object(db_features, feature, threshold=0.8) # TODO update threshold
@@ -109,7 +110,7 @@ class Grounding():
         db_features = self.db.get_feature(entity_name)
         features = []
         if db_features is None:
-            features = self.vision.get_bounding_with_features()
+            features=self.vision.get_masks_with_features()
             if not features:
                 raise Exception("Failed to get features")
             else:
@@ -129,7 +130,7 @@ class Grounding():
             self.return_object.error_code = ErrorType.UNKNOWN
             return self.return_object
         else:
-            features = self.vision.get_bounding_with_features()
+            features=self.vision.get_masks_with_features()
             # new_features = db_features * 0.9 + features * 0.10  # TODO discuss this
             new_features = features   # TODO remove
             self.db.update(entity, new_features)

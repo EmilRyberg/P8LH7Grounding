@@ -2,7 +2,7 @@
 import rospy
 from std_msgs.msg import String
 from little_helper_interfaces.msg import ObjectEntity, ObjectInfo, OuterObjectEntity, ROSGroundingReturn
-from grounding.srv import Grounding
+from grounding.srv import Grounding, GroundingRespone, GroundingRequest
 from grounding.grounding import Grounding, GroundingReturn, ErrorType
 
 
@@ -19,7 +19,7 @@ class GroundingService():
         self.grounding = Grounding()
         self.returned = GroundingReturn()
 
-    def handle_grounding_request(self, request: Grounding):
+    def handle_grounding_request(self, request: GroundingRequest):
         if request.command == "find":
             self.returned = self.grounding.find_object(request.entity)
             ros_return = create_ros_return(self.returned)
@@ -31,13 +31,13 @@ class GroundingService():
         elif request.command == "learn":
             self.returned = self.grounding.learn_new_object(request.entity)
             ros_return = create_ros_return(self.returned)
-            return Grounding(grounding_return=ros_return)
+            return GroundingResponse(grounding_return=ros_return)
         else:
             raise Exception("unknown command passed to grounding service, commands can be find, update, learn")
 
     def grounding_server(self):
         rospy.init_node("grounding_server")
-        s = rospy.Service("grounding", grounding, self.handle_grounding_request)
+        s = rospy.Service("grounding", Grounding, self.handle_grounding_request)
         rospy.spin()
 
 

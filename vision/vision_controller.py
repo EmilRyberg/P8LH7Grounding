@@ -1,7 +1,7 @@
 import numpy as np
 
 class VisionController():
-    def get_bounding_with_features(self):  # dummy function so i can mock it
+    def get_masks_with_features(self):  # dummy function so i can mock it
         features = []
         feature = np.array([1, 1, 1, 1, 1])
         bbox = np.array([1, 2, 3, 4])
@@ -12,4 +12,4 @@ class VisionController():
 
 if __name__ == "__main__":
     vision = VisionController()
-    print(vision.get_bounding_with_features())
+    print(vision.get_masks_with_features())
