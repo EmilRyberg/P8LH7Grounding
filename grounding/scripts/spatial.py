@@ -15,35 +15,34 @@ class Spatial_Relations():
 
             matching_objects = []
 
-            for x, (name, bbox, mask, cropped) in enumerate(objects):
+            for x, (id, name, bbox) in enumerate(objects):
                 if name == object_name:
-                    matching_objects.append((name, bbox, mask, cropped))
+                    matching_objects.append((id, name, bbox))
             if last_location is None and len(matching_objects)>1:
                 return -1
             if len(matching_objects) > 1:
                 correct_bbox = self.find_best_match(matching_objects, last_location, last_bbox)
-                (_, last_bbox, last_mask, last_cropped) = matching_objects[correct_bbox]
+                (last_id, _, last_bbox) = matching_objects[correct_bbox]
                 last_location = location
             else:
-                (name, bbox, mask, cropped) = matching_objects[0]
+                (id, name, bbox) = matching_objects[0]
                 last_location = location
                 last_bbox = bbox
-                last_mask = mask
-                last_cropped = cropped
-            objects.remove((object_name, last_bbox, last_mask, last_cropped))
+                last_id = id
+            objects.remove((last_id, object_name, last_bbox))
         matching_objects = []
-        for x, (name, bbox, mask, cropped) in enumerate(objects):
+        for x, (id, name, bbox) in enumerate(objects):
             if name == entity_name:
-                matching_objects.append((name, bbox, mask, cropped))
+                matching_objects.append((id, name, bbox))
         if len(matching_objects) > 1:
             correct_bbox = self.find_best_match(matching_objects, last_location, last_bbox)
-            (_, bbox, mask, cropped) = matching_objects[correct_bbox]
-            object_info = (mask, cropped, bbox)
-            return object_info
+            (id, name, bbox) = matching_objects[correct_bbox]
+            correct_index = id
+            return correct_index
         elif matching_objects:
-            (_, bbox, mask, cropped) = matching_objects[0]
-            object_info = (mask, cropped, bbox)
-            return object_info
+            (id, name, bbox) = matching_objects[0]
+            correct_index = id
+            return correct_index
         else:
             return -2
 
@@ -52,7 +51,7 @@ class Spatial_Relations():
         best_bbox = None
         min_angle_error = None
         min_dist_error = None
-        for i, (name, bbox, mask, cropped) in enumerate(objects):
+        for i, (id, name, bbox) in enumerate(objects):
             (current_x, current_y, current_size) = self.get_center_and_size(bbox)
             distance = math.dist([current_x, current_y], [last_x, last_y])
             angle = self.get_angle([last_x + 10, last_y], [last_x, last_y], [current_x, current_y])

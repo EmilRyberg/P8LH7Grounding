@@ -7,8 +7,6 @@ from scripts.vision_controller import VisionController
 from enum import Enum
 
 
-USING_FEATURES = True
-
 class ErrorType(Enum):
     UNKNOWN = "unknown object"
     CANT_FIND = "cant find object"
@@ -31,14 +29,13 @@ class Grounding():
         self.object_info = None
 
     def find_object(self, object_entity):
-        if not USING_FEATURES:
-            return self.find_object_without_features(object_entity)
         name = object_entity.name
         spatial_desc = object_entity.spatial_descriptions
         found_object = False
         known_object = False
         features_below_threshold = []
         distances = []
+
         db_features = self.db.get_feature(name)
         if db_features is None:
             self.return_object.is_success = False
@@ -46,9 +43,9 @@ class Grounding():
             return self.return_object
         else:
             known_object = True
-        features = []
         features = self.vision.get_masks_with_features()  # list of
-        for i, (feature, bbox, _, _) in enumerate(features):
+        for i in features:
+            feature = i.features
             distance = self.embedding_distance(db_features, feature)
             is_below_threshold = self.is_same_object(db_features, feature, threshold=0.8) # TODO update threshold
             if is_below_threshold:
@@ -79,8 +76,7 @@ class Grounding():
         # This part of the code will be executed if there is only 1 of the requested objects in the scene or
         # if the user does not care about what part is picked up.
         best_match = self.find_best_match(features_below_threshold, distances)
-        (feature, bbox, mask, cropped_rbg) = features[best_match]
-        self.return_object.object_info = (mask, cropped_rbg, bbox)
+        self.return_object.object_info = features[best_match]
         self.return_object.is_success = True
         return self.return_object
 
@@ -91,15 +87,18 @@ class Grounding():
         distances = []
 
         for i, (name, db_features) in enumerate(db_objects):
-            for id, (feature, bbox, mask, cropped) in enumerate(features):
+            for id in features:
+                feature = id.features
+                bbox = id.bbox_xxyy
                 distance = self.embedding_distance(db_features, feature)
                 is_below_threshold = self.is_same_object(db_features, feature, threshold=0.8) # TODO update threshold
                 if is_below_threshold:
                     distances.append(distance)
                     features_below_threshold.append(id)
-                    objects.append((name, bbox, mask, cropped))
+                    objects.append((id, name, bbox))
 
-        object_info = self.spatial.locate_specific_object(object_entity, objects)
+        target_index = self.spatial.locate_specific_object(object_entity, objects)
+        object_info = features[target_index]
         if object_info == -1:
             return object_info
         elif object_info:
@@ -107,14 +106,14 @@ class Grounding():
 
     def learn_new_object(self, object_entity):
         entity_name = object_entity.name
+
         db_features = self.db.get_feature(entity_name)
-        features = []
         if db_features is None:
             features=self.vision.get_masks_with_features()
             if not features:
                 raise Exception("Failed to get features")
             else:
-                self.db.insert_feature(entity_name, features[0][1])
+                self.db.insert_feature(entity_name, features[0].features)
                 self.return_object.is_success = True
                 return self.return_object
         else:
@@ -132,7 +131,7 @@ class Grounding():
         else:
             features=self.vision.get_masks_with_features()
             # new_features = db_features * 0.9 + features * 0.10  # TODO discuss this
-            new_features = features   # TODO remove
+            new_features = features[0].features   # TODO remove
             self.db.update(entity, new_features)
             self.return_object.is_success = True
             return self.return_object
