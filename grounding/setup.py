@@ -7,7 +7,7 @@ setup(
     version='0.0.0',
     packages=["grounding"],
     install_requires=['setuptools',
-                        'numpy,'
+                        'numpy',
                         'sqlite3'],
     zip_safe=True,
     maintainer='',
