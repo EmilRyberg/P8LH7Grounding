@@ -1,5 +1,5 @@
 from grounding.grounding import Grounding, GroundingReturn, ErrorType
-from scripts.spatial import Spatial_Relations
+from grounding.spatial import SpatialRelation
 import numpy as np
 import unittest
 from unittest.mock import MagicMock, Mock
@@ -210,7 +210,7 @@ class UpdateFeaturesIsolatedTest(unittest.TestCase):
 class SpatialModuleOneOfEach(unittest.TestCase):
     def setUp(self):
         self.ner_mock = Mock()
-        self.spatial = Spatial_Relations()
+        self.spatial = SpatialRelation()
         self.cmd_builder = CommandBuilder("", "", self.ner_mock)
 
         self.objects = [  # bbox = [x1, x2, y1, y2] and images spans from 0,0 to 1500,2000
@@ -329,7 +329,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
 class SpatialModuleTwoOfEach(unittest.TestCase):
     def setUp(self):
         self.ner_mock = Mock()
-        self.spatial = Spatial_Relations()
+        self.spatial = SpatialRelation()
         self.cmd_builder = CommandBuilder("", "", self.ner_mock)
 
         self.objects = [  # bbox = [x1, x2, y1, y2] and images spans from 0,0 to 1500,2000
@@ -338,7 +338,8 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
             (2, "fuse", [100, 400, 800, 1000]),
             (3, "bottom cover", [700, 1100, 800, 1000]),
             (4, "white cover", [100, 400, 1500, 1600]),
-            (5, "white cover", [700, 700, 1500, 1600])
+            (5, "white cover", [700, 700, 1500, 1600]),
+            (6, "blue cover", [0, 100, 1550, 1600])
         ]
 
     def test_above(self):
@@ -438,12 +439,33 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
             (EntityType.LOCATION, "above"),
             (EntityType.COLOUR, "white"),
             (EntityType.OBJECT, "cover")]
-        raised = False
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_pick_up
         self.assertEqual(-1, self.spatial.locate_specific_object(object_entity, self.objects))
+
+    def test_locate_specific_object__two_valid_results__returns_list_with_correct_length(self):
+        entities = [
+            (EntityType.TAKE, "pick up"),
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "above"),
+            (EntityType.COLOUR, "white"),
+            (EntityType.OBJECT, "cover")]
+
+        objects = [  # bbox = [x1, x2, y1, y2] and images spans from 0,0 to 1500,2000
+            (0, "white cover", [600, 800, 600, 700]),
+            (1, "blue cover", [400, 600, 500, 550]),
+            (2, "blue cover", [600, 800, 500, 550]),
+            (3, "bottom cover", [700, 1100, 800, 1000]),
+            (4, "blue cover", [0, 100, 1550, 1600])
+        ]
+
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
+        object_entity = task.object_to_pick_up
+        self.assertEqual(2, len(self.spatial.locate_specific_object(object_entity, objects)))
 
 
 ################################# ISOLATED UNIT TESTS ----- END ##########################################################
