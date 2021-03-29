@@ -61,8 +61,8 @@ class DialogFlow:
         self.tts_pub.publish(f"Okay, I will now look for the {task.object1.name}")
 
         #To make sure robot is out of view, might be unecesarry
-        while self.robot.is_home()
-            self.robot.move_home()
+        while self.robot.is_out_of_view() == False
+            self.robot.move_out_of_view()
 
         np_rgb = self.camera.get_image()
         np_depth = self.camera.get_depth()
