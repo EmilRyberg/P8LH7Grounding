@@ -15,38 +15,43 @@ class Spatial_Relations():
 
             matching_objects = []
 
-            for x, (name, bbox) in enumerate(objects):
+            for x, (id, name, bbox) in enumerate(objects):
                 if name == object_name:
-                    matching_objects.append((name, bbox))
+                    matching_objects.append((id, name, bbox))
             if last_location is None and len(matching_objects)>1:
-                raise Exception("Two instances of reference object found, please choose another reference object")
+                return -1
             if len(matching_objects) > 1:
                 correct_bbox = self.find_best_match(matching_objects, last_location, last_bbox)
+                (last_id, _, last_bbox) = matching_objects[correct_bbox]
                 last_location = location
-                last_bbox = correct_bbox
             else:
-                (name, bbox) = matching_objects[0]
+                (id, name, bbox) = matching_objects[0]
                 last_location = location
                 last_bbox = bbox
-            objects.remove((object_name, last_bbox))
+                last_id = id
+            objects.remove((last_id, object_name, last_bbox))
         matching_objects = []
-        for x, (name, bbox) in enumerate(objects):
+        for x, (id, name, bbox) in enumerate(objects):
             if name == entity_name:
-                matching_objects.append((name, bbox))
+                matching_objects.append((id, name, bbox))
         if len(matching_objects) > 1:
             correct_bbox = self.find_best_match(matching_objects, last_location, last_bbox)
-            return entity_name, correct_bbox
+            (id, name, bbox) = matching_objects[correct_bbox]
+            correct_index = id
+            return correct_index
+        elif matching_objects:
+            (id, name, bbox) = matching_objects[0]
+            correct_index = id
+            return correct_index
         else:
-            (name, correct_bbox) = matching_objects[0]
-            return entity_name, correct_bbox
-        print("Couldn't find object: ", entity_name)
+            return -2
 
     def find_best_match(self, objects, location, last_bbox):
         (last_x, last_y, last_size) = self.get_center_and_size(last_bbox)
         best_bbox = None
         min_angle_error = None
         min_dist_error = None
-        for i, (name, bbox) in enumerate(objects):
+        for i, (id, name, bbox) in enumerate(objects):
             (current_x, current_y, current_size) = self.get_center_and_size(bbox)
             distance = math.dist([current_x, current_y], [last_x, last_y])
             angle = self.get_angle([last_x + 10, last_y], [last_x, last_y], [current_x, current_y])
@@ -54,7 +59,7 @@ class Spatial_Relations():
                 dist_error = self.calculate_error(distance, 0)
                 if min_dist_error is None or dist_error < min_dist_error:
                     min_dist_error = dist_error
-                    best_bbox = bbox
+                    best_bbox = i
 
             elif location == "above":  # Assumes that top left corner of image is (0, 0)
                 dist_error = self.calculate_error(distance, 0)
@@ -63,7 +68,7 @@ class Spatial_Relations():
                     continue
                 elif min_angle_error is None or angle_error < min_angle_error:
                     if min_dist_error is None or dist_error < min_dist_error:
-                        best_bbox = bbox
+                        best_bbox = i
                         min_angle_error = angle_error
                         min_dist_error = dist_error
 
@@ -74,7 +79,7 @@ class Spatial_Relations():
                     continue
                 elif min_angle_error is None or angle_error < min_angle_error:
                     if min_dist_error is None or dist_error < min_dist_error:
-                        best_bbox = bbox
+                        best_bbox = i
                         min_angle_error = angle_error
                         min_dist_error = dist_error
 
@@ -84,7 +89,7 @@ class Spatial_Relations():
                 if angle_error < 90 or angle_error > 270:  # object is to the right
                     if min_angle_error is None or angle_error < min_angle_error:
                         if min_dist_error is None or dist_error < min_dist_error:
-                            best_bbox = bbox
+                            best_bbox = i
                             min_angle_error = angle_error
                             min_dist_error = dist_error
                 else:
@@ -97,7 +102,7 @@ class Spatial_Relations():
                     continue
                 elif min_angle_error is None or angle_error < min_angle_error:
                     if min_dist_error is None or dist_error < min_dist_error:
-                        best_bbox = bbox
+                        best_bbox = i
                         min_angle_error = angle_error
                         min_dist_error = dist_error
 
