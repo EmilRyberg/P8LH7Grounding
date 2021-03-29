@@ -51,7 +51,6 @@ if __name__ == '__main__':
     parser.add_argument("-m", "--model", dest="model_path", default="model.bin", help="The path to the weight file for the model")
     parser.add_argument("-t", "--tag_file", dest="tags_path", default="tags.txt",
                         help="The path to the tags file")
-    print(rospy.myargv())
     args = parser.parse_args(rospy.myargv()[1:])
     service = NERService(args.model_path, args.tags_path)
     service.ner_server()
