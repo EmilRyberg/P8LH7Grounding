@@ -3,8 +3,8 @@ from scripts.spatial import Spatial_Relations
 import numpy as np
 import unittest
 from unittest.mock import MagicMock, Mock
-from ner.ner.command_builder import CommandBuilder, ObjectEntity
-from ner.ner.ner import EntityType
+from ner.command_builder import CommandBuilder, ObjectEntity
+from ner.ner import EntityType
 from vision.vision_controller import VisionController, ObjectInfo
 
 
@@ -128,8 +128,8 @@ class FindObjectIsolatedTest(unittest.TestCase):
 class LearnObjectIsolatedTest(unittest.TestCase):
     def setUp(self):
         self.db_mock = Mock()
-        self.grounding = Grounding(db=self.db_mock)
         self.vision_mock = Mock()
+        self.grounding = Grounding(db=self.db_mock, vision_controller=self.vision_mock)
         self.returned = GroundingReturn()
 
     def test_newObject(self):
@@ -164,15 +164,22 @@ class LearnObjectIsolatedTest(unittest.TestCase):
 class UpdateFeaturesIsolatedTest(unittest.TestCase):
     def setUp(self):
         self.db_mock = Mock()
-        self.grounding = Grounding(db=self.db_mock)
         self.vision_mock = Mock()
+        self.grounding = Grounding(db=self.db_mock, vision_controller=self.vision_mock)
         self.returned = GroundingReturn()
 
     def test_updateCorrectObject(self):
+        object_info = ObjectInfo()
+        features = []
+        object_info.features = np.array([1, 1, 1, 1, 1])
+        object_info.bbox_xxyy = np.array([1, 2, 3, 4])
+        object_info.mask_full = np.array([4, 3, 2 ,1])
+        object_info.mask_cropped = np.array([5, 5, 5, 5])
+        features.append(object_info)
         self.db_mock.get_feature = Mock(return_value=1)
         self.db_mock.update = Mock(return_value=None)
 
-        self.vision_mock.get_masks_with_features = Mock(return_value=[(np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1, 1]))])
+        self.vision_mock.get_masks_with_features = Mock(return_value=features)
         object_name = "green cover"
         object_spatial_desc = None
         object_entity = ObjectEntity()
