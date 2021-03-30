@@ -2,104 +2,136 @@
 
 import sys
 import rospy
-from utility.find_objets.find_objects import ObjectInfo
-from command_builder import SpatialType
+from find_objects.find_objects import ObjectInfo
+from ner.command_builder import SpatialType
+from ner.command_builder import CommandBuilder, FindTask, PickUpTask
 from ner.srv import NER
-from little_helper_interfaces.msg import Task, ObjectEntity, OuterObjectEntity, SpatialDescription, OuterTask
-from vision.vision.ros_camera_interface import ROSCamera
-from speech_to_text.speechtotext import Speech_to_text
+from little_helper_interfaces.msg import Task, ObjectEntity, OuterObjectEntity, SpatialDescription, OuterTask, StringWithTimestamp
+from vision.ros_camera_interface import ROSCamera
+from speech_to_text.speech_to_text import SpeechToText
 from cv_bridge import CvBridge
 import numpy as np 
 import cv_bridge
-#from robot_controller.robot_controller import RobotController #TODO actually make this controller
-from grounding import Grounding
+from robot_control.robot_control import RobotController
+from grounding.grounding import Grounding
+from std_msgs.msg import String
+
+
 """
 Man i wish we followed the uml better
 """
 class DialogFlow:
-    def __init__(self):
-        self.stt = Speech_to_text()
+    def __init__(self, azure_api_key, model_path, tag_path):
+        self.stt = SpeechToText(azure_api_key)
         self.first_convo_flag = True
         self.grounding = Grounding()
         self.sentence = ""
         self.object_info = ObjectInfo()
         self.robot = RobotController()
         self.camera = ROSCamera()
+        self.command_builder = CommandBuilder(model_path, tag_path)
+        self.last_received_sentence = None
+        self.last_received_sentence_timestamp = None
 
-        self.np_depth
-        self.np_rgb
+        #self.np_depth
+        #self.np_rgb
 
         #ROS Publishers
         self.tts_pub = rospy.Publisher('chatter', String, queue_size=10)
         self.find_pub = rospy.Publisher('MainFind', ObjectEntity, queue_size=10)
-        self.learn_pub = rospy.Publisher('MainLearn', String, queue_size=10)
+        #self.learn_pub = rospy.Publisher('MainLearn', String, queue_size=10)
+        self.speech_to_text_subscriber = rospy.Subscriber("speech_to_text", StringWithTimestamp, callback=self.speech_to_text_callback, queue_size=1)
 
     def controller(self):
         #check to see if initialising conversation and gets sentence
         if self.first_convo_flag == True:
-            self.sentence = self.first_conversation()
+            self.first_conversation()
             self.first_convo_flag = False
         else:
-            self.sentence = self.continuing_conversation()
+            self.continuing_conversation()
 
         #subscribe to the ner service
-        rospy.wait_for_service('ner')
-        try:
-            ner_service = rospy.ServiceProxy('ner', NER)
-            rospy.wait_for_service(ner_service)
-            task = ner_service(sentence)
-        except rospy.ServiceException as e:
-                print(f"Service call failed: {e}")
+        # rospy.wait_for_service('ner')
+        # try:
+        #     ner_service = rospy.ServiceProxy('ner', NER)
+        #     rospy.wait_for_service(ner_service)
+        #     task = ner_service(sentence)
+        # except rospy.ServiceException as e:
+        #         print(f"Service call failed: {e}")
 
-        self.tts_pub.publish(f"Ok, just to be sure. You want me to: {task.type} the {task.object1.name} which is located {task.object1.spatial_descirption[0].spatial_type}"
+        rospy.logdebug(f"Got sentence: {self.last_received_sentence}")
+        task = self.command_builder.get_task(self.last_received_sentence)
+
+        #self.tts_pub.publish(f"Ok, just to be sure. You want me to: {task.type} the {task.object1.name} which is located {task.object1.spatial_descirption[0].spatial_type}")
+        rospy.loginfo(f"Ok, just to be sure. You want me to: {task.type} the {task.object1.name} which is located {task.object1.spatial_descirption[0].spatial_type}")
         #TODO make it an audible user input
         userinput = input()
-        if userinput == "no" or "NO" or "n" or "No":
-            self.tts_pub.publish("Okay, I will restart my program")
+        if userinput.lower() == "no" or userinput.lower() == "n":
+            #self.tts_pub.publish("Okay, I will restart my program")
+            rospy.loginfo("Okay, I will restart my program")
             return
 
-        self.tts_pub.publish(f"Okay, I will now look for the {task.object1.name}")
+        #self.tts_pub.publish(f"Okay, I will now look for the {task.object1.name}")
+        # TODO: Switch based on task type
+        rospy.loginfo(f"Okay, I will now look for the {task.object_to_pick_up}")
 
         #To make sure robot is out of view, might be unecesarry
-        while self.robot.is_out_of_view() == False
-            self.robot.move_out_of_view()
+        #while not self.robot.is_out_of_view():
+        self.robot.move_out_of_view()
 
         np_rgb = self.camera.get_image()
         np_depth = self.camera.get_depth()
 
         #TODO decide if we want the grounding node to be a service or just to use at as class normally
-        try:
-            grounding_service = rospy.ServiceProxy('grounding', Grounding)
-            self.object_info = grounding_service(task.object1, np_rgb_image)
-        except rospy.ServiceException as e:
-            print(f"Service call failed: {e}")
+        # try:
+        #     grounding_service = rospy.ServiceProxy('grounding', Grounding)
+        #     self.object_info = grounding_service(task.object1, np_rgb_image)
+        # except rospy.ServiceException as e:
+        #     print(f"Service call failed: {e}")
+        object_info = self.grounding.find_object(task.object_to_pick_up)
 
-        #TODO add known flag in the return from grounding
-        if object_info.known == 0:
-            self.tts_pub.publish("Sorry, I could not find the object you wanted.")
-            self.tts_pub.publish("I am able to learn objects")
-            return #TODO maybe just look for new sentence here, instead of looping back to the beginning
+        # #TODO add known flag in the return from grounding
+        # if object_info.known == 0:
+        #     self.tts_pub.publish("Sorry, I could not find the object you wanted.")
+        #     self.tts_pub.publish("I am able to learn objects")
+        #     return #TODO maybe just look for new sentence here, instead of looping back to the beginning
 
         #TODO update when robot_controller is made
-        elif object_info.known == 1:
-            if task.type == "pick":
-                pick_control(object_info, np_rgb_image, np_depth_image)
-            if task.type == "find":
-                find_control(object_info)
-            if task.type == "learn":
-                learn_control(task.object1.name, np_rgb_image)
+        #elif object_info.known == 1:
+        if isinstance(task, PickUpTask):
+            self.robot.pick_up(object_info, np_rgb, np_depth)
+        #if isinstance(task, FindTask):
+        #    find_control(object_info)
+        # if task.type == "learn":
+        #     learn_control(task.object1.name, np_rgb_image)
+
+        rospy.loginfo("Done!")
 
     def first_conversation(self):
         spoken_sentence = "Hello. What would you like me to do?"
-        captured_audio = self.stt.Listener()
-        recognized_text = self.stt.Recognizer(captured_audio)
-        return recognized_text
+        rospy.loginfo(spoken_sentence)
+        self.spin_until_new_sentence()
 
     def continuing_conversation(self):
         spoken_sentence = "Is there anything else you want me to do?"
-        captured_audio = self.stt.Listener()
-        recognized_text = self.stt.Recognizer(captured_audio)
-        return recognized_text        
+        rospy.loginfo(spoken_sentence)
+        self.spin_until_new_sentence()
+
+    def spin_until_new_sentence(self):
+        start_timestamp = rospy.get_rostime()
+        got_new_sentence = False
+        while not got_new_sentence:
+            if self.last_received_sentence_timestamp is not None:
+                time_difference = self.last_received_sentence_timestamp - start_timestamp
+                if time_difference >= 0.0:
+                    got_new_sentence = True
+                    break
+            rospy.sleep(rospy.Duration.from_sec(0.1))
+
+    def speech_to_text_callback(self, data):
+        rospy.logdebug(f"Got STT: {data}")
+        self.last_received_sentence_timestamp = data.timestamp
+        self.last_received_sentence = data.text
 
     def learn_control(self, name, image):
         self.tts_pub.publish("I will try and learn the new object")
@@ -112,6 +144,7 @@ class DialogFlow:
     def find_control(self, object_info, rgb):
         self.tts_pub.publish(f"Okay, I will try to find the {object_info.name}")
         self.robot.find(object_info, rgb) #placeholder
+
 
 if __name__ == '__main__':
     try:
