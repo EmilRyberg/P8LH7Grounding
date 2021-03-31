@@ -38,7 +38,6 @@ class VisionController:
         indexes = [i for (i, x) in cropped_images]
         all_features = self.feature_extractor.get_features(pil_cropped_images)
         features_with_index = [(i, features) for (i, features) in zip(indexes, all_features)]
-        print(f"Features: {features_with_index}")
         for i, features in features_with_index:
             object_with_features = ObjectInfoWithFeatures(objects[i], features)
             objects_with_features.append(object_with_features)

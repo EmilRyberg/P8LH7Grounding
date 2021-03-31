@@ -3,8 +3,8 @@ from grounding.spatial import SpatialRelation
 import numpy as np
 import unittest
 from unittest.mock import MagicMock, Mock
-from ner.command_builder import CommandBuilder, ObjectEntity
-from ner.ner import EntityType
+from ner_lib.command_builder import CommandBuilder, ObjectEntity
+from ner_lib.ner import EntityType
 from vision.vision_controller import VisionController, ObjectInfo
 
 

@@ -48,7 +48,7 @@ class Grounding:
         for i, obj in enumerate(object_infos_with_features):
             feature = obj.features
             distance = self.embedding_distance(db_features, feature)
-            is_below_threshold = self.is_same_object(db_features, feature, threshold=0.5) # TODO update threshold
+            is_below_threshold = self.is_same_object(db_features, feature, threshold=0.1) # TODO update threshold
             if is_below_threshold:
                 found_object = True
                 distances.append(distance)
@@ -81,25 +81,25 @@ class Grounding:
         self.return_object.is_success = True
         return self.return_object
 
-    def find_object_with_spatial_desc(self, object_entity, features):
+    def find_object_with_spatial_desc(self, object_entity, object_info_with_features):
         objects = []
         db_objects = self.db.get_all_features()
         features_below_threshold = []
         distances = []
 
         for i, (name, db_features) in enumerate(db_objects):
-            for id in features:
-                feature = id.features
-                bbox = id.bbox_xxyy
+            for inner_idx, obj_info in enumerate(object_info_with_features):
+                feature = obj_info.features
+                bbox = obj_info.bbox_xxyy
                 distance = self.embedding_distance(db_features, feature)
-                is_below_threshold = self.is_same_object(db_features, feature, threshold=0.8) # TODO update threshold
+                is_below_threshold = self.is_same_object(db_features, feature, threshold=0.1) # TODO update threshold
                 if is_below_threshold:
                     distances.append(distance)
-                    features_below_threshold.append(id)
-                    objects.append((id, name, bbox))
+                    features_below_threshold.append(obj_info)
+                    objects.append((inner_idx, name, bbox))
 
         target_index = self.spatial.locate_specific_object(object_entity, objects)
-        object_info = features[target_index]
+        object_info = object_info_with_features[target_index]
         if object_info == -1:
             return object_info
         elif object_info:

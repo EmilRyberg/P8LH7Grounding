@@ -89,3 +89,8 @@ To setup for Google Speech API:
 5. Run `pip install google-api-python-client`
 
 Note: You will probably get a lot of warnings when running the code, in the form of *ALSA lib pcm.c:2495:(snd_pcm_open_noupdate) Unknown PCM cards.pcm.rear*. This is a common issue, but are just warnings, and can be disabled by uncommenting lines in some config files.
+
+## Running the code
+1. `roslaunch dialog_flow hri_backbone_launch.launch azure_key:=[api key to Azure]`
+2. `rosrun bin_picking moveit_interface_node.py` - IMPORTANT: Needs to be python 2!
+3. `Run dialog_flow.py`
