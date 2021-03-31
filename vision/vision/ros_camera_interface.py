@@ -14,7 +14,7 @@ class ROSCamera:
         self.client = actionlib.SimpleActionClient("gripper_server", GripperAction)
         self.client.wait_for_server()
         self.bridge = CvBridge()
-
+        self.bkg_img = self.get_image();
     def get_image(self):
         goal = GripperGoal()
         goal.action = "get_image"
@@ -23,6 +23,11 @@ class ROSCamera:
         result = self.client.get_result()
         np_img = self.bridge.compressed_imgmsg_to_cv2(result.rgb_compressed, desired_encoding="bgr8")
         return np_img
+
+    def get_bkg_image(self):
+        # TODO: this needs to return a background image. atm it returns one captured from when the interface was
+        #  created - is there a batter way?
+        return self.bkg_img
 
     def get_depth(self):
         goal = GripperGoal()

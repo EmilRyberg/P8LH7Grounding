@@ -2,13 +2,49 @@ import cv2
 import numpy as np
 
 class ObjectInfo:
-    def __init__(self):
-        self.mask_full = None
-        self.mask_cropped = None
-        self.object_img_cutout_full = None
-        self.object_img_cutout_cropped = None
-        self.bbox_xxyy = None
-        self.bbox_xywh = None
+    # overloads available: none (empty)
+    # bbox: array size 4, [x,y,width,height]
+    # bbox,mask_full,mask_cropped
+    # bbox,mask_full,mask_cropped,img_cutout_full,img_cutout_cropped
+    def GetWidth(self):
+        return self.bbox_xywh[0]
+    def GetHeight(self):
+        return self.bbox_xywh[1]
+    def GetX(self):
+        return self.bbox_xxyy[0]
+    def GetY(self):
+        return self.bbox_xxyy[1]
+    def GetBBox(self):
+        return [self.bbox_xxyy[0], self.bbox_xxyy[1], self.bbox_xywh[0], self.bbox_xywh[1]]
+    def __init__(self, *args):
+        # python overloads make me sad - sam
+    
+        if len(args) < 1:
+            self.mask_full = None
+            self.mask_cropped = None
+            self.object_img_cutout_full = None
+            self.object_img_cutout_cropped = None
+            self.bbox_xxyy = None
+            self.bbox_xywh = None
+    
+        if len(args) > 0:
+            self.bbox_xxyy = [args[0][0],args[0][1]]
+            self.bbox_xywh = [args[0][2],args[0][3]]
+
+            if len(args) > 2:
+                self.mask_full = args[1]
+                self.mask_cropped = args[2]
+                if len(args) > 4:
+                    self.object_img_cutout_full = args[3]
+                    self.object_img_cutout_cropped = args[4]
+                else:
+                    self.object_img_cutout_full = None
+                    self.object_img_cutout_cropped = None
+            else:
+                self.mask_full = None
+                self.mask_cropped = None
+                self.object_img_cutout_full = None
+                self.object_img_cutout_cropped = None
 
 class FindObjects:
 
