@@ -2,8 +2,8 @@ from grounding.database_handler import DatabaseHandler
 from grounding.spatial import SpatialRelation
 import numpy as np
 from typing import Optional
-from ner.command_builder import SpatialDescription, ObjectEntity, SpatialType
-from scripts.vision_controller import VisionController
+from scripts.vision_controller import VisionController as FakeVisionController
+from grounding.temp_vision_controller import VisionController
 from enum import Enum
 
 
@@ -22,7 +22,7 @@ class GroundingReturn:
 
 
 class Grounding:
-    def __init__(self, db=DatabaseHandler(), vision_controller=VisionController(), spatial=SpatialRelation()):
+    def __init__(self, db=DatabaseHandler("../grounding.db"), vision_controller=FakeVisionController(), spatial=SpatialRelation()):
         self.db = db
         self.spatial = spatial
         self.vision = vision_controller
@@ -34,7 +34,7 @@ class Grounding:
         spatial_desc = object_entity.spatial_descriptions
         found_object = False
         known_object = False
-        features_below_threshold = []
+        indexes_below_threshold = []
         distances = []
 
         db_features = self.db.get_feature(name)
@@ -44,24 +44,24 @@ class Grounding:
             return self.return_object
         else:
             known_object = True
-        features = self.vision.get_masks_with_features()  # list of
-        for i in features:
-            feature = i.features
+        object_infos_with_features = self.vision.get_masks_with_features()  # list of
+        for i, obj in enumerate(object_infos_with_features):
+            feature = obj.features
             distance = self.embedding_distance(db_features, feature)
-            is_below_threshold = self.is_same_object(db_features, feature, threshold=0.5) # TODO update threshold
+            is_below_threshold = self.is_same_object(db_features, feature, threshold=0.1) # TODO update threshold
             if is_below_threshold:
                 found_object = True
                 distances.append(distance)
-                features_below_threshold.append(i)
+                indexes_below_threshold.append(i)
 
         if not found_object:
             self.return_object.is_success = False
             self.return_object.error_code = ErrorType.CANT_FIND
             return self.return_object
 
-        if len(features_below_threshold) > 1:
+        if len(indexes_below_threshold) > 1:
             if spatial_desc:
-                self.return_object.object_info = self.find_object_with_spatial_desc(object_entity, features)
+                self.return_object.object_info = self.find_object_with_spatial_desc(object_entity, object_infos_with_features)
                 if self.return_object.object_info == -1:
                     self.return_object.is_success = False
                     self.return_object.error_code = ErrorType.TWO_REF
@@ -76,30 +76,30 @@ class Grounding:
 
         # This part of the code will be executed if there is only 1 of the requested objects in the scene or
         # if the user does not care about what part is picked up.
-        best_match = self.find_best_match(features_below_threshold, distances)
-        self.return_object.object_info = features[best_match]
+        best_match_index = self.find_best_match(indexes_below_threshold, distances)
+        self.return_object.object_info = object_infos_with_features[best_match_index]
         self.return_object.is_success = True
         return self.return_object
 
-    def find_object_with_spatial_desc(self, object_entity, features):
+    def find_object_with_spatial_desc(self, object_entity, object_info_with_features):
         objects = []
         db_objects = self.db.get_all_features()
         features_below_threshold = []
         distances = []
 
         for i, (name, db_features) in enumerate(db_objects):
-            for id in features:
-                feature = id.features
-                bbox = id.bbox_xxyy
+            for inner_idx, obj_info in enumerate(object_info_with_features):
+                feature = obj_info.features
+                bbox = obj_info.bbox_xxyy
                 distance = self.embedding_distance(db_features, feature)
-                is_below_threshold = self.is_same_object(db_features, feature, threshold=0.8) # TODO update threshold
+                is_below_threshold = self.is_same_object(db_features, feature, threshold=0.1) # TODO update threshold
                 if is_below_threshold:
                     distances.append(distance)
-                    features_below_threshold.append(id)
-                    objects.append((id, name, bbox))
+                    features_below_threshold.append(obj_info)
+                    objects.append((inner_idx, name, bbox))
 
         target_index = self.spatial.locate_specific_object(object_entity, objects)
-        object_info = features[target_index]
+        object_info = object_info_with_features[target_index]
         if object_info == -1:
             return object_info
         elif object_info:
@@ -143,14 +143,14 @@ class Grounding:
     def is_same_object(self, features_1, features_2, threshold=1.0):
         return self.embedding_distance(features_1, features_2) < threshold
 
-    def find_best_match(self, index, distances) -> Optional[tuple]:
-        if isinstance(index, np.ndarray):
-            index = index.tolist()
+    def find_best_match(self, indexes_below_threshold, distances) -> Optional[tuple]:
+        if isinstance(indexes_below_threshold, np.ndarray):
+            features = indexes_below_threshold.tolist()
         if isinstance(distances, np.ndarray):
             distances = distances.tolist()
-        if len(index) != len(distances):
+        if len(indexes_below_threshold) != len(distances):
             raise ValueError("list_of_tuples should be same length as distances")
-        if len(index) == 0 or len(distances) == 0:
+        if len(indexes_below_threshold) == 0 or len(distances) == 0:
             return None
         min_distance = 3
         best_index = None
@@ -158,7 +158,7 @@ class Grounding:
             if distance < min_distance:
                 min_distance = distance
                 best_index = i
-        return index[best_index]
+        return indexes_below_threshold[best_index]
 
 
 if __name__ == "__main__":

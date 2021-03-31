@@ -2,7 +2,7 @@ import azure.cognitiveservices.speech as speechsdk
 
 
 class SpeechToText:
-    def __init__(self, key=None):
+    def __init__(self, key):
         self.speech_config = speechsdk.SpeechConfig(subscription=key,
                                                region="westeurope")
         self.speech_recognizer = speechsdk.SpeechRecognizer(speech_config=self.speech_config)
@@ -12,6 +12,6 @@ class SpeechToText:
 
 
 if __name__ == "__main__":
-    speech_recog = SpeechToText()
+    speech_recog = SpeechToText(None)
     while True:
         word = speech_recog.wait_for_speech_and_get_text()

@@ -1,0 +1,11 @@
+O
+B-take
+I-take
+B-find
+I-find
+B-colour
+I-colour
+B-location
+I-location
+B-object
+I-object

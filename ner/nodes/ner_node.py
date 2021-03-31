@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import rospy
 from std_msgs.msg import String
-from ner.command_builder import CommandBuilder, PickUpTask, FindTask
-from ner.ner import EntityType
+from ner_lib.command_builder import CommandBuilder, PickUpTask, FindTask
+from ner_lib.ner import EntityType
 from little_helper_interfaces.msg import Task, ObjectEntity, OuterObjectEntity, SpatialDescription, OuterTask
 from ner.srv import NER, NERResponse, NERRequest
 import argparse

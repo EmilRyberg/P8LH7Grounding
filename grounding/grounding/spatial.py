@@ -2,7 +2,7 @@ import numpy as np
 from enum import Enum
 import copy
 import math
-from ner.command_builder import SpatialType
+from ner_lib.command_builder import SpatialType
 
 
 class SpatialRelation:

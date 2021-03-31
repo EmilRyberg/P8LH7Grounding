@@ -8,9 +8,9 @@ from little_helper_interfaces.msg import StringWithTimestamp
 
 class SpeechToTextNode:
     def __init__(self, api_key):
+        rospy.init_node("speech_to_text")
         self.speech_to_text = SpeechToText(key=api_key)
         self.publisher = rospy.Publisher("speech_to_text", StringWithTimestamp, queue_size=1)
-        rospy.init_node("speech_to_text")
 
     def run(self):
         while not rospy.is_shutdown():
