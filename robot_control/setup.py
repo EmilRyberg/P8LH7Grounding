@@ -4,7 +4,7 @@ package_name = 'robot_control'
 
 setup(
     name=package_name,
-    version='0.0.1',
+    version='0.0.0',
     packages=["robot_control"],
     install_requires=['setuptools',
                         'numpy'],

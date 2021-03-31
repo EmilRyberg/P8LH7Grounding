@@ -2,8 +2,8 @@ from grounding.database_handler import DatabaseHandler
 from grounding.spatial import SpatialRelation
 import numpy as np
 from typing import Optional
-from ner.command_builder import SpatialDescription, ObjectEntity, SpatialType
-from scripts.vision_controller import VisionController
+from scripts.vision_controller import VisionController as FakeVisionController
+from grounding.temp_vision_controller import VisionController
 from enum import Enum
 
 
@@ -22,7 +22,7 @@ class GroundingReturn:
 
 
 class Grounding:
-    def __init__(self, db=DatabaseHandler(), vision_controller=VisionController(), spatial=SpatialRelation()):
+    def __init__(self, db=DatabaseHandler(), vision_controller=FakeVisionController(), spatial=SpatialRelation()):
         self.db = db
         self.spatial = spatial
         self.vision = vision_controller
@@ -44,15 +44,15 @@ class Grounding:
             return self.return_object
         else:
             known_object = True
-        features = self.vision.get_masks_with_features()  # list of
-        for i in features:
-            feature = i.features
+        object_info_with_features = self.vision.get_masks_with_features()  # list of
+        for obj in object_info_with_features:
+            feature = obj.features
             distance = self.embedding_distance(db_features, feature)
             is_below_threshold = self.is_same_object(db_features, feature, threshold=0.5) # TODO update threshold
             if is_below_threshold:
                 found_object = True
                 distances.append(distance)
-                features_below_threshold.append(i)
+                features_below_threshold.append(obj)
 
         if not found_object:
             self.return_object.is_success = False
@@ -61,7 +61,7 @@ class Grounding:
 
         if len(features_below_threshold) > 1:
             if spatial_desc:
-                self.return_object.object_info = self.find_object_with_spatial_desc(object_entity, features)
+                self.return_object.object_info = self.find_object_with_spatial_desc(object_entity, object_info_with_features)
                 if self.return_object.object_info == -1:
                     self.return_object.is_success = False
                     self.return_object.error_code = ErrorType.TWO_REF
@@ -77,7 +77,7 @@ class Grounding:
         # This part of the code will be executed if there is only 1 of the requested objects in the scene or
         # if the user does not care about what part is picked up.
         best_match = self.find_best_match(features_below_threshold, distances)
-        self.return_object.object_info = features[best_match]
+        self.return_object.object_info = object_info_with_features[best_match]
         self.return_object.is_success = True
         return self.return_object
 

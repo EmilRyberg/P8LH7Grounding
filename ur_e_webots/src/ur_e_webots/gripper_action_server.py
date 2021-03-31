@@ -124,6 +124,7 @@ class GripperActionServer:
                     self.goal_handle.set_succeeded(response)
                     self.camera_enabled = False
                     self.goal_handle = None
+                    self.camera_rgb.disable()
                 elif action == "get_depth" and self.camera_enabled:
                     np_img = np.array(self.camera_depth.getRangeImageArray())
                     self.camera_enabled = False
@@ -133,3 +134,4 @@ class GripperActionServer:
                     response.depth = image_message
                     self.goal_handle.set_succeeded(response)
                     self.goal_handle = None
+                    self.camera_depth.disable()

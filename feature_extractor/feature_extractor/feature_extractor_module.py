@@ -10,8 +10,8 @@ def embedding_distance(features_1, features_2):
 
 
 class FeatureExtractor:
-    def __init__(self, weights_dir, on_gpu=True, image_size=(224, 224)):
-        self.model = FeatureExtractorNet()
+    def __init__(self, weights_dir, on_gpu=True, image_size=(224, 224), num_features=3):
+        self.model = FeatureExtractorNet(num_features=num_features)
         self.on_gpu = on_gpu
         self.image_size = image_size
         if on_gpu:
@@ -29,11 +29,20 @@ class FeatureExtractor:
 
     def get_features(self, img):
         # transform image from eg. numpy to a tensor and normalise it
-        img_transformed = self.data_transform(img)
+        img_tensor = None
+        if isinstance(img, list):
+            for my_img in img:
+                img_transformed = self.data_transform(my_img).unsqueeze(0)
+                if img_tensor is None:
+                    img_tensor = img_transformed
+                else:
+                    img_tensor = torch.cat([img_tensor, img_transformed], dim=0)
+        else:
+            img_tensor = self.data_transform(img).unsqueeze(0)
         if self.on_gpu:
-            img_transformed = img_transformed.cuda()
+            img_tensor = img_tensor.cuda()
         # run model and L2 normalise the features such that it is within the unit hypersphere
-        features = self.model(img_transformed)
+        features = self.model(img_tensor)
         features = F.normalize(features, p=2)
         features_np = features.detach().cpu().data.numpy()
         return features_np
