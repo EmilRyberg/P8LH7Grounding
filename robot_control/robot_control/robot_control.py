@@ -22,7 +22,7 @@ class RobotController:
         goal.mask = self.bridge.cv2_to_imgmsg(object_info.mask_full)
         goal.reference_img = self.bridge.cv2_to_imgmsg(rgb)
         goal.depth_img = self.bridge.cv2_to_imgmsg(depth)
-        goal.goal_msg = "pick_up"
+        goal.command = "pick_object"
 
         rospy.loginfo("sending goal")
         self.client.send_goal(goal)
@@ -38,7 +38,7 @@ class RobotController:
         goal = PickObjectGoal()
         goal.mask = self.bridge.cv2_to_imgmsg(object_info.mask_full)
         goal.reference_img = self.bridge.cv2_to_imgmsg(rgb)
-        goal.goal_msg = "find"
+        goal.command = "find"
 
         rospy.loginfo("sending goal")
         self.client.send_goal(goal)
@@ -52,7 +52,7 @@ class RobotController:
         self.client.wait_for_server()
 
         goal = PickObjectGoal()
-        goal.goal_msg = "move_out_of_view"
+        goal.command = "move_out_of_view"
 
         rospy.loginfo("sending goal")
         self.client.send_goal(goal)
