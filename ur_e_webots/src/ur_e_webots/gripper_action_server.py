@@ -33,6 +33,7 @@ class GripperActionServer:
         self.camera_enabled = False
         self.cv_bridge = CvBridge()
         self.gripper_close_start_time = None
+        self.has_waited_one_sim_step = False
         for sensor in self.finger_sensors:
             sensor.enable(self.timestep)
 
@@ -78,9 +79,11 @@ class GripperActionServer:
             self.suction.unlock()
         elif self.goal_handle.get_goal().action == "get_image":
             self.camera_rgb.enable(self.timestep)
+            self.has_waited_one_sim_step = False
             self.camera_enabled = True
         elif self.goal_handle.get_goal().action == "get_depth":
             self.camera_depth.enable(self.timestep)
+            self.has_waited_one_sim_step = False
             self.camera_enabled = True
 
     def on_cancel(self, goal_handle):
@@ -114,6 +117,9 @@ class GripperActionServer:
                     self.goal_handle.set_succeeded() # could maybe just be done in the on_goal
                     self.goal_handle = None
                 elif action == "get_image" and self.camera_enabled:
+                    if not self.has_waited_one_sim_step:
+                        self.has_waited_one_sim_step = True
+                        return
                     np_img = np.array(self.camera_rgb.getImageArray(), dtype=np.uint8)
                     np_img = np_img.transpose((1, 0, 2))
                     np_img = np_img[:, :, ::-1]  # BGR ordering
@@ -126,6 +132,9 @@ class GripperActionServer:
                     self.goal_handle = None
                     self.camera_rgb.disable()
                 elif action == "get_depth" and self.camera_enabled:
+                    if not self.has_waited_one_sim_step:
+                        self.has_waited_one_sim_step = True
+                        return
                     np_img = np.array(self.camera_depth.getRangeImageArray())
                     self.camera_enabled = False
                     image_message = self.cv_bridge.cv2_to_imgmsg(np_img, encoding="passthrough")

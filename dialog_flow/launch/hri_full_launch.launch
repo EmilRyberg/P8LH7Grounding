@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="azure_key" default="" doc="The API key for Azure Cloud" />
+  <arg name="ner_model_path" default="" doc="The path to the NER PyTorch model" />
+  <include file="$(find dialog_flow)/launch/hri_backbone_launch.launch">
+    <arg name="azure_key" value="$(arg azure_key)"/>
+  </include>
+  <node pkg="dialog_flow" type="dialog_flow.py" name="dialog_flow" />
+</launch>

@@ -154,7 +154,7 @@ class DialogFlow:
 
 if __name__ == '__main__':
     try:
-        rospy.init_node('dialog_controller', anonymous=True)
+        rospy.init_node('dialog_controller')
         dialog = DialogFlow(ner_model_path="ner_pytorch_model.bin", ner_tag_path="tags.txt",
                             feature_weights_path="triplet-epoch-9-loss-0.16331.pth", db_path="/home/emilryberg/Documents/Projects/p8_catkin_ws/src/p8/grounding/grounding.db",
                             background_image_file="background.png")

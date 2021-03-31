@@ -29,10 +29,10 @@ class DatabaseHandler:
                         WHERE NAME=?;", (name, ))
         features = None
         for row in result:
-            features=row[0]
+            features = row[0]
         print("Select operation done successfully")
         if features is not None:
-            features = np.fromstring(features, dtype=float, sep = ', ')
+            features = np.fromstring(features, dtype=float, sep=',')
         return features
 
     def get_all_features(self):
@@ -41,7 +41,7 @@ class DatabaseHandler:
         for row in result:
             name = row[0]
             features = row[1]
-            db_objects.append((name, features))
+            db_objects.append((name, np.fromstring(features, dtype=float, sep=',')))
         return db_objects
 
     def update(self, name, feature_vector):

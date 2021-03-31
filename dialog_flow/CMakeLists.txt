@@ -196,6 +196,13 @@ catkin_install_python(PROGRAMS nodes/dialog_flow.py
 #   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 # )
 
+#if (CATKIN_ENABLE_TESTING)
+#  find_package(roslaunch REQUIRED)
+#  roslaunch_add_file_check(tests/roslaunch_test.xml)
+#endif()
+
+install(DIRECTORY launch DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+
 #############
 ## Testing ##
 #############
