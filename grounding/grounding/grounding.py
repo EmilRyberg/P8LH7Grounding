@@ -158,7 +158,7 @@ class Grounding:
             if distance < min_distance:
                 min_distance = distance
                 best_index = i
-        return best_index
+        return indexes_below_threshold[best_index]
 
 
 if __name__ == "__main__":
