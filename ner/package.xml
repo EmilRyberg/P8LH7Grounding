@@ -50,6 +50,7 @@
   <!--   <doc_depend>doxygen</doc_depend> -->
   <depend>rospy</depend>
   <depend>little_helper_interfaces</depend>
+  <depend>message_generation</depend>
   <buildtool_depend>catkin</buildtool_depend>
   <exec_depend>std_msgs</exec_depend>
 

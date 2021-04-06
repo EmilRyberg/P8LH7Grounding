@@ -15,6 +15,7 @@ from grounding.grounding import Grounding
 from vision_lib.vision_controller import VisionController
 from grounding.spatial import SpatialRelation
 from grounding.database_handler import DatabaseHandler
+from text_to_speech.srv import TextToSpeech, TextToSpeechRequest
 from std_msgs.msg import String
 
 
@@ -40,9 +41,9 @@ class DialogFlow:
         #self.np_rgb
 
         #ROS Publishers
-        self.tts_pub = rospy.Publisher('chatter', String, queue_size=10)
-        self.find_pub = rospy.Publisher('MainFind', ObjectEntity, queue_size=10)
         #self.learn_pub = rospy.Publisher('MainLearn', String, queue_size=10)
+        rospy.wait_for_service("tts")
+        self.tts = rospy.ServiceProxy("tts", TextToSpeech)
         self.speech_to_text_subscriber = rospy.Subscriber("speech_to_text", StringWithTimestamp, callback=self.speech_to_text_callback, queue_size=1)
 
     def controller(self):
@@ -69,15 +70,24 @@ class DialogFlow:
         task_type = "pick up" if isinstance(task, PickUpTask) else "find" # TODO: Replace this later
         log_string = f"Ok, just to be sure. You want me to: {task_type} the {task.object_to_pick_up.name}"
         rospy.loginfo(log_string)
-        #TODO make it an audible user input
-        userinput = input()
-        if userinput.lower() == "no" or userinput.lower() == "n":
-            #self.tts_pub.publish("Okay, I will restart my program")
-            rospy.loginfo("Okay, I will restart my program")
-            return
+        self.tts(log_string)
 
-        #self.tts_pub.publish(f"Okay, I will now look for the {task.object1.name}")
+        attempts = 0
+        while attempts < 5:
+            self.spin_until_new_sentence()
+            if self.last_received_sentence.lower() == "no" or self.last_received_sentence.lower() == "no.":
+                self.tts("Okay, I will restart my program")
+                rospy.loginfo("Okay, I will restart my program")
+                return
+            elif self.last_received_sentence.lower() == "yes" or self.last_received_sentence.lower() == "yes.":
+                break
+            else:
+                self.tts("Sorry, I did not understand what you just said. Please say yes or no.")
+                rospy.loginfo("Sorry, I did not understand what you just said. Please say yes or no.")
+                attempts += 1
+
         # TODO: Switch based on task type
+        self.tts(f"Okay, I will now look for the {task.object_to_pick_up}")
         rospy.loginfo(f"Okay, I will now look for the {task.object_to_pick_up}")
 
         #To make sure robot is out of view, might be unecesarry
@@ -110,16 +120,19 @@ class DialogFlow:
         # if task.type == "learn":
         #     learn_control(task.object1.name, np_rgb_image)
 
+        self.tts("Done!")
         rospy.loginfo("Done!")
 
     def first_conversation(self):
         spoken_sentence = "Hello. What would you like me to do?"
         rospy.loginfo(spoken_sentence)
+        self.tts(spoken_sentence)
         self.spin_until_new_sentence()
 
     def continuing_conversation(self):
         spoken_sentence = "Is there anything else you want me to do?"
         rospy.loginfo(spoken_sentence)
+        self.tts(spoken_sentence)
         self.spin_until_new_sentence()
 
     def spin_until_new_sentence(self):
@@ -135,20 +148,20 @@ class DialogFlow:
             rospy.sleep(rospy.Duration.from_sec(0.1))
 
     def speech_to_text_callback(self, data):
-        rospy.loginfo(f"Got STT: {data}")
+        rospy.logdebug(f"Got STT: {data}")
         self.last_received_sentence_timestamp = data.timestamp
         self.last_received_sentence = data.data
 
     def learn_control(self, name, image):
-        self.tts_pub.publish("I will try and learn the new object")
+        self.tts("I will try and learn the new object")
         self.grounding.learn_new_object(name, image) #placeholder
 
     def pick_control(self, object_info, rgb, depth):
-        self.tts_pub.publish(f"Okay, I will try to pick up the {object_info.name}") #might need to rework if we take the name out of objectinfo
+        self.tts(f"Okay, I will try to pick up the {object_info.name}") #might need to rework if we take the name out of objectinfo
         self.robot.pick_up(object_info, rgb, depth) #placeholder
 
     def find_control(self, object_info, rgb):
-        self.tts_pub.publish(f"Okay, I will try to find the {object_info.name}")
+        self.tts(f"Okay, I will try to find the {object_info.name}")
         self.robot.find(object_info, rgb) #placeholder
 
 

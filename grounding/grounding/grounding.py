@@ -3,7 +3,7 @@ from grounding.spatial import SpatialRelation
 import numpy as np
 from typing import Optional
 from scripts.vision_controller import VisionController as FakeVisionController
-from grounding.temp_vision_controller import VisionController
+from vision_lib.vision_controller import VisionController
 from enum import Enum
 
 

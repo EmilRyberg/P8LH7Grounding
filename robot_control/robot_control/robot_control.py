@@ -1,4 +1,4 @@
-from vision.vision_controller import ObjectInfo
+from vision_lib.vision_controller import ObjectInfo
 import rospy
 import actionlib
 from bin_picking.msg import PickObjectAction, PickObjectGoal
