@@ -3,7 +3,7 @@
 import sys
 import rospy
 from find_objects.find_objects import ObjectInfo
-from ner_lib.command_builder import CommandBuilder, FindTask, PickUpTask, SpatialType
+from ner_lib.command_builder import CommandBuilder, FindTask, PickUpTask, SpatialType, ObjectEntity as ObjectEntityType
 from ner.srv import NER
 from little_helper_interfaces.msg import Task, ObjectEntity, OuterObjectEntity, SpatialDescription, OuterTask, StringWithTimestamp
 from vision_lib.ros_camera_interface import ROSCamera
@@ -16,6 +16,7 @@ from vision_lib.vision_controller import VisionController
 from grounding.spatial import SpatialRelation
 from grounding.database_handler import DatabaseHandler
 from text_to_speech.srv import TextToSpeech, TextToSpeechRequest
+import random
 from std_msgs.msg import String
 
 
@@ -68,7 +69,7 @@ class DialogFlow:
 
         #self.tts_pub.publish(f"Ok, just to be sure. You want me to: {task.type} the {task.object1.name} which is located {task.object1.spatial_descirption[0].spatial_type}")
         task_type = "pick up" if isinstance(task, PickUpTask) else "find" # TODO: Replace this later
-        log_string = f"Ok, just to be sure. You want me to: {task_type} the {task.object_to_pick_up.name}"
+        log_string = f"Ok, just to be sure. You want me to: {task_type} the {self.build_object_sentence(task.object_to_pick_up)}"
         rospy.loginfo(log_string)
         self.tts(log_string)
 
@@ -87,7 +88,7 @@ class DialogFlow:
                 attempts += 1
 
         # TODO: Switch based on task type
-        self.tts(f"Okay, I will now look for the {task.object_to_pick_up}")
+        self.tts(f"Okay, I will now look for the {task.object_to_pick_up.name}")
         rospy.loginfo(f"Okay, I will now look for the {task.object_to_pick_up}")
 
         #To make sure robot is out of view, might be unecesarry
@@ -163,6 +164,37 @@ class DialogFlow:
     def find_control(self, object_info, rgb):
         self.tts(f"Okay, I will try to find the {object_info.name}")
         self.robot.find(object_info, rgb) #placeholder
+
+    def build_object_sentence(self, main_object: ObjectEntityType):
+        sentence = main_object.name
+        connection_variants = [
+            "that is",
+            "which is",
+            "and it should be"
+        ]
+        for spatial_description in main_object.spatial_descriptions:
+            spatial_type_word = self.spatial_type_to_human_adjective(spatial_description.spatial_type)
+            sentence += f" {random.choice(connection_variants)} {spatial_type_word} the {spatial_description.object_entity.name}"
+        return sentence
+
+    def spatial_type_to_human_adjective(self, spatial_type: SpatialType):
+        if spatial_type == SpatialType.NEXT_TO:
+            return "next to"
+        elif spatial_type == SpatialType.TOP_OF:
+            return "to the top of"
+        elif spatial_type == SpatialType.BOTTOM_OF:
+            return "to the bottom of"
+        elif spatial_type == SpatialType.LEFT_OF:
+            return "to the left of"
+        elif spatial_type == SpatialType.RIGHT_OF:
+            return "to the right of"
+        elif spatial_type == SpatialType.BELOW:
+            return "below"
+        elif spatial_type == SpatialType.ABOVE:
+            return "above"
+
+        return "I should not be saying this"
+
 
 
 if __name__ == '__main__':
