@@ -6,13 +6,13 @@ from find_objects.find_objects import ObjectInfo
 from ner_lib.command_builder import CommandBuilder, FindTask, PickUpTask, SpatialType
 from ner.srv import NER
 from little_helper_interfaces.msg import Task, ObjectEntity, OuterObjectEntity, SpatialDescription, OuterTask, StringWithTimestamp
-from vision.ros_camera_interface import ROSCamera
+from vision_lib.ros_camera_interface import ROSCamera
 from speech_to_text.speech_to_text import SpeechToText
 from cv_bridge import CvBridge
 import numpy as np
 from robot_control.robot_control import RobotController
 from grounding.grounding import Grounding
-from grounding.temp_vision_controller import VisionController
+from vision_lib.vision_controller import VisionController
 from grounding.spatial import SpatialRelation
 from grounding.database_handler import DatabaseHandler
 from std_msgs.msg import String

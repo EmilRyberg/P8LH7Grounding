@@ -1,7 +1,7 @@
 import rospy
 from find_objects.find_objects import FindObjects, ObjectInfo
 from feature_extractor.feature_extractor_module import FeatureExtractor
-from vision.ros_camera_interface import ROSCamera
+from vision_lib.ros_camera_interface import ROSCamera
 from typing import List
 from PIL import Image
 import cv2 as cv
@@ -29,7 +29,6 @@ class VisionController:
         self.camera = ROSCamera()
 
     def get_masks_with_features(self, debug=False):
-        self.camera.get_image() # temp before fixing camera
         image = self.camera.get_image()
         objects: List[ObjectInfo] = self.find_objects.find_objects(image)
         objects_with_features = []
