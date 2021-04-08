@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
-
+import argparse
 import sys
 import rospy
 from find_objects.find_objects import ObjectInfo
-from ner_lib.command_builder import CommandBuilder, FindTask, PickUpTask, SpatialType, ObjectEntity as ObjectEntityType
-from ner.srv import NER
+from ner_lib.command_builder import CommandBuilder, PickUpTask, SpatialType, ObjectEntity as ObjectEntityType
 from little_helper_interfaces.msg import Task, ObjectEntity, OuterObjectEntity, SpatialDescription, OuterTask, StringWithTimestamp
 from vision_lib.ros_camera_interface import ROSCamera
-from speech_to_text.speech_to_text import SpeechToText
-from cv_bridge import CvBridge
-import numpy as np
 from robot_control.robot_control import RobotController
 from grounding.grounding import Grounding
 from vision_lib.vision_controller import VisionController
@@ -17,14 +13,11 @@ from grounding.spatial import SpatialRelation
 from grounding.database_handler import DatabaseHandler
 from text_to_speech.srv import TextToSpeech, TextToSpeechRequest
 import random
-from std_msgs.msg import String
 
 
-"""
-Man i wish we followed the uml better
-"""
 class DialogFlow:
     def __init__(self, ner_model_path, ner_tag_path, feature_weights_path, db_path, background_image_file):
+        rospy.init_node('dialog_controller')
         self.first_convo_flag = True
         self.grounding = Grounding(db=DatabaseHandler(db_path=db_path),
                                    vision_controller=VisionController(background_image_file=background_image_file,
@@ -37,12 +30,7 @@ class DialogFlow:
         self.command_builder = CommandBuilder(ner_model_path, ner_tag_path)
         self.last_received_sentence = None
         self.last_received_sentence_timestamp = None
-
-        #self.np_depth
-        #self.np_rgb
-
-        #ROS Publishers
-        #self.learn_pub = rospy.Publisher('MainLearn', String, queue_size=10)
+        rospy.loginfo("Waiting for TTS service to come online")
         rospy.wait_for_service("tts")
         self.tts = rospy.ServiceProxy("tts", TextToSpeech)
         self.speech_to_text_subscriber = rospy.Subscriber("speech_to_text", StringWithTimestamp, callback=self.speech_to_text_callback, queue_size=1)
@@ -55,20 +43,15 @@ class DialogFlow:
         else:
             self.continuing_conversation()
 
-        #subscribe to the ner service
-        # rospy.wait_for_service('ner')
-        # try:
-        #     ner_service = rospy.ServiceProxy('ner', NER)
-        #     rospy.wait_for_service(ner_service)
-        #     task = ner_service(sentence)
-        # except rospy.ServiceException as e:
-        #         print(f"Service call failed: {e}")
-
         rospy.loginfo(f"Got sentence: {self.last_received_sentence}")
         task = self.command_builder.get_task(self.last_received_sentence)
 
-        #self.tts_pub.publish(f"Ok, just to be sure. You want me to: {task.type} the {task.object1.name} which is located {task.object1.spatial_descirption[0].spatial_type}")
-        task_type = "pick up" if isinstance(task, PickUpTask) else "find" # TODO: Replace this later
+        if not isinstance(task, PickUpTask):
+            rospy.loginfo("Only pick up is supported at the moment")
+            self.tts("Only picking up objects are supported at this moment")
+            return
+
+        task_type = "pick up"
         log_string = f"Ok, just to be sure. You want me to: {task_type} the {self.build_object_sentence(task.object_to_pick_up)}"
         rospy.loginfo(log_string)
         self.tts(log_string)
@@ -98,31 +81,18 @@ class DialogFlow:
         np_rgb = self.camera.get_image()
         np_depth = self.camera.get_depth()
 
-        #TODO decide if we want the grounding node to be a service or just to use at as class normally
-        # try:
-        #     grounding_service = rospy.ServiceProxy('grounding', Grounding)
-        #     self.object_info = grounding_service(task.object1, np_rgb_image)
-        # except rospy.ServiceException as e:
-        #     print(f"Service call failed: {e}")
         grounding_return = self.grounding.find_object(task.object_to_pick_up)
 
-        # #TODO add known flag in the return from grounding
-        # if object_info.known == 0:
-        #     self.tts_pub.publish("Sorry, I could not find the object you wanted.")
-        #     self.tts_pub.publish("I am able to learn objects")
-        #     return #TODO maybe just look for new sentence here, instead of looping back to the beginning
-
-        #TODO update when robot_controller is made
-        #elif object_info.known == 1:
+        success = True
         if isinstance(task, PickUpTask):
-            self.robot.pick_up(grounding_return.object_info, np_rgb, np_depth)
-        #if isinstance(task, FindTask):
-        #    find_control(object_info)
-        # if task.type == "learn":
-        #     learn_control(task.object1.name, np_rgb_image)
+            success = self.robot.pick_up(grounding_return.object_info, np_rgb, np_depth)
 
-        self.tts("Done!")
-        rospy.loginfo("Done!")
+        if success:
+            self.tts("Done!")
+            rospy.loginfo("Done!")
+        else:
+            self.tts("The pick up task failed. I might have done something wrong. I'm sorry master.")
+            rospy.loginfo("Finished program, with failure")
 
     def first_conversation(self):
         spoken_sentence = "Hello. What would you like me to do?"
@@ -196,13 +166,23 @@ class DialogFlow:
         return "I should not be saying this"
 
 
-
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-n", "--ner_model", dest="ner_model_path", default="ner_pytorch_model.bin",
+                        help="The path to the weight file for the NER model")
+    parser.add_argument("-t", "--tag_file", dest="tags_path", default="tags.txt",
+                        help="The path to the NER tags file")
+    parser.add_argument("-f", "--feature_model", dest="feature_model", default="feature_extraction.pth",
+                        help="The path to the feature extraction weight file")
+    parser.add_argument("-d", "--db", dest="grounding_database", default="grounding.db",
+                        help="The path to the grounding SQLite database")
+    parser.add_argument("-b", "--background", dest="background_image", default="background.png",
+                        help="The path to the background image")
+    args = parser.parse_args(rospy.myargv()[1:])
     try:
-        rospy.init_node('dialog_controller')
-        dialog = DialogFlow(ner_model_path="ner_pytorch_model.bin", ner_tag_path="tags.txt",
-                            feature_weights_path="triplet-epoch-9-loss-0.16331.pth", db_path="/home/emilryberg/Documents/Projects/p8_catkin_ws/src/p8/grounding/grounding.db",
-                            background_image_file="background.png")
+        dialog = DialogFlow(ner_model_path=args.ner_model_path, ner_tag_path=args.tags_path,
+                            feature_weights_path=args.feature_model, db_path=args.grounding_database,
+                            background_image_file=args.background_image)
         while True:
             dialog.controller()
     except rospy.ROSInterruptException:

@@ -29,23 +29,7 @@ class RobotController:
         self.client.wait_for_result()
         result = self.client.get_result()
 
-        return result
-
-    def find(self, object_info: ObjectInfo, rgb):
-        rospy.loginfo("Waiting for server")
-        self.client.wait_for_server()
-
-        goal = PickObjectGoal()
-        goal.mask = self.bridge.cv2_to_imgmsg(object_info.mask_full)
-        goal.reference_img = self.bridge.cv2_to_imgmsg(rgb)
-        goal.command = "find"
-
-        rospy.loginfo("sending goal")
-        self.client.send_goal(goal)
-        self.client.wait_for_result()
-        result = self.client.get_result()
-
-        return result
+        return result.success
 
     def move_out_of_view(self):
         rospy.loginfo("Waiting for server")
@@ -61,7 +45,7 @@ class RobotController:
 
         self.is_home = result
 
-        return result
+        return result.success
 
     def is_out_of_view(self):
         return not self.is_home

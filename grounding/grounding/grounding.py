@@ -92,7 +92,7 @@ class Grounding:
                 feature = obj_info.features
                 bbox = obj_info.bbox_xxyy
                 distance = self.embedding_distance(db_features, feature)
-                is_below_threshold = self.is_same_object(db_features, feature, threshold=0.1) # TODO update threshold
+                is_below_threshold = self.is_same_object(db_features, feature, threshold=0.15) # TODO update threshold
                 if is_below_threshold:
                     distances.append(distance)
                     features_below_threshold.append(obj_info)
