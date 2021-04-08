@@ -22,7 +22,7 @@ class FindObjects:
             crop_widths = [0, 0, 0, 0]
         self.crop_widths = crop_widths
         self.scale = 1.0
-        self.diff_threshold = 20
+        self.diff_threshold = 10
         self.size_threshold = 500*self.scale
         self.background_img = background_img
 
@@ -44,12 +44,12 @@ class FindObjects:
         if debug:
             cv2.imshow("img", original_img)
 
-        diff = cv2.subtract(background_img, original_img)
+        diff = cv2.absdiff(background_img, original_img)
 
         diff_g = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
 
         if debug: cv2.imshow("diff", diff)
-        #cv2.imshow("diff_g", diff_g)
+        if debug: cv2.imshow("diff_g", diff_g)
 
         _, thresholded_img = cv2.threshold(diff_g, self.diff_threshold, 255, cv2.THRESH_BINARY)
         if debug:
@@ -92,10 +92,10 @@ class FindObjects:
 
 
 if __name__ == "__main__":
-    background_img = cv2.imread("a.png")
-    img = cv2.imread("b.png")
-    object_finder = FindObjects(background_img, crop_widths=[50, 50, 200, 600])
-    #object_finder.scale = 0.4
+    background_img = cv2.imread("../../bin_picking/testing_resources/background_test.png")
+    img = cv2.imread("../../bin_picking/testing_resources/img.png")
+    object_finder = FindObjects(background_img, crop_widths=[50, 50, 400, 600])
+    object_finder.scale = 0.4
     result = object_finder.find_objects(img, debug=True)
     #result2 = object_finder.find_objects(img, debug=True)
     cv2.waitKey()
