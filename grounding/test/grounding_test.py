@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import MagicMock, Mock
 from ner_lib.command_builder import CommandBuilder, ObjectEntity
 from ner_lib.ner import EntityType
-from vision.vision_controller import VisionController, ObjectInfo
+from vision_lib.vision_controller import VisionController, ObjectInfoWithFeatures
 
 
 ################################# ISOLATED UNIT TESTS ----- BEGIN ##########################################################
@@ -29,7 +29,7 @@ class FindObjectIsolatedTest(unittest.TestCase):
         ]
 
     def test_failFindObject(self):
-        object_info = ObjectInfo()
+        object_info = ObjectInfoWithFeatures()
         features = []
         object_info.features = np.array([1, 1, 1, 1, 1])
         object_info.bbox_xxyy = np.array([1, 2, 3, 4])
@@ -58,7 +58,7 @@ class FindObjectIsolatedTest(unittest.TestCase):
         self.assertTrue(self.grounding.is_same_object(features_1, features_2))
 
     def test_unknownObject(self):
-        object_info = ObjectInfo()
+        object_info = ObjectInfoWithFeaturesWithFeatures()
         features = []
         object_info.features = np.array([1, 1, 1, 1, 1])
         object_info.bbox_xxyy = np.array([1, 2, 3, 4])
@@ -101,7 +101,7 @@ class FindObjectIsolatedTest(unittest.TestCase):
                        np.array([5, 5, 5, 5])
                        ]
         for i in range(3):
-            object_info = ObjectInfo()
+            object_info = ObjectInfoWithFeatures()
             object_info.features = feature[i]
             object_info.bbox_xxyy = bbox[i]
             object_info.mask_full = mask[i]
@@ -133,7 +133,7 @@ class LearnObjectIsolatedTest(unittest.TestCase):
         self.returned = GroundingReturn()
 
     def test_newObject(self):
-        object_info = ObjectInfo()
+        object_info = ObjectInfoWithFeatures()
         features = []
         object_info.features = np.array([1, 1, 1, 1, 1])
         object_info.bbox_xxyy = np.array([1, 2, 3, 4])
@@ -169,7 +169,7 @@ class UpdateFeaturesIsolatedTest(unittest.TestCase):
         self.returned = GroundingReturn()
 
     def test_updateCorrectObject(self):
-        object_info = ObjectInfo()
+        object_info = ObjectInfoWithFeatures()
         features = []
         object_info.features = np.array([1, 1, 1, 1, 1])
         object_info.bbox_xxyy = np.array([1, 2, 3, 4])
@@ -189,7 +189,7 @@ class UpdateFeaturesIsolatedTest(unittest.TestCase):
         self.assertTrue(self.returned.is_success)
 
     def test_updateUnknownObject(self):
-        object_info = ObjectInfo()
+        object_info = ObjectInfoWithFeatures()
         features = []
         object_info.features = np.array([1, 1, 1, 1, 1])
         object_info.bbox_xxyy = np.array([1, 2, 3, 4])
@@ -480,7 +480,7 @@ class FindObjectIntegrationTest(unittest.TestCase):
         self.returned = GroundingReturn()
 
     def test_failFindObject(self):
-        object_info = ObjectInfo()
+        object_info = ObjectInfoWithFeatures()
         features = []
         object_info.features = np.array([1, 1, 1, 1, 1])
         object_info.bbox_xxyy = np.array([1, 2, 3, 4])
@@ -508,7 +508,7 @@ class FindObjectIntegrationTest(unittest.TestCase):
         self.assertTrue(self.grounding.is_same_object(features_1, features_2))
 
     def test_unknownObject(self):
-        object_info = ObjectInfo()
+        object_info = ObjectInfoWithFeatures()
         features = []
         object_info.features = np.array([1, 1, 1, 1, 1])
         object_info.bbox_xxyy = np.array([1, 2, 3, 4])
@@ -531,7 +531,7 @@ class LearnObjectIntegrationTest(unittest.TestCase):
         self.returned = GroundingReturn()
 
     def test_learnKnownObject(self):
-        object_info = ObjectInfo()
+        object_info = ObjectInfoWithFeatures()
         features = []
         object_info.features = np.array([1, 1, 1, 1, 1])
         object_info.bbox_xxyy = np.array([1, 2, 3, 4])
@@ -548,7 +548,7 @@ class LearnObjectIntegrationTest(unittest.TestCase):
         self.assertEqual(self.returned.error_code, ErrorType.ALREADY_KNOWN)
 
     def test_newObject(self):
-        object_info = ObjectInfo()
+        object_info = ObjectInfoWithFeatures()
         features = []
         object_info.features = np.array([1, 1, 1, 1, 1])
         object_info.bbox_xxyy = np.array([1, 2, 3, 4])
@@ -572,7 +572,7 @@ class UpdateFeaturesIntegrationTest(unittest.TestCase):
         self.returned = GroundingReturn()
 
     def test_updateCorrectObject(self):
-        object_info = ObjectInfo()
+        object_info = ObjectInfoWithFeatures()
         features = []
         object_info.features = np.array([1, 1, 1, 1, 1])
         object_info.bbox_xxyy = np.array([1, 2, 3, 4])
@@ -589,7 +589,7 @@ class UpdateFeaturesIntegrationTest(unittest.TestCase):
         self.assertTrue(self.returned.is_success)
 
     def test_updateUnknownObject(self):
-        object_info = ObjectInfo()
+        object_info = ObjectInfoWithFeatures()
         features = []
         object_info.features = np.array([1, 1, 1, 1, 1])
         object_info.bbox_xxyy = np.array([1, 2, 3, 4])

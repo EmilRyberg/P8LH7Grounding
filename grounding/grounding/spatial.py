@@ -5,6 +5,12 @@ import math
 from ner_lib.command_builder import SpatialType
 
 
+class StatusEnum(Enum):
+    SUCCESS = "SUCCESS",
+    ERROR_TWO_REF = "ERROR_TWO_REF",
+    ERROR_CANT_FIND = "ERROR_CANT_FIND"
+
+
 class SpatialRelation:
     def locate_specific_object(self, object_entity, objects):
         local_objects = copy.deepcopy(objects)
@@ -22,7 +28,7 @@ class SpatialRelation:
                 if name == object_name:
                     matching_objects.append((id, name, bbox))
             if last_location is None and len(matching_objects) > 1:
-                return -1
+                return None, StatusEnum.ERROR_TWO_REF
             if len(matching_objects) > 1:
                 correct_bbox = self.find_best_match(matching_objects, last_location, last_bbox)
                 (last_id, _, last_bbox) = matching_objects[correct_bbox]
@@ -41,13 +47,13 @@ class SpatialRelation:
             correct_bbox = self.find_best_match(matching_objects, last_location, last_bbox)
             (id, name, bbox) = matching_objects[correct_bbox]
             correct_index = id
-            return correct_index
+            return correct_index, StatusEnum.SUCCESS
         elif matching_objects:
             (id, name, bbox) = matching_objects[0]
             correct_index = id
-            return correct_index
+            return correct_index, StatusEnum.SUCCESS
         else:
-            return -2
+            return None, StatusEnum.ERROR_CANT_FIND
 
     def find_best_match(self, objects, location, last_bbox):
         (last_x, last_y, last_size) = self.get_center_and_size(last_bbox)
@@ -63,7 +69,6 @@ class SpatialRelation:
                 if min_dist_error is None or dist_error < min_dist_error:
                     min_dist_error = dist_error
                     best_bbox_index = i
-
             elif location == SpatialType.ABOVE or location == SpatialType.TOP_OF:  # Assumes that top left corner of image is (0, 0)
                 dist_error = self.calculate_error(distance, 0)
                 angle_error = self.calculate_error(angle, 270)  # flipped cos of image coordinates vs cartesian
@@ -74,7 +79,6 @@ class SpatialRelation:
                         best_bbox_index = i
                         min_angle_error = angle_error
                         min_dist_error = dist_error
-
             elif location == SpatialType.BELOW or location == SpatialType.BOTTOM_OF:  # Assumes that top left corner of image is (0, 0) - for now assume they are equivalent
                 dist_error = self.calculate_error(distance, 0)
                 angle_error = self.calculate_error(angle, 90)  # flipped cos of image coordinates vs cartesian

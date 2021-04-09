@@ -99,7 +99,8 @@ class DialogFlow:
         np_depth = self.camera.get_depth()
 
         grounding_return = self.grounding.find_object(task.object_to_pick_up)
-        if grounding_return.object_info is None:
+        if not grounding_return.is_succes:
+            # TODO: Handle unknown object here
             sentence = "I could not find the object you were looking for. Maybe I need some calibration."
             self.tts(sentence)
             rospy.loginfo(sentence)

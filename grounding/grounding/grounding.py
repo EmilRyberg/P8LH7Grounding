@@ -1,5 +1,5 @@
 from grounding.database_handler import DatabaseHandler
-from grounding.spatial import SpatialRelation
+from grounding.spatial import SpatialRelation, StatusEnum
 import numpy as np
 from typing import Optional
 from scripts.vision_controller import VisionController as FakeVisionController
@@ -33,7 +33,6 @@ class Grounding:
         name = object_entity.name
         spatial_desc = object_entity.spatial_descriptions
         found_object = False
-        known_object = False
         indexes_below_threshold = []
         distances = []
 
@@ -42,8 +41,7 @@ class Grounding:
             self.return_object.is_success = False
             self.return_object.error_code = ErrorType.UNKNOWN
             return self.return_object
-        else:
-            known_object = True
+
         object_infos_with_features = self.vision.get_masks_with_features()  # list of
         for i, obj in enumerate(object_infos_with_features):
             feature = obj.features
@@ -61,12 +59,12 @@ class Grounding:
 
         if len(indexes_below_threshold) > 1:
             if spatial_desc:
-                self.return_object.object_info = self.find_object_with_spatial_desc(object_entity, object_infos_with_features)
-                if self.return_object.object_info == -1:
+                self.return_object.object_info, status = self.find_object_with_spatial_desc(object_entity, object_infos_with_features)
+                if status == StatusEnum.ERROR_TWO_REF:
                     self.return_object.is_success = False
                     self.return_object.error_code = ErrorType.TWO_REF
                     return self.return_object
-                elif self.return_object.object_info == -2:
+                elif status == StatusEnum.ERROR_CANT_FIND:
                     self.return_object.is_success = False
                     self.return_object.error_code = ErrorType.CANT_FIND
                     return self.return_object
@@ -98,12 +96,12 @@ class Grounding:
                     features_below_threshold.append(obj_info)
                     objects.append((inner_idx, name, bbox))
 
-        target_index = self.spatial.locate_specific_object(object_entity, objects)
-        object_info = object_info_with_features[target_index]
-        if object_info == -1:
+        target_index, status = self.spatial.locate_specific_object(object_entity, objects)
+        if status == StatusEnum.SUCCESS:
+            object_info = object_info_with_features[target_index]
             return object_info
-        elif object_info:
-            return object_info
+
+        return None, status
 
     def learn_new_object(self, object_entity):
         entity_name = object_entity.name
@@ -130,10 +128,8 @@ class Grounding:
             self.return_object.error_code = ErrorType.UNKNOWN
             return self.return_object
         else:
-            features=self.vision.get_masks_with_features()
-            # new_features = db_features * 0.9 + features * 0.10  # TODO discuss this
-            new_features = features[0].features   # TODO remove
-            self.db.update(entity, new_features)
+            features = self.vision.get_masks_with_features()
+            self.db.update(entity, features[0].features)
             self.return_object.is_success = True
             return self.return_object
 
@@ -144,8 +140,6 @@ class Grounding:
         return self.embedding_distance(features_1, features_2) < threshold
 
     def find_best_match(self, indexes_below_threshold, distances) -> Optional[tuple]:
-        if isinstance(indexes_below_threshold, np.ndarray):
-            features = indexes_below_threshold.tolist()
         if isinstance(distances, np.ndarray):
             distances = distances.tolist()
         if len(indexes_below_threshold) != len(distances):

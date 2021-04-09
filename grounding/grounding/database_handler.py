@@ -16,13 +16,11 @@ class DatabaseHandler:
                                 (KEY INTEGER PRIMARY KEY AUTOINCREMENT,
                                 NAME TEXT, 
                                 FEATURE_VECTOR TEXT);''')
-        print("Table created successfully")
 
     def insert_feature(self, name, feature_vector):
         self.conn.execute("INSERT INTO FEATURES (NAME, FEATURE_VECTOR) \
                                    VALUES (?, ?);", (name, ",".join([str(x) for x in feature_vector])))
         self.conn.commit()
-        print("Records created successfully")
 
     def get_feature(self, name):
         result = self.conn.execute("SELECT FEATURE_VECTOR from FEATURES \
@@ -30,7 +28,6 @@ class DatabaseHandler:
         features = None
         for row in result:
             features = row[0]
-        print("Select operation done successfully")
         if features is not None:
             features = np.fromstring(features, dtype=float, sep=',')
         return features
@@ -47,16 +44,14 @@ class DatabaseHandler:
     def update(self, name, feature_vector):
         self.conn.execute("UPDATE FEATURES set FEATURE_VECTOR = ? where NAME = ?;", (",".join([str(x) for x in feature_vector]),name))
         self.conn.commit()
-        print("Update operation was successful")
 
     def delete(self, name):
         self.conn.execute("DELETE from FEATURES where NAME = ?;", (name,))
         self.conn.commit()
-        print("Total number of rows deleted :", self.conn.total_changes)
 
 
 if __name__ == "__main__":
-    db = DatabaseHandler()
+    db = DatabaseHandler("grounding.db")
     feature = np.array([1, 1, 1, 1, 1])
     # db.conn.execute("DROP TABLE FEATURES")
     # db.create_table()
