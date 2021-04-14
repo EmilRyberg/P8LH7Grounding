@@ -4,23 +4,30 @@ from torch.utils.data import Dataset
 import torch.nn.functional as F
 from torchvision import transforms
 from PIL import Image, ImageDraw, ImageChops
-from pycocotools.coco import COCO
+import os
+try:
+    from pycocotools.coco import COCO
+except ImportError as e:
+    from feature_extractor.pycocotools.coco import COCO
 
 Image.MAX_IMAGE_PIXELS = None
 
 
 class ClassificationDataset(Dataset):
-    def __init__(self, dataset_dir, json_name):
+    def __init__(self, dataset_dir, json_name, image_folder_path="."):
         if dataset_dir[-1] != '/':
             dataset_dir += '/'
 
+        self.image_folder_path = image_folder_path
         self.dataset_dir = dataset_dir
         self.coco = COCO(dataset_dir + json_name) #COCO("./dataset_output/dataset.json")
 
-        self.allAnn = []
+        self.allAnnIds = []
         for annId in self.coco.getAnnIds(iscrowd=0):
-            annTemp = self.coco.loadAnns(annId)
-            self.allAnn.append(annTemp[0])
+            self.allAnnIds.append(annId)
+        self.catIdToIndexMap = {}
+        for index, catId in enumerate(self.coco.getCatIds()):
+            self.catIdToIndexMap[catId] = index
             
         self.data_transform = transforms.Compose([
             transforms.Resize((224, 224)),
@@ -29,14 +36,18 @@ class ClassificationDataset(Dataset):
         ])
 
     def __len__(self):
-        return len(self.allAnn)
+        return len(self.allAnnIds)
 
     def __getitem__(self, idx):
-        ann = self.allAnn[idx]
+        annId = self.allAnnIds[idx]
+        ann = self.coco.loadAnns(annId)[0]
         imgInfo = self.coco.loadImgs(ann['image_id'])
-        img = Image.open(self.dataset_dir + imgInfo[0]['file_name'])
-        class_id = ann['category_id'] - 2457646 # Weird label off-set
+        img = Image.open(os.path.join(self.dataset_dir, self.image_folder_path, imgInfo[0]['file_name']))
+        category_id = ann['category_id']
+        class_id = self.catIdToIndexMap[category_id]
 
+        if img.mode != "RGB":
+            img = img.convert("RGB")
         mask = Image.new("RGB", img.size, 0)
         draw = ImageDraw.Draw(mask)
 
@@ -49,22 +60,23 @@ class ClassificationDataset(Dataset):
 
             draw.polygon(xy, fill=(255, 255, 255), outline=None)
 
-        resultFullImage = ImageChops.multiply(img, mask)
+        try:
+            resultFullImage = ImageChops.multiply(img, mask)
+        except ValueError as e:
+            print(f"sizes: {img.size} --- {mask.size}")
+            raise e
 
         bbox = ann["bbox"]
         bbox[2] += bbox[0]
         bbox[3] += bbox[1]
 
         resultNoResize = resultFullImage.crop(bbox)
-
-        #image = np.zeros((224, 224, 3))
-        #print("img", image)
         image = self.data_transform(resultNoResize)
-        #image = self.data_transform(image)
-        #image = F.interpolate(image.unsqueeze(0), (224, 224)).squeeze(0)
-        #image = image.squeeze(0) # image = F.interpolate(image.unsqueeze(0), (224, 224)).squeeze(0)
 
         return image, class_id
+
+    def get_num_classes(self):
+        return len(self.coco.getCatIds())
 
 
 class TripletDataset(Dataset):
