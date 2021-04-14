@@ -97,8 +97,8 @@ def create_dataset():
                                 final_output += ".\tO\n"
                         break
                 if not has_labelled:
-                    if word_to_process in keyword_to_entity_mapping.keys():
-                        class_name = keyword_to_entity_mapping[word_to_process]
+                    if word_to_process.lower() in keyword_to_entity_mapping.keys():
+                        class_name = keyword_to_entity_mapping[word_to_process.lower()]
                         final_output += f"{word_to_process}\tB-{class_name}\n"
                     else:
                         final_output += f"{word_to_process}\tO\n"
