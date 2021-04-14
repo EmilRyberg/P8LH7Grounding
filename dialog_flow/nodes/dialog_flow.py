@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 import argparse
-import sys
 import rospy
 from find_objects.find_objects import ObjectInfo
 from ner_lib.command_builder import CommandBuilder, PickUpTask, SpatialType, ObjectEntity as ObjectEntityType
-from little_helper_interfaces.msg import Task, ObjectEntity, OuterObjectEntity, SpatialDescription, OuterTask, StringWithTimestamp
+from little_helper_interfaces.msg import StringWithTimestamp
 from vision_lib.ros_camera_interface import ROSCamera
 from robot_control.robot_control import RobotController
 from grounding.grounding import Grounding
 from vision_lib.vision_controller import VisionController
 from grounding.spatial import SpatialRelation
-from grounding.database_handler import DatabaseHandler
-from text_to_speech.srv import TextToSpeech, TextToSpeechRequest
+from database_handler.database_handler import DatabaseHandler
+from text_to_speech.srv import TextToSpeech
 from ui_interface_lib.ui_interface import UIInterface
 import random
 

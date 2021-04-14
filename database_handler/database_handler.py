@@ -45,9 +45,11 @@ class DatabaseHandler:
     def get_task(self, word):
         result = self.conn.execute("SELECT TASK_ID from TASK_WORDS where WORD=?;", (word, ))
         task_id = None
+        task_name = None
         for row in result:
             task_id = row[0]
-        return task_id
+        task_name = self.get_task_name(task_id)
+        return (task_id, task_name)
 
     def get_task_name(self, task_id):
         result = self.conn.execute("SELECT TASK_NAME from TASK_INFO where TASK_ID=?;", (task_id,))
@@ -62,6 +64,22 @@ class DatabaseHandler:
         for row in result:
             task_id = row[0]
         return task_id
+
+    def get_sub_tasks(self, task_name):
+        result = self.conn.execute("SELECT TASK_SUBTASKS from TASK_INFO where TASK_NAME=?;", (task_name,))
+        sub_tasks = None
+        for row in result:
+            sub_tasks = row[0]
+        return sub_tasks
+
+    def add_sub_task(self, task_name, sub_task_id):
+        current_sub_tasks = self.get_sub_tasks(task_name)
+        if current_sub_tasks is None:
+            sub_tasks = str(sub_task_id)+","
+        else:
+            sub_tasks = current_sub_tasks + str(sub_task_id) + ","
+        self.conn.execute("UPDATE TASK_INFO set TASK_SUBTASKS = ? WHERE TASK_NAME = ?;", (sub_tasks, task_name))
+        self.conn.commit()
 
     def add_task(self, task_name, words):
         try:
@@ -91,5 +109,6 @@ class DatabaseHandler:
 
 
 if __name__ == "__main__":
-    db = DatabaseHandler("../../dialog_flow/nodes/grounding.db")
+    db = DatabaseHandler("../dialog_flow/nodes/grounding.db")
+
     db.conn.close()
