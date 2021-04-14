@@ -1,4 +1,4 @@
-from ner.ner import NER, EntityType
+from ner_lib.ner import NER, EntityType
 
 
 def test_ner(model_path, tag_path):
@@ -11,5 +11,5 @@ def test_ner(model_path, tag_path):
 
 
 if __name__ == "__main__":
-    test_ner("ner_1/pytorch_model.bin", "tags.txt")
+    test_ner("ner_2/pytorch_model.bin", "tags_2.txt")
 
