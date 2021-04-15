@@ -7,7 +7,7 @@ from pydub import AudioSegment
 from pydub.playback import play
 from gtts import gTTS
 from std_msgs.msg import String
-from tts_output.srv import TextToSpeech, TextToSpeechRequest, TextToSpeechResponse
+from text_to_speech.srv import TextToSpeech, TextToSpeechRequest, TextToSpeechResponse
 
 
 class TextToSpeechNode:

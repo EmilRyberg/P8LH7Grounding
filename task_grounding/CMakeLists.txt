@@ -57,7 +57,7 @@ catkin_python_setup()
 ## Generate services in the 'srv' folder
 add_service_files(
   FILES
-  ROSGrounding.srv
+  ROSTaskGrounding.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -160,7 +160,7 @@ include_directories(
 
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
-catkin_install_python(PROGRAMS nodes/grounding_node.py
+catkin_install_python(PROGRAMS nodes/task_grounding_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 # catkin_install_python(PROGRAMS
