@@ -45,11 +45,13 @@ class DatabaseHandler:
     def get_task(self, word):
         result = self.conn.execute("SELECT TASK_ID from TASK_WORDS where WORD=?;", (word, ))
         task_id = None
-        task_name = None
         for row in result:
             task_id = row[0]
         task_name = self.get_task_name(task_id)
-        return (task_id, task_name)
+        sub_tasks = self.get_sub_tasks(task_name)
+        if sub_tasks is not None:
+            sub_tasks = np.fromstring(sub_tasks, dtype=int, sep=',')
+        return (task_id, task_name, sub_tasks)
 
     def get_task_name(self, task_id):
         result = self.conn.execute("SELECT TASK_NAME from TASK_INFO where TASK_ID=?;", (task_id,))
@@ -110,5 +112,4 @@ class DatabaseHandler:
 
 if __name__ == "__main__":
     db = DatabaseHandler("../dialog_flow/nodes/grounding.db")
-
     db.conn.close()
