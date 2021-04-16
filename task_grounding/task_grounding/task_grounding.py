@@ -1,5 +1,5 @@
 from database_handler import DatabaseHandler
-from ner.ner_lib.ner import NER, EntityType
+from ner_lib.ner import NER, EntityType
 
 from ner_lib.command_builder import CommandBuilder, PlaceTask, PickUpTask, FindTask, MoveTask
 import numpy as np
