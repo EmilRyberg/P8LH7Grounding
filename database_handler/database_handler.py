@@ -48,10 +48,7 @@ class DatabaseHandler:
         for row in result:
             task_id = row[0]
         task_name = self.get_task_name(task_id)
-        sub_tasks = self.get_sub_tasks(task_name)
-        if sub_tasks is not None:
-            sub_tasks = np.fromstring(sub_tasks, dtype=int, sep=',')
-        return (task_id, task_name, sub_tasks)
+        return (task_id, task_name)
 
     def get_task_name(self, task_id):
         result = self.conn.execute("SELECT TASK_NAME from TASK_INFO where TASK_ID=?;", (task_id,))

@@ -110,6 +110,32 @@ class FindTask(BaseTask):
         return f"Task type: {FindTask.__name__}\n\tObject to find: {self.object_to_find}\n{super().__str__()}"
 
 
+class MoveTask(BaseTask):
+    def __init__(self):
+        super().__init__()
+        self.object_to_move = ObjectEntity()
+
+    def build_task(self, entities):
+        self.object_to_move.build_object(entities)
+        return self
+
+    def __str__(self):
+        return f"Task type: {MoveTask.__name__}\n\tObject to move: {self.object_to_move}\n{super().__str__()}"
+
+
+class PlaceTask(BaseTask):
+    def __init__(self):
+        super().__init__()
+        self.object_to_place_next_to = ObjectEntity()
+
+    def build_task(self, entities):
+        self.object_to_place_next_to.build_object(entities)
+        return self
+
+    def __str__(self):
+        return f"Task type: {PickUpTask.__name__}\n\tObject to place next to: {self.object_to_place_next_to}\n{super().__str__()}"
+
+
 class CommandBuilder:
     def __init__(self, model_path, tag_path, ner=None):
         self.ner = ner if ner is not None else NER(model_path, tag_path)
