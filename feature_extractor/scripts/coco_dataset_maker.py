@@ -4,9 +4,10 @@ import numpy as np
 import json
 import glob
 import datetime
+from pathlib import Path
 
 class CocoDatasetMaker:
-    def __init__(self, dataset_dir, img_index_offset=0, label_index_offset=0):
+    def __init__(self, dataset_dir, img_index_offset=0, label_index_offset=0, output_dir="dataset_output"):
         self.coco = {
             "info": {
                 "year": 2020,
@@ -63,7 +64,7 @@ class CocoDatasetMaker:
             "PCB": 0
         }
 
-        self.output_dir = 'dataset_output'
+        self.output_dir = output_dir
         self.img_index_offset = img_index_offset
         self.label_index_offset = label_index_offset
         if not os.path.isdir(self.output_dir):
@@ -71,7 +72,6 @@ class CocoDatasetMaker:
 
     def create_dataset(self):
         image_folders = glob.glob(f'{self.dataset_dir}/*/')
-        file_name_map_to_index_map = {}
         annotation_index = self.label_index_offset
         contour_folder_path = os.path.join(self.output_dir, 'img_with_contours')
         if not os.path.isdir(contour_folder_path):
@@ -91,7 +91,6 @@ class CocoDatasetMaker:
                 "date_captured": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "Z"
             }
             self.coco["images"].append(image_json)
-            file_name_map_to_index_map[image_name] = img_index
             cv2.imwrite(os.path.join(self.output_dir, image_name), full_image)
 
             contours = []
@@ -102,9 +101,8 @@ class CocoDatasetMaker:
                     contours.append(contour)
 
             contour_img = cv2.drawContours(full_image, contours, -1, (0, 0, 255), 2)
-            img_name_splitted = image_folder.split('/')
-            original_img_name = img_name_splitted[len(img_name_splitted) - 2]
-            cv2.imwrite(os.path.join(contour_folder_path, f'cont{img_index}_{original_img_name}.png'), contour_img)
+            original_img_name = Path(image_folder).stem
+            cv2.imwrite(os.path.join(contour_folder_path, f'cont{img_index + self.img_index_offset}_{original_img_name}.png'), contour_img)
 
 
         print('writing json file')
@@ -158,6 +156,18 @@ class CocoDatasetMaker:
         return len(contours), valid_contours
 
 
+def merge_json_files(main_json, other_json, output_json_path="merged.json"):
+    with open(main_json, "r") as file:
+        main_json_obj = json.load(file)
+    with open(other_json, "r") as file:
+        other_json_obj = json.load(file)
+    main_json_obj["annotations"].extend(other_json_obj["annotations"])
+    main_json_obj["images"].extend(other_json_obj["images"])
+    with open(output_json_path, 'w') as outfile:
+        json.dump(main_json_obj, outfile)
+
+
 if __name__ == '__main__':
-    dataset_maker = CocoDatasetMaker('output_dataset', img_index_offset=200, label_index_offset=2475)
-    dataset_maker.create_dataset()
+    #dataset_maker = CocoDatasetMaker('output_dataset', img_index_offset=200, label_index_offset=2475, output_dir="dataset_output")
+    #dataset_maker.create_dataset()
+    merge_json_files("dataset_1.json", "dataset_2.json")
