@@ -93,6 +93,9 @@ class PickUpTask(BaseTask):
         self.object_to_pick_up.build_object(entities)
         return self
 
+    def get_name(self):
+        return PickUpTask.__name__
+
     def __str__(self):
         return f"Task type: {PickUpTask.__name__}\n\tObject to pick up: {self.object_to_pick_up}\n{super().__str__()}"
 
@@ -105,6 +108,9 @@ class FindTask(BaseTask):
     def build_task(self, entities):
         self.object_to_find.build_object(entities)
         return self
+
+    def get_name(self):
+        return FindTask.__name__
 
     def __str__(self):
         return f"Task type: {FindTask.__name__}\n\tObject to find: {self.object_to_find}\n{super().__str__()}"
@@ -119,6 +125,9 @@ class MoveTask(BaseTask):
         self.object_to_move.build_object(entities)
         return self
 
+    def get_name(self):
+        return MoveTask.__name__
+
     def __str__(self):
         return f"Task type: {MoveTask.__name__}\n\tObject to move: {self.object_to_move}\n{super().__str__()}"
 
@@ -131,6 +140,9 @@ class PlaceTask(BaseTask):
     def build_task(self, entities):
         self.object_to_place_next_to.build_object(entities)
         return self
+
+    def get_name(self):
+        return PlaceTask.__name__
 
     def __str__(self):
         return f"Task type: {PickUpTask.__name__}\n\tObject to place next to: {self.object_to_place_next_to}\n{super().__str__()}"

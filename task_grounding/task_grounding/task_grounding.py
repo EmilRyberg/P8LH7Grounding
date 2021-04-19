@@ -25,78 +25,79 @@ class TaskGrounding:
         self.return_object = TaskGroundingReturn()
         self.task_info = []
 
-    def get_task_from_entity(self, ner_task_word, entities=None):
+    def get_task_from_entity(self, ner_task_word, task_entities=None):
         (_, task_name) = self.db.get_task(ner_task_word)
-        self.task_switch(task_name, entities)
+        self.task_switch(task_name, task_entities)
         return self.return_object
 
-    def task_switch(self, task_name, entities):
+    def task_switch(self, task_name, task_entities):
         if task_name is None:
             self.return_object.error_code = ErrorType.UNKNOWN
             return self.return_object
         elif task_name == "pick up":  # Check the default skills first.
-            self.handle_pick_task(entities)
+            self.handle_pick_task(task_entities)
         elif task_name == "find":
-            self.handle_find_task(entities)
+            self.handle_find_task(task_entities)
         elif task_name == "move":
-            self.handle_move_task(entities)
+            self.handle_move_task(task_entities)
         elif task_name == "place":
-            self.handle_place_task()
+            self.handle_place_task(task_entities)
         else:
             sub_tasks = self.db.get_sub_tasks(task_name)
             if sub_tasks is not None:
                 sub_tasks = np.fromstring(sub_tasks, dtype=int, sep=',')
-            self.handle_advanced_task(sub_tasks, entities)
+            self.handle_advanced_task(sub_tasks, task_entities)
 
-    def handle_pick_task(self, entities):
+    def handle_pick_task(self, task_entities):
         task = PickUpTask()
-        if entities is None:
-            self.task_info.append(task)
-            self.return_object.error_code = ErrorType.NO_OBJECT
-            return self.return_object
-        task.build_task(entities)
+        if task_entities is None:
+            self.missing_entities_error(task)
+            return
+        task.build_task(task_entities)
         self.return_object.is_success = True
         self.return_object.task_info.append(task)
 
-    def handle_move_task(self, entities):
+    def handle_move_task(self, task_entities):
         task = MoveTask()
-        if entities is None:
-            self.task_info.append(task)
-            self.return_object.error_code = ErrorType.NO_OBJECT
-            return self.return_object
-        task.build_task(entities)
+        if task_entities is None:
+            self.missing_entities_error(task)
+            return
+        task.build_task(task_entities)
         self.return_object.is_success = True
         self.return_object.task_info.append(task)
 
-    def handle_find_task(self, entities):
+    def handle_find_task(self, task_entities):
         task = FindTask()
-        if entities is None:
-            self.task_info.append(task)
-            self.return_object.error_code = ErrorType.NO_OBJECT
-            return self.return_object
-        task.build_task(entities)
+        if task_entities is None:
+            self.missing_entities_error(task)
+            return
+        task.build_task(task_entities)
         self.return_object.is_success = True
         self.return_object.task_info.append(task)
 
-    def handle_place_task(self, entities):
+    def handle_place_task(self, task_entities):
         task = PlaceTask()
-        if entities is None:
-            self.task_info.append(task)
-            self.return_object.error_code = ErrorType.NO_OBJECT
-            return self.return_object
-        task.build_task(entities)
+        if task_entities is None:
+            self.missing_entities_error(task)
+            return
+        task.build_task(task_entities)
         self.return_object.is_success = True
         self.return_object.task_info.append(task)
 
-    def handle_advanced_task(self, sub_tasks, entities):
+    def handle_advanced_task(self, sub_tasks, task_entities):
         for sub_task in sub_tasks:  # task idx
             task_name = self.db.get_task_name(sub_task)
-            self.task_switch(task_name, entities)
+            self.task_switch(task_name, task_entities)
+
+    def missing_entities_error(self, task):
+        self.task_info.append(task)
+        self.return_object.error_code = ErrorType.NO_OBJECT
+        return self.return_object
 
     def teach_new_task(self, task_name, sub_tasks, words):
         self.db.add_task(task_name, words)
         for task in sub_tasks:
-            (sub_task_id, _, _) = self.db.get_task(task)
+            (sub_task_id, _) = self.db.get_task(task)
             if sub_task_id is None:
                 self.return_object.error_code = ErrorType.UNKNOWN
                 return self.return_object
