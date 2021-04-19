@@ -1,6 +1,5 @@
-from feature_extractor.datasets import ClassificationDataset, DatasetWithTransforms
+from feature_extractor.datasets import ClassificationDataset
 import torch
-import torch.utils.data
 import torch.nn.functional as F
 import torchvision
 from torch.utils.tensorboard import SummaryWriter
@@ -15,26 +14,29 @@ from feature_extractor.model import FeatureExtractorNet
 
 # function for first step in training, train a classifier
 def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=80, continue_epoch=None,
-                  on_gpu=True, checkpoint_dir="checkpoints", batch_size=64, print_interval=50, num_classes=5, num_features=3):
+                  on_gpu=True, checkpoint_dir="checkpoints", batch_size=64, print_interval=50, num_features=3):
     writer = SummaryWriter(f"runs/{run_name}")
 
-    dataset = ClassificationDataset(dataset_dir, "dataset.json")
+    if dataset_dir[-1] != '/':
+            dataset_dir += '/'
+    dataset = ClassificationDataset(dataset_dir, "annotations/instances_train2017.json", image_folder_path="train2017")
     dataset_length = len(dataset)
+    val_dataset = ClassificationDataset(dataset_dir, "annotations/instances_val2017.json", image_folder_path="val2017")
+    val_dataset_length = len(val_dataset)
 
-    train_length = int(math.ceil(dataset_length * 0.7))
+    train_length = int(math.ceil(dataset_length * 0.3))
     test_length = dataset_length - train_length
-    train_subset, test_subset = torch.utils.data.random_split(dataset, [train_length, test_length])
+    train_set, _ = torch.utils.data.random_split(dataset, [train_length, test_length])
 
-    train_set = DatasetWithTransforms(train_subset, augmentation_enabled=True)
-    test_set = DatasetWithTransforms(test_subset, augmentation_enabled=False)
+    dataloader = torch.utils.data.DataLoader(train_set, shuffle=True, batch_size=batch_size, num_workers=2)
+    test_dataloader = torch.utils.data.DataLoader(val_dataset, shuffle=False, batch_size=batch_size, num_workers=2)
 
-    dataloader = torch.utils.data.DataLoader(train_set, shuffle=True, batch_size=batch_size, num_workers=4)
-    test_dataloader = torch.utils.data.DataLoader(test_set, shuffle=False, batch_size=batch_size, num_workers=1)
-
+    num_classes = dataset.get_num_classes()
+    print(f"Number of classes: {num_classes}")
     model = FeatureExtractorNet(use_classifier=True, num_features=num_features, num_classes=num_classes)
 
     for index, child in enumerate(model.backbone.children()):
-        if index >= 8: # This will make the last 4 layers trainable
+        if index >= 15: # This will make the last 4 layers trainable
             for param in child.parameters():
                 param.requires_grad = True
         else:
@@ -63,22 +65,20 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=80, con
     writer.add_graph(model, example_input)
 
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.0005, weight_decay=0.01) # lr 0.001 default
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.01) # lr 0.001 default
 
-    print(f"Training with {train_length} train images, and {test_length} test images")
+    print(f"Training with {train_length} train images, and {val_dataset_length} test images")
 
     if on_gpu:
         model = model.cuda()
     
     running_loss = 0.0
+
     # here we start training
     got_examples = False
     start = 0 if continue_epoch is None else continue_epoch
-    last_best_loss = 100000.0
     for epoch in range(start, epochs):
-        #print("Training")
         model.train()
-        epoch_loss = 0.0
         for i, data in enumerate(tqdm(dataloader)):
             inputs, labels = data
             if not got_examples:
@@ -105,20 +105,21 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=80, con
             optimizer.step()
 
             running_loss += loss.item()
-            epoch_loss += loss.item()
             if i % print_interval == print_interval-1:
-                print_loss = running_loss / print_interval
-                print(f"[{epoch + 1}, {i + 1}] loss: {print_loss:.6f}")
+                loss = running_loss / print_interval
+                print(f"[{epoch + 1}, {i + 1}] loss: {loss:.6f}")
                 running_loss = 0.0
-        writer.add_scalar("training loss", epoch_loss / len(dataloader), epoch * len(dataloader) + i)
+                writer.add_scalar("training loss", loss, epoch * len(dataloader) + i)
 
         test_loss = 0
         test_correct = 0
         total_test_correct = 0
+        total_img = 0
         total_runs = 0
         #print("Testing")
-        model.eval()
-        for i, data in enumerate(test_dataloader):
+
+        for i, data in enumerate(test_dataloader, 0):
+            model.eval()
             with torch.no_grad():
                 inputs, labels = data
                 if on_gpu:
@@ -144,7 +145,7 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=80, con
                 total_runs += 1
 
         avg_test_loss = test_loss / total_runs
-        test_acc = (test_correct / test_length) * 100.0
+        test_acc = (test_correct / val_dataset_length) * 100.0
 
         print(f"[{epoch + 1}] Test loss: {avg_test_loss:.5f}")
         print(f"[{epoch + 1}] Test acc.: {test_acc:.3f}%")
@@ -152,18 +153,16 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=80, con
         writer.add_scalar("test loss", avg_test_loss, epoch + 1)
         writer.add_scalar("test accuracy", test_acc, epoch + 1)
 
-        if avg_test_loss <= last_best_loss:
-            checkpoint_name = f"epoch-{epoch + 1}-loss-{avg_test_loss:.5f}-{test_acc:.2f}.pth"
-            checkpoint_full_name = os.path.join(checkpoint_dir, checkpoint_name)
-            print(f"[{epoch + 1}] Saving checkpoint as {checkpoint_full_name}")
-            torch.save(model.state_dict(), checkpoint_full_name)
-            last_best_loss = avg_test_loss
+        checkpoint_name = f"epoch-{epoch + 1}-loss-{avg_test_loss:.5f}-{test_acc:.2f}.pth"
+        checkpoint_full_name = os.path.join(checkpoint_dir, checkpoint_name)
+        print(f"[{epoch + 1}] Saving checkpoint as {checkpoint_full_name}")
+        torch.save(model.state_dict(), checkpoint_full_name)
 
     print("Finished training")
     writer.close()
 
 
 if __name__ == "__main__":
-    train_softmax(dataset_dir="dataset_2", run_name="run4_d2", continue_epoch=None, print_interval=20,
-                  checkpoint_dir="checkpoints4_d2_3emb", #weights_dir="checkpoints4_3emb/epoch-45-loss-0.19246-90.92.pth",
-                  num_features=3, on_gpu=True, epochs=100)
+    train_softmax(dataset_dir="F:/Projects/P8/coco/", run_name="run2_coco", continue_epoch=None, print_interval=20,
+                  checkpoint_dir="checkpoints2_coco", #weights_dir="checkpoints4_3emb/epoch-45-loss-0.19246-90.92.pth",
+                  num_features=128, on_gpu=True, epochs=10)

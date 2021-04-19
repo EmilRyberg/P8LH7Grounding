@@ -10,11 +10,13 @@ import os
 from torch.utils.tensorboard import SummaryWriter
 import random
 from feature_extractor.image_utils import unnormalize_image
+from tqdm import tqdm
 
 
-def train_triplet(dataset_dir, weights_dir=None, run_name="run1", epochs=10, on_gpu=True, checkpoint_dir="checkpoints_triplet", batch_size=150, num_features=3):
+def train_triplet(dataset_dir, weights_dir=None, run_name="run1", epochs=10, on_gpu=True,
+                  checkpoint_dir="checkpoints_triplet", batch_size=150, num_features=3, equal_number_of_images_per_class=False):
     writer = SummaryWriter(f"runs/triplet_{run_name}")
-    dataset = TripletDataset(dataset_dir, "dataset.json")
+    dataset = TripletDataset(dataset_dir, "dataset.json", equal_number_of_images_per_class=equal_number_of_images_per_class)
     dataloader = DataLoader(dataset, shuffle=True, batch_size=batch_size, num_workers=4)
 
     model = FeatureExtractorNet(use_classifier=False, num_features=num_features)
@@ -33,8 +35,9 @@ def train_triplet(dataset_dir, weights_dir=None, run_name="run1", epochs=10, on_
 
     for param in model.backbone.parameters():
         param.requires_grad = False
-    criterion = nn.TripletMarginLoss(margin=0.6)
+    criterion = nn.TripletMarginLoss(margin=1)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.25, weight_decay=0.001, momentum=0.9)
+    #optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.01)
 
     if on_gpu:
         model = model.cuda()
@@ -44,7 +47,7 @@ def train_triplet(dataset_dir, weights_dir=None, run_name="run1", epochs=10, on_
     epoch_mini_batches = 0
     for epoch in range(epochs):
         model.train()
-        for i, data in enumerate(dataloader, 0):
+        for i, data in enumerate(tqdm(dataloader)):
             class_ids, anchor, positive = data
             if on_gpu:
                 anchor = anchor.cuda()
@@ -97,7 +100,7 @@ def train_triplet(dataset_dir, weights_dir=None, run_name="run1", epochs=10, on_
             epoch_loss += loss.item()
 
             avg_loss = running_loss
-            print(f"[{epoch + 1}, {i + 1}] loss: {avg_loss:.10f}")
+            #print(f"[{epoch + 1}, {i + 1}] loss: {avg_loss:.10f}")
             running_loss = 0.0
             mini_batches += 1
             epoch_mini_batches += 1
@@ -110,7 +113,7 @@ def train_triplet(dataset_dir, weights_dir=None, run_name="run1", epochs=10, on_
         checkpoint_full_name = os.path.join(checkpoint_dir, checkpoint_name)
         print(f"[{epoch + 1}] Saving checkpoint as {checkpoint_full_name}")
         torch.save(model.state_dict(), checkpoint_full_name)
-        dataset.sample_triplets()  # get new triplets
+        dataset.sample_pairs()  # get new triplets
         epoch_loss = 0
     print("Finished training")
     writer.close()
@@ -152,4 +155,5 @@ def get_all_other_images_and_embeddings(class_ids_np, current_class_id):
 
 
 if __name__ == '__main__':
-    train_triplet(dataset_dir="dataset_output/", run_name="run6", checkpoint_dir="checkpoints_triplet6_3emb", weights_dir="checkpoints4_3emb/epoch-100-loss-0.08342-97.45.pth", num_features=3, batch_size=200)
+    train_triplet(dataset_dir="dataset_2", run_name="run6_d2", checkpoint_dir="checkpoints_triplet6_d2", weights_dir="checkpoints4_d2_3emb/epoch-60-loss-0.06215-94.03.pth", num_features=3, batch_size=200,
+                  epochs=30, equal_number_of_images_per_class=True)
