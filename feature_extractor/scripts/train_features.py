@@ -32,9 +32,15 @@ def train_triplet(dataset_dir, weights_dir=None, run_name="run1", epochs=10, on_
         _, example_input, _ = data
         break
     writer.add_graph(model, example_input)
-
-    for param in model.backbone.parameters():
-        param.requires_grad = False
+    for index, child in enumerate(model.backbone.children()):
+        if index >= 17:
+            for param in child.parameters():
+                param.requires_grad = True
+        else:
+            for param in child.parameters():
+                param.requires_grad = False
+    #for param in model.backbone.parameters():
+    #    param.requires_grad = False
     criterion = nn.TripletMarginLoss(margin=1)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.25, weight_decay=0.001, momentum=0.9)
     #optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.01)
@@ -155,5 +161,5 @@ def get_all_other_images_and_embeddings(class_ids_np, current_class_id):
 
 
 if __name__ == '__main__':
-    train_triplet(dataset_dir="dataset_2", run_name="run6_d2", checkpoint_dir="checkpoints_triplet6_d2", weights_dir="checkpoints4_d2_3emb/epoch-60-loss-0.06215-94.03.pth", num_features=3, batch_size=200,
+    train_triplet(dataset_dir="dataset_2_filtered", run_name="run1_d2_filtered", checkpoint_dir="checkpoints_triplet1_d2_filtered", weights_dir="checkpoints1_d2_filtered_3emb/epoch-56-loss-0.04805-96.14.pth", num_features=3, batch_size=200,
                   epochs=30, equal_number_of_images_per_class=True)

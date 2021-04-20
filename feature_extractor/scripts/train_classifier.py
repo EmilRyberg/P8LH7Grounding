@@ -34,7 +34,7 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=80, con
     model = FeatureExtractorNet(use_classifier=True, num_features=num_features, num_classes=num_classes)
 
     for index, child in enumerate(model.backbone.children()):
-        if index >= 8: # This will make the last 4 layers trainable
+        if index >= 8:
             for param in child.parameters():
                 param.requires_grad = True
         else:
@@ -164,6 +164,6 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=80, con
 
 
 if __name__ == "__main__":
-    train_softmax(dataset_dir="dataset_2", run_name="run4_d2", continue_epoch=None, print_interval=20,
-                  checkpoint_dir="checkpoints4_d2_3emb", #weights_dir="checkpoints4_3emb/epoch-45-loss-0.19246-90.92.pth",
+    train_softmax(dataset_dir="dataset_2_filtered", run_name="run1_d2_filtered", continue_epoch=None, print_interval=20,
+                  checkpoint_dir="checkpoints1_d2_filtered_3emb", #weights_dir="checkpoints4_3emb/epoch-45-loss-0.19246-90.92.pth",
                   num_features=3, on_gpu=True, epochs=100)
