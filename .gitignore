@@ -165,3 +165,6 @@ feature_extractor/SpineNet/
 *.pbtxt
 
 *.json
+dialog_flow/nodes/ner_pytorch_model.bin.2
+
+dialog_flow/nodes/tags.txt.2

@@ -119,7 +119,7 @@ class FindObjectIsolatedTest(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         self.spatial_mock.locate_specific_object = Mock(return_value=1)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_pick_up
+        object_entity = task.object_to_execute_on
         self.returned = self.grounding.find_object(object_entity)
         self.assertTrue(self.returned.is_success)
         self.assertIsNotNone(self.returned.object_info)
@@ -233,7 +233,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_pick_up
+        object_entity = task.object_to_execute_on
         self.assertEqual(self.objects[1][0], self.spatial.locate_specific_object(object_entity, self.objects))
 
     def test_right(self):
@@ -248,7 +248,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_pick_up
+        object_entity = task.object_to_execute_on
         self.assertEqual(self.objects[1][0], self.spatial.locate_specific_object(object_entity, self.objects))
 
     def test_left(self):
@@ -261,7 +261,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_pick_up
+        object_entity = task.object_to_execute_on
         self.assertEqual(self.objects[2][0], self.spatial.locate_specific_object(object_entity, self.objects))
 
     def test_below(self):
@@ -275,7 +275,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_pick_up
+        object_entity = task.object_to_execute_on
         self.assertEqual(self.objects[4][0], self.spatial.locate_specific_object(object_entity, self.objects))
 
     def test_diagonalRightUp1(self):
@@ -289,7 +289,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_pick_up
+        object_entity = task.object_to_execute_on
         self.assertEqual(self.objects[1][0], self.spatial.locate_specific_object(object_entity, self.objects))
 
     def test_diagonalRightUp2(self):
@@ -303,7 +303,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_pick_up
+        object_entity = task.object_to_execute_on
         self.assertEqual(self.objects[1][0], self.spatial.locate_specific_object(object_entity, self.objects))
 
     def test_serial(self):
@@ -322,7 +322,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_pick_up
+        object_entity = task.object_to_execute_on
         self.assertEqual(self.objects[0][0], self.spatial.locate_specific_object(object_entity, self.objects))
 
 
@@ -353,7 +353,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_pick_up
+        object_entity = task.object_to_execute_on
         self.assertEqual(self.objects[1][0], self.spatial.locate_specific_object(object_entity, self.objects))
 
     def test_right(self):
@@ -367,7 +367,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_pick_up
+        object_entity = task.object_to_execute_on
         self.assertEqual(self.objects[1][0], self.spatial.locate_specific_object(object_entity, self.objects))
 
     def test_left(self):
@@ -381,7 +381,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_pick_up
+        object_entity = task.object_to_execute_on
         self.assertEqual(self.objects[4][0], self.spatial.locate_specific_object(object_entity, self.objects))
 
     def test_below(self):
@@ -395,7 +395,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_pick_up
+        object_entity = task.object_to_execute_on
         self.assertEqual(self.objects[4][0], self.spatial.locate_specific_object(object_entity, self.objects))
 
     def test_diagonalRightUp(self):
@@ -409,7 +409,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_pick_up
+        object_entity = task.object_to_execute_on
         self.assertEqual(self.objects[1][0], self.spatial.locate_specific_object(object_entity, self.objects))
 
     def test_serial(self):
@@ -428,7 +428,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_pick_up
+        object_entity = task.object_to_execute_on
         self.assertEqual(self.objects[1][0], self.spatial.locate_specific_object(object_entity, self.objects))
 
     def test_twoOfReference(self):
@@ -442,7 +442,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_pick_up
+        object_entity = task.object_to_execute_on
         self.assertEqual(-1, self.spatial.locate_specific_object(object_entity, self.objects))
 
     def test_locate_specific_object__two_valid_results__returns_list_with_correct_length(self):
@@ -464,7 +464,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_pick_up
+        object_entity = task.object_to_execute_on
         self.assertEqual(2, len(self.spatial.locate_specific_object(object_entity, objects)))
 
 
