@@ -2,8 +2,8 @@
 import rospy
 from std_msgs.msg import String
 from little_helper_interfaces.msg import ObjectEntity, ObjectInfo, OuterObjectEntity, ROSGroundingReturn
-from grounding.srv import ROSGrounding, ROSGroundingResponse, ROSGroundingRequest
-from grounding.grounding import Grounding, GroundingReturn, ErrorType
+from task_grounding.srv import ROSTaskGrounding, ROSTaskGroundingResponse, ROSTaskGroundingRequest
+from task_grounding.task_grounding import TaskGrounding, TaskGroundingReturn, ErrorType
 
 
 def create_ros_return(non_ros_return):
@@ -14,33 +14,20 @@ def create_ros_return(non_ros_return):
     return ros_return
 
 
-class GroundingService():
+class TaskGroundingService:
     def __init__(self):
-        self.grounding = Grounding()
-        self.returned = GroundingReturn()
+        self.grounding = TaskGrounding()
+        self.returned = TaskGroundingReturn()
 
-    def handle_grounding_request(self, request: ROSGroundingRequest):
-        if request.command == "find":
-            self.returned = self.grounding.find_object(request.entity)
-            ros_return = create_ros_return(self.returned)
-            return ROSGroundingResponse(grounding_return=ros_return)
-        elif request.command == "update":
-            self.returned = self.grounding.update_features(request.entity)
-            ros_return = create_ros_return(self.returned)
-            return ROSGroundingResponse(grounding_return=ros_return)
-        elif request.command == "learn":
-            self.returned = self.grounding.learn_new_object(request.entity)
-            ros_return = create_ros_return(self.returned)
-            return ROSGroundingResponse(grounding_return=ros_return)
-        else:
-            raise Exception("unknown command passed to grounding service, commands can be find, update, learn")
+    def handle_grounding_request(self, request: ROSTaskGroundingRequest):
+        return request
 
     def grounding_server(self):
-        rospy.init_node("grounding_server")
-        s = rospy.Service("grounding", ROSGrounding, self.handle_grounding_request)
+        rospy.init_node("task_grounding_server")
+        s = rospy.Service("task_grounding", ROSTaskGrounding, self.handle_grounding_request)
         rospy.spin()
 
 
 if __name__ == '__main__':
-    service = GroundingService()
+    service = TaskGroundingService()
     service.grounding_server()
