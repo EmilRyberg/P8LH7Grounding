@@ -1,5 +1,5 @@
 from task_grounding.task_grounding import TaskGrounding, TaskGroundingReturn, ErrorType
-import numpy as np
+from database_handler import DatabaseHandler
 import unittest
 from unittest.mock import MagicMock, Mock
 from ner_lib.command_builder import CommandBuilder, PlaceTask, PickUpTask, FindTask, MoveTask
@@ -112,6 +112,98 @@ class TeachSystemTest(unittest.TestCase):
 ################################# ISOLATED UNIT TESTS ----- END ##########################################################
 
 ################################# INTEGRATION TESTS ----- BEGIN ##########################################################
+class SimpleSkillIntegration(unittest.TestCase):
+    def setUp(self):
+        self.task_grounding = TaskGrounding(DatabaseHandler("test_grounding.db"))
+        self.returned = TaskGroundingReturn()
+        self.entities = [
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "next"),
+            (EntityType.COLOUR, "black"),
+            (EntityType.OBJECT, "bottom cover"),
+            (EntityType.LOCATION, "above"),
+            (EntityType.OBJECT, "bottom cover")
+        ]
+
+    def test_Pick(self):
+        self.returned = self.task_grounding.get_task_from_entity("take", self.entities)
+        self.assertEqual(self.returned.task_info[0].get_name(), "PickUpTask")
+
+    def test_Move(self):
+        self.returned = self.task_grounding.get_task_from_entity("relocate", self.entities)
+        self.assertEqual(self.returned.task_info[0].get_name(), "MoveTask")
+
+    def test_Place(self):
+        self.returned = self.task_grounding.get_task_from_entity("put", self.entities)
+        self.assertEqual(self.returned.task_info[0].get_name(), "PlaceTask")
+
+    def test_Find(self):
+        self.returned = self.task_grounding.get_task_from_entity("locate", self.entities)
+        self.assertEqual(self.returned.task_info[0].get_name(), "FindTask")
+
+    def test_UnknownObject(self):
+        self.returned = self.task_grounding.get_task_from_entity("asdasd")
+        self.assertFalse(self.returned.is_success)
+        self.assertEqual(self.returned.error_code, ErrorType.UNKNOWN)
+
+    def test_NoObjectSpecified(self):
+        self.returned = self.task_grounding.get_task_from_entity("take")
+        self.assertFalse(self.returned.is_success)
+        self.assertEqual(self.returned.error_code, ErrorType.NO_OBJECT)
+
+class AdvancedTaskIntegration(unittest.TestCase):
+    def setUp(self):
+        self.task_grounding = TaskGrounding(DatabaseHandler("test_grounding.db"))
+        self.returned = TaskGroundingReturn()
+        self.entities = [
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "next"),
+            (EntityType.COLOUR, "black"),
+            (EntityType.OBJECT, "bottom cover"),
+            (EntityType.LOCATION, "above"),
+            (EntityType.OBJECT, "bottom cover")
+        ]
+
+    def test_ClearTable(self):
+        tasks = ["PickUpTask", "MoveTask", "PlaceTask"]
+        self.returned = self.task_grounding.get_task_from_entity("tidy", self.entities)
+        returned_tasks = [self.returned.task_info[0].get_name(),
+                          self.returned.task_info[1].get_name(),
+                          self.returned.task_info[2].get_name()]
+        self.assertEqual(tasks, returned_tasks)
+
+class TeachSystemIntegration(unittest.TestCase):
+    def setUp(self):
+        self.db = DatabaseHandler("test_grounding.db")
+        self.task_grounding = TaskGrounding(self.db)
+        self.returned = TaskGroundingReturn()
+
+    def test_TeachTask(self):
+        self.returned = self.task_grounding.teach_new_task("test_task", ["take", "move", "put"], ["test1", "test2"])
+        self.assertTrue(self.returned.is_success)
+        self.clean_test_db("test_task")
+
+    def test_TeachTaskUnknownSubTask(self):
+        self.returned = self.task_grounding.teach_new_task("test_task1", ["UNKNOWN TASK"], ["test1", "test2"])
+        self.assertFalse(self.returned.is_success)
+        self.assertEqual(self.returned.error_code, ErrorType.UNKNOWN)
+        self.clean_test_db("test_task1")
+
+    def test_AddWordsToTask(self):
+        self.task_grounding.teach_new_task("test_task", ["take", "move", "put"], ["test1", "test2"])
+        self.returned = self.task_grounding.add_word_to_task("test_task", "TEST WORD")
+        self.assertTrue(self.returned.is_success)
+        self.clean_test_db("test_task")
+
+    def clean_test_db(self, task_name):
+        task_id = self.db.get_task_id(task_name)
+        self.db.conn.execute("delete from TASK_WORDS where TASK_ID=?;", (task_id,))
+        self.db.conn.execute("delete from TASK_INFO where TASK_NAME=?;", (task_name,))
+        self.db.conn.commit()
+
+
 
 
 

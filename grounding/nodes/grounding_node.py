@@ -14,7 +14,7 @@ def create_ros_return(non_ros_return):
     return ros_return
 
 
-class GroundingService():
+class GroundingService:
     def __init__(self):
         self.grounding = Grounding()
         self.returned = GroundingReturn()

@@ -86,7 +86,7 @@ class TaskGrounding:
 
     def handle_advanced_task(self, sub_tasks, task_entities):
         for sub_task in sub_tasks:  # task idx
-            task_name = self.db.get_task_name(sub_task)
+            task_name = self.db.get_task_name(int(sub_task))
             self.task_switch(task_name, task_entities)
 
     def missing_entities_error(self, task):
