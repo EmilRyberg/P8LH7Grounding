@@ -108,6 +108,12 @@ class TeachSystemTest(unittest.TestCase):
         self.assertFalse(self.returned.is_success)
         self.assertEqual(self.returned.error_code, ErrorType.UNKNOWN)
 
+    def test_AddSubTask(self):
+        self.db_mock.get_task = Mock()
+        self.db_mock.add_sub_task = Mock()
+        self.db_mock.get_task.side_effect = [(5, "clear table"), (1, "pick up")]
+        self.returned = self.task_grounding.add_sub_task("tidy", ["get"])
+        self.assertTrue(self.returned.is_success)
 
 ################################# ISOLATED UNIT TESTS ----- END ##########################################################
 
@@ -181,21 +187,27 @@ class TeachSystemIntegration(unittest.TestCase):
         self.returned = TaskGroundingReturn()
 
     def test_TeachTask(self):
-        self.returned = self.task_grounding.teach_new_task("test_task", ["take", "move", "put"], ["test1", "test2"])
-        self.assertTrue(self.returned.is_success)
-        self.clean_test_db("test_task")
-
-    def test_TeachTaskUnknownSubTask(self):
-        self.returned = self.task_grounding.teach_new_task("test_task1", ["UNKNOWN TASK"], ["test1", "test2"])
-        self.assertFalse(self.returned.is_success)
-        self.assertEqual(self.returned.error_code, ErrorType.UNKNOWN)
+        returned = self.task_grounding.teach_new_task("test_task1", ["take", "move", "put"], ["test1-1", "test1-2"])
+        self.assertTrue(returned.is_success)
         self.clean_test_db("test_task1")
 
+    def test_TeachTaskUnknownSubTask(self):
+        returned = self.task_grounding.teach_new_task("test_task2", ["UNKNOWN TASK"], ["test1", "test2-1"])
+        self.assertFalse(returned.is_success)
+        self.assertEqual(returned.error_code, ErrorType.UNKNOWN)
+        self.clean_test_db("test_task2")
+
     def test_AddWordsToTask(self):
-        self.task_grounding.teach_new_task("test_task", ["take", "move", "put"], ["test1", "test2"])
-        self.returned = self.task_grounding.add_word_to_task("test_task", "TEST WORD")
-        self.assertTrue(self.returned.is_success)
-        self.clean_test_db("test_task")
+        #self.task_grounding.teach_new_task("test_task3", ["take", "move", "put"], ["test3-1", "test3-2"])
+        #returned = self.task_grounding.add_word_to_task("test_task3-1", "TEST WORD")
+        #self.assertTrue(returned.is_success)
+        self.clean_test_db("test_task3")
+
+    def test_AddSubTask(self):
+        self.task_grounding.teach_new_task("test_task4", ["take", "move", "put"], ["test4-1", "test4-2"])
+        returned = self.task_grounding.add_sub_task("test_task4", ["get"])
+        self.assertTrue(returned.is_success)
+        self.clean_test_db("test_task4")
 
     def clean_test_db(self, task_name):
         task_id = self.db.get_task_id(task_name)
