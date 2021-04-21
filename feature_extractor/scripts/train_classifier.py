@@ -34,7 +34,7 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=80, con
     model = FeatureExtractorNet(use_classifier=True, num_features=num_features, num_classes=num_classes)
 
     for index, child in enumerate(model.backbone.children()):
-        if index >= 8:
+        if index >= 14:
             for param in child.parameters():
                 param.requires_grad = True
         else:
@@ -43,9 +43,6 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=80, con
 
     for param in model.classifier.parameters():
         param.requires_grad = True
-
-    """for param in model.bottleneck.parameters():
-        param.requires_grad = True"""
 
     if not os.path.isdir(checkpoint_dir):
         os.makedirs(checkpoint_dir)
@@ -62,13 +59,13 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=80, con
 
     writer.add_graph(model, example_input)
 
+    if on_gpu:
+        model = model.cuda()
+
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0005, weight_decay=0.01) # lr 0.001 default
 
     print(f"Training with {train_length} train images, and {test_length} test images")
-
-    if on_gpu:
-        model = model.cuda()
     
     running_loss = 0.0
     # here we start training
@@ -82,7 +79,7 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=80, con
         for i, data in enumerate(tqdm(dataloader)):
             inputs, labels = data
             if not got_examples:
-                unnormalized_inputs = None #unnormalize_image(inputs, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+                unnormalized_inputs = None
                 for batch_i, batch_img in enumerate(inputs):
                     unnormalized_image = unnormalize_image(batch_img, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
                     if batch_i == 0:
@@ -164,6 +161,6 @@ def train_softmax(dataset_dir, weights_dir=None, run_name="run1", epochs=80, con
 
 
 if __name__ == "__main__":
-    train_softmax(dataset_dir="dataset_2_filtered", run_name="run1_d2_filtered", continue_epoch=None, print_interval=20,
-                  checkpoint_dir="checkpoints1_d2_filtered_3emb", #weights_dir="checkpoints4_3emb/epoch-45-loss-0.19246-90.92.pth",
+    train_softmax(dataset_dir="dataset_2_even_more_filtered", run_name="run1_d2_even_more_filtered", continue_epoch=None, print_interval=20,
+                  checkpoint_dir="checkpoints1_d2_even_more_filtered_3emb", #weights_dir="checkpoints4_3emb/epoch-45-loss-0.19246-90.92.pth",
                   num_features=3, on_gpu=True, epochs=100)

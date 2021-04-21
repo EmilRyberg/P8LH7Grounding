@@ -172,8 +172,10 @@ def remove_small_masks(json_file_path, area_threshold=400, output_json_path="fil
         json_obj = json.load(file)
     annotations_to_keep = []
     for annotation in json_obj["annotations"]:
-        bbox = annotation["bbox"]
-        area = bbox[2] * bbox[3]
+        contour = annotation["segmentation"][0]
+        cv_contour = [(contour[i], contour[i+1]) for i in range(0, len(contour), 2)]
+        cv_contour = np.array(cv_contour)
+        area = cv2.contourArea(cv_contour)
         if area > area_threshold:
             annotations_to_keep.append(annotation)
     print(f"Had {len(json_obj['annotations'])} annotations, removed {len(json_obj['annotations']) - len(annotations_to_keep)} annotations")
@@ -186,4 +188,4 @@ if __name__ == '__main__':
     #dataset_maker = CocoDatasetMaker('output_dataset', img_index_offset=200, label_index_offset=2475, output_dir="dataset_output")
     #dataset_maker.create_dataset()
     #merge_json_files("dataset_1.json", "dataset_2.json")
-    remove_small_masks("dataset_2/dataset.json", area_threshold=8000)
+    remove_small_masks("dataset_2/dataset.json", area_threshold=9000)
