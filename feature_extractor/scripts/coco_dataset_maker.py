@@ -163,11 +163,29 @@ def merge_json_files(main_json, other_json, output_json_path="merged.json"):
         other_json_obj = json.load(file)
     main_json_obj["annotations"].extend(other_json_obj["annotations"])
     main_json_obj["images"].extend(other_json_obj["images"])
-    with open(output_json_path, 'w') as outfile:
+    with open(output_json_path, "w") as outfile:
         json.dump(main_json_obj, outfile)
+
+
+def remove_small_masks(json_file_path, area_threshold=400, output_json_path="filtered.json"):
+    with open(json_file_path, "r") as file:
+        json_obj = json.load(file)
+    annotations_to_keep = []
+    for annotation in json_obj["annotations"]:
+        contour = annotation["segmentation"][0]
+        cv_contour = [(contour[i], contour[i+1]) for i in range(0, len(contour), 2)]
+        cv_contour = np.array(cv_contour)
+        area = cv2.contourArea(cv_contour)
+        if area > area_threshold:
+            annotations_to_keep.append(annotation)
+    print(f"Had {len(json_obj['annotations'])} annotations, removed {len(json_obj['annotations']) - len(annotations_to_keep)} annotations")
+    json_obj["annotations"] = annotations_to_keep
+    with open(output_json_path, "w") as outfile:
+        json.dump(json_obj, outfile)
 
 
 if __name__ == '__main__':
     #dataset_maker = CocoDatasetMaker('output_dataset', img_index_offset=200, label_index_offset=2475, output_dir="dataset_output")
     #dataset_maker.create_dataset()
-    merge_json_files("dataset_1.json", "dataset_2.json")
+    #merge_json_files("dataset_1.json", "dataset_2.json")
+    remove_small_masks("dataset_2/dataset.json", area_threshold=9000)
