@@ -17,23 +17,23 @@ class TaskGroundingReturn:
         self.is_success = False
         self.error_code = None
         self.task_info = []
+        self.error_task = None
 
 
 class TaskGrounding:
     def __init__(self, db=DatabaseHandler("../../dialog_flow/nodes/grounding.db")):
         self.db = db
         self.return_object = TaskGroundingReturn()
-        self.task_info = []
 
     def get_task_from_entity(self, ner_task_word, task_entities=None):
         (_, task_name) = self.db.get_task(ner_task_word)
-        self.task_switch(task_name, task_entities)
+        self.task_switch(task_name, task_entities, ner_task_word)
         return self.return_object
 
-    def task_switch(self, task_name, task_entities):
+    def task_switch(self, task_name, task_entities, ner_word):
         if task_name is None:
-            self.return_object.error_code = ErrorType.UNKNOWN
-            return self.return_object
+            self.unknown_task_error(ner_word)
+            return
         elif task_name == "pick up":  # Check the default skills first.
             self.handle_pick_task(task_entities)
         elif task_name == "find":
@@ -46,7 +46,7 @@ class TaskGrounding:
             sub_tasks = self.db.get_sub_tasks(task_name)
             if sub_tasks is not None:
                 sub_tasks = np.fromstring(sub_tasks, dtype=int, sep=',')
-            self.handle_advanced_task(sub_tasks, task_entities)
+            self.handle_advanced_task(sub_tasks, task_entities, ner_word)
 
     def handle_pick_task(self, task_entities):
         task = PickUpTask()
@@ -84,31 +84,56 @@ class TaskGrounding:
         self.return_object.is_success = True
         self.return_object.task_info.append(task)
 
-    def handle_advanced_task(self, sub_tasks, task_entities):
+    def handle_advanced_task(self, sub_tasks, task_entities, ner_word):
         for sub_task in sub_tasks:  # task idx
             task_name = self.db.get_task_name(int(sub_task))
-            self.task_switch(task_name, task_entities)
-
-    def missing_entities_error(self, task):
-        self.task_info.append(task)
-        self.return_object.error_code = ErrorType.NO_OBJECT
-        return self.return_object
+            self.task_switch(task_name, task_entities, ner_word)
 
     def teach_new_task(self, task_name, sub_tasks, words):
         self.db.add_task(task_name, words)
         for task in sub_tasks:
             (sub_task_id, _) = self.db.get_task(task)
             if sub_task_id is None:
-                self.return_object.error_code = ErrorType.UNKNOWN
+                self.unknown_task_error(task)
                 return self.return_object
             self.db.add_sub_task(task_name, sub_task_id)
         self.return_object.is_success = True
         return self.return_object
 
-    def add_word_to_task(self, task_name, word_to_add):
+    def add_word_to_task(self, task_word, word_to_add):
+        (_, task_name) = self.db.get_task(task_word)
+        if task_name is None:
+            self.unknown_task_error(task_word)
+            return self.return_object
         task_id = self.db.get_task_id(task_name)
         self.db.add_word_to_task(task_id, word_to_add)
         self.return_object.is_success = True
+        return self.return_object
+
+    def add_sub_task(self, task_word, sub_tasks):
+        (_, task_name) = self.db.get_task(task_word)
+        if task_name is None:
+            self.unknown_task_error(task_word)
+            self.return_object.error_code = ErrorType.UNKNOWN
+            self.return_object.error_task = task_word
+            return self.return_object
+        for task in sub_tasks:
+            (sub_task_id, _) = self.db.get_task(task)
+            if sub_task_id is None:
+                self.unknown_task_error(task)
+                return self.return_object
+            self.db.add_sub_task(task_name, sub_task_id)
+        self.return_object.is_success = True
+        return self.return_object
+
+    def missing_entities_error(self, task):
+        self.return_object.task_info.append(task)
+        self.return_object.error_code = ErrorType.NO_OBJECT
+        return self.return_object
+
+    def unknown_task_error(self, task_word):
+        self.return_object.error_code = ErrorType.UNKNOWN
+        self.return_object.error_task = task_word
         return self.return_object
 
 

@@ -7,7 +7,7 @@ def test_model(model_path, tag_path):
     with open(tag_path, "r") as tag_file:
         file_content = tag_file.read().strip()
         id_to_tag = file_content.splitlines()
-    model = DistilBertForTokenClassification.from_pretrained('distilbert-base-cased', num_labels=10)
+    model = DistilBertForTokenClassification.from_pretrained('distilbert-base-cased', num_labels=15)
     model.load_state_dict(torch.load(model_path))
     model.eval()
     tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-cased')
@@ -37,4 +37,4 @@ def test_model(model_path, tag_path):
 
 
 if __name__ == "__main__":
-    test_model("test/pytorch_model.bin", "tags.txt")
+    test_model("ner_1/pytorch_model.bin", "tags.txt")

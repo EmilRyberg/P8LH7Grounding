@@ -10,6 +10,7 @@ class EntityType(Enum):
     LOCATION = "location"
     FIND = "find"
     TAKE = "take"
+    UNKNOWN_TASK = "unknown-task"
 
 
 class NER:
