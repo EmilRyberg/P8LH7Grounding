@@ -1,0 +1,3 @@
+bool is_success
+string error_code
+OuterTask task_info

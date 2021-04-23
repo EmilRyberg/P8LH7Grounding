@@ -6,5 +6,6 @@
 <!--   <node pkg="bin_picking" type="moveit_interface_node.py" name="moveit_interface_node" /> -->
   <node pkg="bin_picking" type="picking_node.py" name="picking_node" />
   <node pkg="speech_to_text" type="speech_to_text_node.py" name="speech_to_text_node" args="-k $(arg azure_key)" />
-  <node pkg="text_to_speech" type="tts_node.py" name="text_to_speech_node" />
+  <!-- <node pkg="text_to_speech" type="tts_node.py" name="text_to_speech_node" /> -->
+  <node pkg="text_to_speech" type="tts_node_azure.py" name="text_to_speech_node" args="-k $(arg azure_key)" />
 </launch>

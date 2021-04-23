@@ -31,6 +31,36 @@ class RobotController:
 
         return result.success
 
+    def place(self, position):
+        rospy.loginfo("Waiting for server")
+        self.client.wait_for_server()
+
+        goal = PickObjectGoal()
+        goal.command = "place_object"
+        goal.position = position
+
+        rospy.loginfo("sending goal")
+        self.client.send_goal(goal)
+        self.client.wait_for_result()
+        result = self.client.get_result()
+        return result.success
+
+    def point_at(self, object_info: ObjectInfo, rgb, depth):
+        rospy.loginfo("Waiting for server")
+        self.client.wait_for_server()
+
+        goal = PickObjectGoal()
+        goal.mask = self.bridge.cv2_to_imgmsg(object_info.mask_full)
+        goal.reference_img = self.bridge.cv2_to_imgmsg(rgb)
+        goal.depth_img = self.bridge.cv2_to_imgmsg(depth)
+        goal.command = "point_at"
+
+        rospy.loginfo("sending goal")
+        self.client.send_goal(goal)
+        self.client.wait_for_result()
+        result = self.client.get_result()
+        return result.success
+
     def move_out_of_view(self):
         rospy.loginfo("Waiting for server")
         self.client.wait_for_server()

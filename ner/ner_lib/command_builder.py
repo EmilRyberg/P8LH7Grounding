@@ -75,6 +75,8 @@ class ObjectEntity:
 class BaseTask:
     def __init__(self):
         self.child_tasks = []
+        self.object_to_execute_on = ObjectEntity()
+        self.plaintext_name = "base task"
 
     def __str__(self):
         if len(self.child_tasks) == 0:
@@ -88,27 +90,65 @@ class BaseTask:
 class PickUpTask(BaseTask):
     def __init__(self):
         super().__init__()
-        self.object_to_pick_up = ObjectEntity()
+        self.plaintext_name = "pick up"
 
     def build_task(self, entities):
-        self.object_to_pick_up.build_object(entities)
+        self.object_to_execute_on.build_object(entities)
         return self
 
+    def get_name(self):
+        return PickUpTask.__name__
+
     def __str__(self):
-        return f"Task type: {PickUpTask.__name__}\n\tObject to pick up: {self.object_to_pick_up}\n{super().__str__()}"
+        return f"Task type: {PickUpTask.__name__}\n\tObject to pick up: {self.object_to_execute_on}\n{super().__str__()}"
 
 
 class FindTask(BaseTask):
     def __init__(self):
         super().__init__()
-        self.object_to_find = ObjectEntity()
+        self.plaintext_name = "find"
 
     def build_task(self, entities):
-        self.object_to_find.build_object(entities)
+        self.object_to_execute_on.build_object(entities)
         return self
 
+    def get_name(self):
+        return FindTask.__name__
+
     def __str__(self):
-        return f"Task type: {FindTask.__name__}\n\tObject to find: {self.object_to_find}\n{super().__str__()}"
+        return f"Task type: {FindTask.__name__}\n\tObject to find: {self.object_to_execute_on}\n{super().__str__()}"
+
+
+class MoveTask(BaseTask):
+    def __init__(self):
+        super().__init__()
+        self.plaintext_name = "move"
+
+    def build_task(self, entities):
+        self.object_to_execute_on.build_object(entities)
+        return self
+
+    def get_name(self):
+        return MoveTask.__name__
+
+    def __str__(self):
+        return f"Task type: {MoveTask.__name__}\n\tObject to move: {self.object_to_execute_on}\n{super().__str__()}"
+
+
+class PlaceTask(BaseTask):
+    def __init__(self):
+        super().__init__()
+        self.plaintext_name = "place"
+
+    def build_task(self, entities):
+        self.object_to_execute_on.build_object(entities)
+        return self
+
+    def get_name(self):
+        return PlaceTask.__name__
+
+    def __str__(self):
+        return f"Task type: {PlaceTask.__name__}\n\tObject to place next to: {self.object_to_execute_on}\n{super().__str__()}"
 
 
 class CommandBuilder:

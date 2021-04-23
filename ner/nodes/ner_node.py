@@ -13,10 +13,10 @@ def create_ros_task(task):
     object1_entity = None
     if isinstance(task, PickUpTask):
         ros_task.type = "pick_up"
-        object1_entity = task.object_to_pick_up
+        object1_entity = task.object_to_execute_on
     elif isinstance(task, FindTask):
         ros_task.type = "find"
-        object1_entity = task.object_to_find
+        object1_entity = task.object_to_execute_on
     ros_task.object1 = OuterObjectEntity(name=object1_entity.name, spatial_descriptions=[])
     for spatial_description in object1_entity.spatial_descriptions:
         ros_task.object1.spatial_descriptions.append(SpatialDescription(spatial_type=spatial_description.spatial_type.value,
