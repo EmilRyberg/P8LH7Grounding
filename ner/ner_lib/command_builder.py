@@ -10,7 +10,24 @@ class SpatialType(Enum):
     LEFT_OF = "left"
     BOTTOM_OF = "bottom"
     TOP_OF = "top"
+    OTHER = "other"
 
+WORD_TO_SPATIAL_TYPE_MAPPING = { # Maybe add this to database
+    "next": SpatialType.NEXT_TO,
+    "next to": SpatialType.NEXT_TO,
+    "above": SpatialType.ABOVE,
+    "above of": SpatialType.ABOVE,
+    "right": SpatialType.RIGHT_OF,
+    "right of": SpatialType.RIGHT_OF,
+    "left": SpatialType.LEFT_OF,
+    "left of": SpatialType.LEFT_OF,
+    "bottom": SpatialType.BOTTOM_OF,
+    "bottom of": SpatialType.BOTTOM_OF,
+    "below": SpatialType.BOTTOM_OF,
+    "below of": SpatialType.BELOW,
+    "top": SpatialType.TOP_OF,
+    "top of": SpatialType.TOP_OF
+}
 
 class SpatialDescription:
     def __init__(self, spatial_type):
@@ -46,19 +63,23 @@ class ObjectEntity:
                 else:
                     self.spatial_descriptions[current_spatial_descriptor].object_entity.object_descriptors.append(word)
             elif entity_type == EntityType.LOCATION:
-                spatial_type = SpatialType(word.lower())
+                spatial_type = SpatialType.OTHER
+                if word.lower() in WORD_TO_SPATIAL_TYPE_MAPPING.keys():
+                    spatial_type = WORD_TO_SPATIAL_TYPE_MAPPING[word.lower()]
+                spatial_description = SpatialDescription(spatial_type)
                 if is_building_own_name:
                     is_building_own_name = False
                     self.build_name()
                     current_spatial_descriptor = 0
                 else:
-                    if self.spatial_descriptions[current_spatial_descriptor].object_entity is not None:
-                        self.spatial_descriptions[current_spatial_descriptor].object_entity.build_name()
+                    self.spatial_descriptions[current_spatial_descriptor].object_entity.build_name()
                     current_spatial_descriptor += 1
-                self.spatial_descriptions.append(SpatialDescription(spatial_type))
-            elif entity_type == EntityType.TAKE or entity_type == EntityType.FIND:
+                    if spatial_type == SpatialType.OTHER:
+                        spatial_description.object_entity.object_descriptors.append(word)
+                self.spatial_descriptions.append(spatial_description)
+            elif entity_type == EntityType.TASK:
                 break
-        if current_spatial_descriptor is not None and self.spatial_descriptions[current_spatial_descriptor].object_entity is not None:
+        if current_spatial_descriptor is not None:
             self.spatial_descriptions[current_spatial_descriptor].object_entity.build_name() # build name for last object
         else:
             self.build_name()
@@ -77,6 +98,10 @@ class BaseTask:
         self.child_tasks = []
         self.object_to_execute_on = ObjectEntity()
         self.plaintext_name = "base task"
+
+    def build_task(self, entities):
+        self.object_to_execute_on.build_object(entities)
+        return self
 
     def __str__(self):
         if len(self.child_tasks) == 0:
@@ -158,13 +183,13 @@ class CommandBuilder:
     def get_task(self, sentence):
         entities = self.ner.get_entities(sentence)
         task = None
-        task_type = None
+        is_main_task = True
         for index, (entity_type, word) in enumerate(entities):
             if entity_type == EntityType.TASK:
-                if task_type is not None:
-                    task.child_tasks.append(PickUpTask().build_task(entities[index+1:]))
+                if not is_main_task:
+                    task.child_tasks.append(BaseTask().build_task(entities[index+1:]))
                 else:
-                    task_type = EntityType.TAKE
-                    task = PickUpTask().build_task(entities[index+1:])
+                    is_main_task = False
+                    task = BaseTask().build_task(entities[index+1:])
         return task
 

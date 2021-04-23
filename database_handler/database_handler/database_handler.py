@@ -127,7 +127,7 @@ class DatabaseHandler:
             SELECT SLR.NAME, SL.X, SL.Y, SL.Z FROM STATIC_LOCATION_RELATIONS AS SLR INNER JOIN STATIC_LOCATIONS AS SL ON SL.ID = SLR.STATIC_LOCATION_ID WHERE SLR.NAME = ?;
         ''', (name,))
         if result is None or len(list(result)) == 0:
-            return None
+            return None, None, None
         row = list(result)[0]
         return row[1], row[2], row[3]
 

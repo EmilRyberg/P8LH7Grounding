@@ -3,15 +3,20 @@ from enum import Enum
 import copy
 import math
 from ner_lib.command_builder import SpatialType
+from database_handler.database_handler import DatabaseHandler
 
 
 class StatusEnum(Enum):
-    SUCCESS = "SUCCESS",
-    ERROR_TWO_REF = "ERROR_TWO_REF",
+    SUCCESS = "SUCCESS"
+    ERROR_TWO_REF = "ERROR_TWO_REF"
     ERROR_CANT_FIND = "ERROR_CANT_FIND"
+    STATIC_LOCATION = "STATIC_LOCATION"
 
 
 class SpatialRelation:
+    def __init__(self, database_handler: DatabaseHandler):
+        self.database_handler = database_handler
+
     def locate_specific_object(self, object_entity, objects):
         local_objects = copy.deepcopy(objects)
         entity_name = object_entity.name
@@ -30,8 +35,8 @@ class SpatialRelation:
             if last_location is None and len(matching_objects) > 1:
                 return None, StatusEnum.ERROR_TWO_REF
             if len(matching_objects) > 1:
-                correct_bbox = self.find_best_match(matching_objects, last_location, last_bbox)
-                (last_id, _, last_bbox) = matching_objects[correct_bbox]
+                correct_bbox_index = self.find_best_match(matching_objects, last_location, last_bbox)
+                (last_id, _, last_bbox) = matching_objects[correct_bbox_index]
                 last_location = location
             else:
                 (id, name, bbox) = matching_objects[0]
@@ -44,8 +49,8 @@ class SpatialRelation:
             if name == entity_name:
                 matching_objects.append((id, name, bbox))
         if len(matching_objects) > 1:
-            correct_bbox = self.find_best_match(matching_objects, last_location, last_bbox)
-            (id, name, bbox) = matching_objects[correct_bbox]
+            correct_bbox_index = self.find_best_match(matching_objects, last_location, last_bbox)
+            (id, name, bbox) = matching_objects[correct_bbox_index]
             correct_index = id
             return correct_index, StatusEnum.SUCCESS
         elif matching_objects:
@@ -110,6 +115,16 @@ class SpatialRelation:
                         best_bbox_index = i
                         min_angle_error = angle_error
                         min_dist_error = dist_error
+            elif location == SpatialType.OTHER: # ie "top left corner" of table
+                x, y, z = self.database_handler.get_location_by_name(name)
+                static_distance = math.dist([x, y], [current_x, current_y])
+                if x is None:
+                    # TODO: Erro handling for this
+                    print("WARNING: retrieved location from DB is None")
+                    continue
+                if static_distance < min_dist_error:
+                    best_bbox_index = i
+                    min_dist_error = static_distance
 
         return best_bbox_index
 
@@ -121,8 +136,8 @@ class SpatialRelation:
         return abs(ideal_value-measured_value)
 
     def get_center_and_size(self, bbox):  # Assumes that bbox is [x1, x2, y1, y2]
-        x = bbox[1] - ((bbox[1]-bbox[0])/2)
+        x = bbox[1] - ((bbox[1] - bbox[0])/2)
         y = bbox[3] - ((bbox[3] - bbox[2]) / 2)
-        diagonal_length = math.dist([bbox[0], bbox[2]], [bbox[1],bbox[3]])
-        center = (x,y, diagonal_length)
+        diagonal_length = math.dist([bbox[0], bbox[2]], [bbox[1], bbox[3]])
+        center = (x, y, diagonal_length)
         return center

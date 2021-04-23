@@ -11,5 +11,5 @@ def test_ner(model_path, tag_path):
 
 
 if __name__ == "__main__":
-    test_ner("NER_3/pytorch_model.bin", "NER_3/tags.txt")
+    test_ner("NER_4/pytorch_model.bin", "NER_4/tags.txt")
 
