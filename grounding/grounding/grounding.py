@@ -1,9 +1,8 @@
-from grounding.database_handler import DatabaseHandler
+from database_handler.database_handler import DatabaseHandler
 from grounding.spatial import SpatialRelation, StatusEnum
 import numpy as np
 from typing import Optional
 from scripts.vision_controller import VisionController as FakeVisionController
-from vision_lib.vision_controller import VisionController
 from enum import Enum
 
 
