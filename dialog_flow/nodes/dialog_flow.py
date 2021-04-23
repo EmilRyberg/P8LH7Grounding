@@ -109,6 +109,9 @@ class DialogFlow:
             if self.websocket_is_connected:
                 self.ui_interface.send_as_robot(sentence)
             return
+        else:
+            if self.websocket_is_connected:
+                self.ui_interface.send_images(np_rgb, grounding_return.object_info.object_img_cutout_cropped)
 
         success = True
         if isinstance(task, PickUpTask):
