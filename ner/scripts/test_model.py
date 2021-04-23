@@ -37,4 +37,4 @@ def test_model(model_path, tag_path):
 
 
 if __name__ == "__main__":
-    test_model("ner_1/pytorch_model.bin", "tags.txt")
+    test_model("NER_3/pytorch_model.bin", "NER_3/tags.txt")

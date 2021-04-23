@@ -52,12 +52,13 @@ class ObjectEntity:
                     self.build_name()
                     current_spatial_descriptor = 0
                 else:
-                    self.spatial_descriptions[current_spatial_descriptor].object_entity.build_name()
+                    if self.spatial_descriptions[current_spatial_descriptor].object_entity is not None:
+                        self.spatial_descriptions[current_spatial_descriptor].object_entity.build_name()
                     current_spatial_descriptor += 1
                 self.spatial_descriptions.append(SpatialDescription(spatial_type))
             elif entity_type == EntityType.TAKE or entity_type == EntityType.FIND:
                 break
-        if current_spatial_descriptor is not None:
+        if current_spatial_descriptor is not None and self.spatial_descriptions[current_spatial_descriptor].object_entity is not None:
             self.spatial_descriptions[current_spatial_descriptor].object_entity.build_name() # build name for last object
         else:
             self.build_name()
@@ -119,17 +120,11 @@ class CommandBuilder:
         task = None
         task_type = None
         for index, (entity_type, word) in enumerate(entities):
-            if entity_type == EntityType.TAKE:
+            if entity_type == EntityType.TASK:
                 if task_type is not None:
                     task.child_tasks.append(PickUpTask().build_task(entities[index+1:]))
                 else:
                     task_type = EntityType.TAKE
                     task = PickUpTask().build_task(entities[index+1:])
-            elif entity_type == EntityType.FIND:
-                if task_type is not None:
-                    task.child_tasks.append(FindTask().build_task(entities[index+1:]))
-                else:
-                    task_type = EntityType.FIND
-                    task = FindTask().build_task(entities[index+1:])
         return task
 

@@ -8,9 +8,10 @@ class EntityType(Enum):
     COLOUR = "colour"
     OBJECT = "object"
     LOCATION = "location"
-    FIND = "find"
-    TAKE = "take"
-    UNKNOWN_TASK = "unknown-task"
+    TASK = "task"
+    DENIAL = "denial"
+    AFFIRMATION = "affirmation"
+    TEACH = "teach"
 
 
 class NER:
