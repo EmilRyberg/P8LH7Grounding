@@ -106,6 +106,31 @@ class DatabaseHandler:
         self.conn.execute("DELETE from FEATURES where NAME = ?;", (name,))
         self.conn.commit()
 
+    def create_static_locations_table(self):
+        self.conn.execute('''
+            CREATE TABLE STATIC_LOCATIONS (ID INTEGER PRIMARY KEY AUTOINCREMENT,
+            X REAL,
+            Y REAL,
+            Z REAL);
+        ''')
+
+    def create_static_location_relations_table(self):
+        self.conn.execute('''
+            CREATE TABLE STATIC_LOCATION_RELATIONS (ID INTEGER PRIMARY KEY AUTOINCREMENT,
+            NAME TEXT,
+            STATIC_LOCATION_ID INTEGER,
+            FOREIGN KEY(STATIC_LOCATION_ID) REFERENCES STATIC_LOCATIONS(ID));
+        ''')
+
+    def get_location_by_name(self, name):
+        result = self.conn.execute('''
+            SELECT SLR.NAME, SL.X, SL.Y, SL.Z FROM STATIC_LOCATION_RELATIONS AS SLR INNER JOIN STATIC_LOCATIONS AS SL ON SL.ID = SLR.STATIC_LOCATION_ID WHERE SLR.NAME = ?;
+        ''', (name,))
+        if result is None or len(list(result)) == 0:
+            return None
+        row = list(result)[0]
+        return row[1], row[2], row[3]
+
 
 if __name__ == "__main__":
     db = DatabaseHandler("../dialog_flow/nodes/grounding.db")

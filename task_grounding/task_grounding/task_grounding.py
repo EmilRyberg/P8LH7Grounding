@@ -1,9 +1,8 @@
-from database_handler import DatabaseHandler
-from ner_lib.ner import NER, EntityType
+from database_handler.database_handler import DatabaseHandler
+from ner_lib.ner import EntityType
 
-from ner_lib.command_builder import CommandBuilder, PlaceTask, PickUpTask, FindTask, MoveTask
+from ner_lib.command_builder import PlaceTask, PickUpTask, FindTask, MoveTask
 import numpy as np
-from typing import Optional
 from enum import Enum
 
 
