@@ -1,4 +1,4 @@
-from ner_lib.ner import NER, EntityType
+from ner.ner_lib.ner import NER, EntityType
 from enum import Enum
 
 
@@ -22,6 +22,23 @@ class SpatialDescription:
 
     def get_sub_descriptions(self):
         return [self].extend(self.object_entity.spatial_descriptions)
+
+
+class LogicalType(Enum):
+    AND = "and"
+    OR = "or"
+
+
+class LogicalDescription:
+    def __init__(self, logical_type):
+        self.logical_type = logical_type
+        self.object_entity = ObjectEntity()
+
+    def __str__(self):
+        return f"({self.logical_type}){self.object_entity}"
+
+    def get_sub_descriptions(self):
+        return [self].extend(self.object_entity.logical_type)
 
 
 class ObjectEntity:
@@ -97,6 +114,98 @@ class PickUpTask(BaseTask):
         return f"Task type: {PickUpTask.__name__}\n\tObject to pick up: {self.object_to_pick_up}\n{super().__str__()}"
 
 
+class AndTask(BaseTask):
+    def __init__(self):
+        super().__init__()
+        self.firstTask = BaseTask()
+        self.secondTask = BaseTask()
+        self.op = LogicalType.AND
+
+    def build_task(self, task1, task2):
+        self.firstTask = task1
+        self.secondTask = task2
+        return self
+
+    def sub_and(self):
+        if self.secondTask.__class__ == AndTask or self.secondTask.__class__ == OrTask:
+            self.secondTask.sub_and()
+        else:
+            firstSubTask = self.secondTask
+            topLevelTask = AndTask()
+            topLevelTask.firstTask = firstSubTask
+            self.secondTask = topLevelTask
+        return self
+
+    def sub_or(self):
+        if self.secondTask.__class__ == AndTask or self.secondTask.__class__ == OrTask:
+            self.secondTask.sub_or()
+        else:
+            firstSubTask = self.secondTask
+            topLevelTask = OrTask()
+            topLevelTask.firstTask = firstSubTask
+            self.secondTask = topLevelTask
+        return self
+
+    def passdown_task(self, task):
+        if self.secondTask.__class__ == AndTask or self.secondTask.__class__ == OrTask:
+            self.secondTask.passdown_task(task)
+        else:
+            self.secondTask = task
+        return self
+
+    def __str__(self):
+        return f"Task type: {AndTask.__name__}" \
+               f"\n\tFirstTask: {self.firstTask.__str__()}" \
+               f"\n\tSecondTask: {self.secondTask.__str__()}" \
+               f"\n{super().__str__()}"
+
+
+class OrTask(BaseTask):
+    def __init__(self):
+        super().__init__()
+        self.firstTask = BaseTask()
+        self.secondTask = BaseTask()
+        self.op = LogicalType.OR
+
+    def build_task(self, task1, task2):
+        self.firstTask = task1
+        self.secondTask = task2
+        return self
+
+    def sub_and(self):
+        if self.secondTask.__class__ == AndTask or self.secondTask.__class__ == OrTask:
+            self.secondTask.sub_and()
+        else:
+            firstSubTask = self.secondTask
+            topLevelTask = AndTask()
+            topLevelTask.firstTask = firstSubTask
+            self.secondTask = topLevelTask
+        return self
+
+    def sub_or(self):
+        if self.secondTask.__class__ == AndTask or self.secondTask.__class__ == OrTask:
+            self.secondTask.sub_or()
+        else:
+            firstSubTask = self.secondTask
+            topLevelTask = OrTask()
+            topLevelTask.firstTask = firstSubTask
+            self.secondTask = topLevelTask
+        return self
+
+    def passdown_task(self, task):
+        if self.secondTask.__class__ == AndTask or self.secondTask.__class__ == OrTask:
+            self.secondTask.passdown_task(task)
+        else:
+            self.secondTask = task
+        return self
+
+    def __str__(self):
+        return f"Task type: {OrTask.__name__}" \
+               f"\n\tFirstTask: {self.firstTask.__str__()}" \
+               f"\n\tSecondTask: {self.secondTask.__str__()}" \
+               f"\n{super().__str__()}"
+
+
 class FindTask(BaseTask):
     def __init__(self):
         super().__init__()
@@ -116,20 +225,60 @@ class CommandBuilder:
 
     def get_task(self, sentence):
         entities = self.ner.get_entities(sentence)
-        task = None
+        currentTask = None
+        topLevelTask = None
+        isMultilayered=False
         task_type = None
         for index, (entity_type, word) in enumerate(entities):
-            if entity_type == EntityType.TAKE:
+            if entity_type == EntityType.LOGICAL_AND:
+                ''' We have a logical entity. Typically, these come in the middle of sentences. We are not allowing for 
+                    logical brackets yet, so all logic is first-level only. I.E:  A AND B AND C. Statements that are 
+                    ambiguous, such as A AND B OR C, will be evaluated from front to back. I.E A AND B OR C becomes
+                    A AND (B OR C)'''
+                isMultilayered = True
+                if topLevelTask is not None:
+                    ''' topLevel task already logical - need to reframe second task of 
+                        top level task as new logical task'''
+
+                    topLevelTask.passdown_task(currentTask)
+                    topLevelTask.sub_and()
+                    currentTask = None
+                    task_type = None
+                else:
+                    '''topLevel doesn't exist yet. Build new logical top level task, put existing task in position 1'''
+                    firstTask = currentTask
+                    topLevelTask = AndTask()
+                    topLevelTask.firstTask = firstTask
+                    currentTask = None
+                    task_type = None
+            if entity_type == EntityType.LOGICAL_OR:
+                isMultilayered = True
+                if topLevelTask is not None:
+                    topLevelTask.passdown_task(currentTask)
+                    topLevelTask.sub_or()
+                    currentTask = None
+                    task_type = None
+                else:
+                    firstTask = currentTask
+                    topLevelTask = OrTask()
+                    topLevelTask.firstTask = firstTask
+                    currentTask = None
+                    task_type = None
+            elif entity_type == EntityType.TAKE:
                 if task_type is not None:
-                    task.child_tasks.append(PickUpTask().build_task(entities[index+1:]))
+                    currentTask.child_tasks.append(PickUpTask().build_task(entities[index+1:]))
                 else:
                     task_type = EntityType.TAKE
-                    task = PickUpTask().build_task(entities[index+1:])
+                    currentTask = PickUpTask().build_task(entities[index+1:])
             elif entity_type == EntityType.FIND:
                 if task_type is not None:
-                    task.child_tasks.append(FindTask().build_task(entities[index+1:]))
+                    currentTask.child_tasks.append(FindTask().build_task(entities[index+1:]))
                 else:
                     task_type = EntityType.FIND
-                    task = FindTask().build_task(entities[index+1:])
-        return task
+                    currentTask = FindTask().build_task(entities[index+1:])
+        if not isMultilayered:
+            topLevelTask = currentTask
+        else:
+            topLevelTask.passdown_task(currentTask)
+        return topLevelTask
 

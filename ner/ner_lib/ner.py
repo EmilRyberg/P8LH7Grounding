@@ -10,6 +10,8 @@ class EntityType(Enum):
     LOCATION = "location"
     FIND = "find"
     TAKE = "take"
+    LOGICAL_AND = "logical-and"
+    LOGICAL_OR = "logical-or"
     UNKNOWN_TASK = "unknown-task"
 
 

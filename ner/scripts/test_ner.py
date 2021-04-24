@@ -1,4 +1,4 @@
-from ner_lib.ner import NER, EntityType
+from ner.ner_lib.ner import NER, EntityType
 
 
 def test_ner(model_path, tag_path):
