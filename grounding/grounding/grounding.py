@@ -98,7 +98,7 @@ class Grounding:
         target_index, status = self.spatial.locate_specific_object(object_entity, objects)
         if status == StatusEnum.SUCCESS:
             object_info = object_info_with_features[target_index]
-            return object_info
+            return object_info, status
 
         return None, status
 

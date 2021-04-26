@@ -43,11 +43,13 @@ class DatabaseHandler:
         return db_objects
 
     def get_task(self, word):
-        result = self.conn.execute("SELECT TASK_ID from TASK_WORDS where WORD=?;", (word, ))
+        result = self.conn.execute("SELECT TASK_INFO.TASK_ID, TASK_NAME from TASK_WORDS inner join TASK_INFO on "
+                                   "TASK_WORDS.TASK_ID=TASK_INFO.TASK_ID where WORD=?;", (word, ))
         task_id = None
+        task_name = None
         for row in result:
             task_id = row[0]
-        task_name = self.get_task_name(task_id)
+            task_name = row[1]
         return (task_id, task_name)
 
     def get_task_name(self, task_id):
@@ -64,20 +66,29 @@ class DatabaseHandler:
             task_id = row[0]
         return task_id
 
-    def get_sub_tasks(self, task_name):
-        result = self.conn.execute("SELECT TASK_SUBTASKS from TASK_INFO where TASK_NAME=?;", (task_name,))
-        sub_tasks = None
+    def get_sub_tasks(self, task_id):
+        result = self.conn.execute("SELECT SUB_TASK_ID, TASK_NAME, OBJECT_ATTACHED, SPATIAL_DESCRIPTION from "
+                                   "TASK_SUBTASKS inner join TASK_INFO on TASK_SUBTASKS.SUB_TASK_ID=TASK_INFO.TASK_ID "
+                                   "where "
+                                   "TASK_SUBTASKS.TASK_ID=? order by TASK_ORDER;", (task_id,))
+        sub_task_ids = []
+        sub_task_names = []
+        attached_objects = []
+        locations = []
         for row in result:
-            sub_tasks = row[0]
+            sub_task_ids.append(row[0])
+            sub_task_names.append(row[1])
+            attached_objects.append(row[2])
+            locations.append(row[3])
+        sub_tasks = [sub_task_ids, sub_task_names, attached_objects, locations]
         return sub_tasks
 
-    def add_sub_task(self, task_name, sub_task_id):
-        current_sub_tasks = self.get_sub_tasks(task_name)
-        if current_sub_tasks is None:
-            sub_tasks = str(sub_task_id)+","
-        else:
-            sub_tasks = current_sub_tasks + str(sub_task_id) + ","
-        self.conn.execute("UPDATE TASK_INFO set TASK_SUBTASKS = ? WHERE TASK_NAME = ?;", (sub_tasks, task_name))
+    def add_sub_task(self, task_id, sub_task_id, attached_object=None, location=None):
+        current_sub_tasks = self.get_sub_tasks(task_id)
+        current_amount_of_sub_tasks = len(current_sub_tasks[0])
+        self.conn.execute("INSERT INTO TASK_SUBTASKS (TASK_ID, TASK_ORDER, SUB_TASK_ID, OBJECT_ATTACHED, "
+                          "SPATIAL_DESCRIPTION) VALUES (?, ?, ?, ?, ?);", (task_id, current_amount_of_sub_tasks+1,
+                                                                         sub_task_id, attached_object, location))
         self.conn.commit()
 
     def add_task(self, task_name, words):
@@ -89,7 +100,6 @@ class DatabaseHandler:
                 self.add_word_to_task(task_id, word)
         except:
             raise Exception("Unable to add task:", task_name)
-
 
     def add_word_to_task(self, task_id, word):
         try:
@@ -109,4 +119,8 @@ class DatabaseHandler:
 
 if __name__ == "__main__":
     db = DatabaseHandler("../dialog_flow/nodes/grounding.db")
+    #db.add_task("Move blue", ["blue1", "blue2"])
+    #db.add_sub_task(6, 1, "blue cover",)
+    #db.add_sub_task(6, 3, "blue cover", "top right corner")
+    test = db.get_sub_tasks(6)
     db.conn.close()
