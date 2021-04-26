@@ -22,25 +22,24 @@ class SpatialRelation:
         entity_name = object_entity.name
         spatial_desc = object_entity.spatial_descriptions
         last_bbox = []
-        last_location = None
+        last_spatial_description = None
 
         for instance in reversed(spatial_desc):
             object_name = instance.object_entity.name
-            location = instance.spatial_type
             matching_objects = []
 
             for (id, name, bbox) in local_objects:
                 if name == object_name:
                     matching_objects.append((id, name, bbox))
-            if last_location is None and len(matching_objects) > 1:
+            if last_spatial_description is None and len(matching_objects) > 1:
                 return None, StatusEnum.ERROR_TWO_REF
             if len(matching_objects) > 1:
-                correct_bbox_index = self.find_best_match(matching_objects, last_location, last_bbox)
+                correct_bbox_index = self.find_best_match(matching_objects, last_spatial_description, last_bbox)
                 (last_id, _, last_bbox) = matching_objects[correct_bbox_index]
-                last_location = location
+                last_spatial_description = instance
             else:
                 (id, name, bbox) = matching_objects[0]
-                last_location = location
+                last_spatial_description = instance
                 last_bbox = bbox
                 last_id = id
             local_objects.remove((last_id, object_name, last_bbox))
@@ -49,7 +48,7 @@ class SpatialRelation:
             if name == entity_name:
                 matching_objects.append((id, name, bbox))
         if len(matching_objects) > 1:
-            correct_bbox_index = self.find_best_match(matching_objects, last_location, last_bbox)
+            correct_bbox_index = self.find_best_match(matching_objects, last_spatial_description, last_bbox)
             (id, name, bbox) = matching_objects[correct_bbox_index]
             correct_index = id
             return correct_index, StatusEnum.SUCCESS
@@ -60,11 +59,66 @@ class SpatialRelation:
         else:
             return None, StatusEnum.ERROR_CANT_FIND
 
-    def find_best_match(self, objects, location, last_bbox):
+    def get_location(self, object_entity, objects):
+        local_objects = copy.deepcopy(objects)
+        entity_name = object_entity.name
+        spatial_desc = object_entity.spatial_descriptions
+        last_bbox = []
+        last_spatial_relation = None
+
+        if len(spatial_desc) == 1 and spatial_desc[0].spatial_type == SpatialType.OTHER:
+            x, y, z = self.database_handler.get_location_by_name(spatial_desc[0].object_entity.name.lower())
+            if x is None:
+                print(f"WARNING: x for location '{spatial_desc[0].object_entity.name.lower()}' is None")
+                return None
+            return x, y
+
+        for instance in reversed(spatial_desc):
+            object_name = instance.object_entity.name
+            matching_objects = []
+
+            for (idx, name, bbox) in local_objects:
+                if name == object_name:
+                    matching_objects.append((idx, name, bbox))
+            if last_spatial_relation is None and len(matching_objects) > 1:
+                return None, StatusEnum.ERROR_TWO_REF
+            if len(matching_objects) > 1:
+                correct_bbox_index = self.find_best_match(matching_objects, last_spatial_relation, last_bbox)
+                (last_id, _, last_bbox) = matching_objects[correct_bbox_index]
+                last_spatial_relation = instance
+            else:
+                (idx, name, bbox) = matching_objects[0]
+                last_spatial_relation = instance
+                last_bbox = bbox
+                last_id = idx
+            local_objects.remove((last_id, object_name, last_bbox))
+        matching_objects = []
+        for x, (idx, name, bbox) in enumerate(local_objects):
+            if name == entity_name:
+                matching_objects.append((idx, name, bbox))
+        bbox = None
+        if len(matching_objects) > 1:
+            correct_bbox_index = self.find_best_match(matching_objects, last_spatial_relation, last_bbox)
+            (idx, name, bbox) = matching_objects[correct_bbox_index]
+            correct_index = idx
+        elif matching_objects:
+            (idx, name, bbox) = matching_objects[0]
+            correct_index = idx
+        else:
+            return None, StatusEnum.ERROR_CANT_FIND
+
+        # for now just use center of last object
+        x = bbox[1] - ((bbox[1] - bbox[0]) / 2)
+        y = bbox[3] - ((bbox[3] - bbox[2]) / 2)
+        return x, y
+
+
+    def find_best_match(self, objects, spatial_description, last_bbox):
         (last_x, last_y, last_size) = self.get_center_and_size(last_bbox)
         best_bbox_index = None
         min_angle_error = None
         min_dist_error = None
+        location = spatial_description.spatial_type
         for i, (id, name, bbox) in enumerate(objects):
             (current_x, current_y, current_size) = self.get_center_and_size(bbox)
             distance = math.dist([current_x, current_y], [last_x, last_y])
@@ -115,11 +169,11 @@ class SpatialRelation:
                         best_bbox_index = i
                         min_angle_error = angle_error
                         min_dist_error = dist_error
-            elif location == SpatialType.OTHER: # ie "top left corner" of table
-                x, y, z = self.database_handler.get_location_by_name(name)
+            elif location == SpatialType.OTHER:  # ie "top left corner" of table
+                x, y, z = self.database_handler.get_location_by_name(spatial_description.object_entity.name.lower())
                 static_distance = math.dist([x, y], [current_x, current_y])
                 if x is None:
-                    # TODO: Erro handling for this
+                    # TODO: Error handling for this
                     print("WARNING: retrieved location from DB is None")
                     continue
                 if static_distance < min_dist_error:
@@ -136,7 +190,7 @@ class SpatialRelation:
         return abs(ideal_value-measured_value)
 
     def get_center_and_size(self, bbox):  # Assumes that bbox is [x1, x2, y1, y2]
-        x = bbox[1] - ((bbox[1] - bbox[0])/2)
+        x = bbox[1] - ((bbox[1] - bbox[0]) / 2)
         y = bbox[3] - ((bbox[3] - bbox[2]) / 2)
         diagonal_length = math.dist([bbox[0], bbox[2]], [bbox[1], bbox[3]])
         center = (x, y, diagonal_length)

@@ -29,6 +29,7 @@ WORD_TO_SPATIAL_TYPE_MAPPING = { # Maybe add this to database
     "top of": SpatialType.TOP_OF
 }
 
+
 class SpatialDescription:
     def __init__(self, spatial_type):
         self.spatial_type = spatial_type

@@ -7,18 +7,6 @@ from PIL import Image
 import cv2 as cv
 
 
-class ObjectInfoWithFeatures(ObjectInfo):
-    def __init__(self, object_info: ObjectInfo, features):
-        super().__init__()
-        self.object_img_cutout_cropped = object_info.object_img_cutout_cropped
-        self.object_img_cutout_full = object_info.object_img_cutout_full
-        self.mask_full = object_info.mask_full
-        self.bbox_xxyy = object_info.bbox_xxyy
-        self.bbox_xywh = object_info.bbox_xywh
-        self.mask_cropped = object_info.mask_cropped
-        self.features = features
-
-
 class VisionController:
     def __init__(self, background_image_file, weights_path, init_node=False):
         if init_node:
