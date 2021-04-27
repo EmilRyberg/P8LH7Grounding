@@ -70,19 +70,25 @@ class AdvancedTaskTest(unittest.TestCase):
         ]
 
     def test_ClearTable(self):
+        sub_tasks = [[1, 2, 3], ["pick up", "move", "place"], [None, None, None], [None, None, None]]
         tasks = ["PickUpTask", "MoveTask", "PlaceTask"]
         self.db_mock.get_task = Mock(return_value=(1, "clear table"))
         #self.db_mock.get_task.side_effect = [(1, "clear table"), (1, "pick up"), (1, "move"), (1, "place")]
         self.db_mock.get_task_name = Mock()
         self.db_mock.get_task_name.side_effect = ["pick up", "move", "place"]
-        self.db_mock.get_sub_tasks = Mock()
-        self.db_mock.get_sub_tasks.side_effect = ["1,2,3,", None, None, None]
+        self.db_mock.get_sub_tasks = Mock(return_value=sub_tasks)
         self.returned = self.task_grounding.get_task_from_entity("tidy", self.entities)
         returned_tasks = [self.returned.task_info[0].get_name(),
                           self.returned.task_info[1].get_name(),
                           self.returned.task_info[2].get_name()]
         self.assertEqual(tasks, returned_tasks)
 
+    def test_NoSubTasks(self):
+        self.db_mock.get_task = Mock(return_value=(1, "clear table"))
+        self.db_mock.get_sub_tasks = Mock(return_value=None)
+        self.returned = self.task_grounding.get_task_from_entity("tidy", self.entities)
+        self.assertFalse(self.returned.is_success)
+        self.assertEqual(self.returned.error_code, ErrorType.NO_SUBTASKS)
 
 class TeachSystemTest(unittest.TestCase):
     def setUp(self):
@@ -171,6 +177,13 @@ class AdvancedTaskIntegration(unittest.TestCase):
             (EntityType.OBJECT, "bottom cover")
         ]
 
+    def test_MoveBlue(self):
+        tasks = ["PickUpTask", "PlaceTask"]
+        self.returned = self.task_grounding.get_task_from_entity("blue1", self.entities)
+        returned_tasks = [self.returned.task_info[0].get_name(),
+                          self.returned.task_info[1].get_name()]
+        self.assertEqual(tasks, returned_tasks)
+
     def test_ClearTable(self):
         tasks = ["PickUpTask", "MoveTask", "PlaceTask"]
         self.returned = self.task_grounding.get_task_from_entity("tidy", self.entities)
@@ -178,6 +191,14 @@ class AdvancedTaskIntegration(unittest.TestCase):
                           self.returned.task_info[1].get_name(),
                           self.returned.task_info[2].get_name()]
         self.assertEqual(tasks, returned_tasks)
+
+        def test_ClearTable(self):
+            tasks = ["PickUpTask", "MoveTask", "PlaceTask"]
+            self.returned = self.task_grounding.get_task_from_entity("tidy", self.entities)
+            returned_tasks = [self.returned.task_info[0].get_name(),
+                              self.returned.task_info[1].get_name(),
+                              self.returned.task_info[2].get_name()]
+            self.assertEqual(tasks, returned_tasks)
 
 class TeachSystemIntegration(unittest.TestCase):
     def setUp(self):
@@ -189,6 +210,12 @@ class TeachSystemIntegration(unittest.TestCase):
         returned = self.task_grounding.teach_new_task("test_task1", ["take", "move", "put"], ["test1-1", "test1-2"])
         self.assertTrue(returned.is_success)
         self.clean_test_db("test_task1")
+
+    def test_AddWord(self):
+        returned = self.task_grounding.add_word_to_task("blue1", "blue2")
+        self.assertTrue(returned.is_success)
+        self.db.conn.execute("delete from TASK_WORDS where WORD='blue2';")
+        self.db.conn.commit()
 
     def test_TeachTaskUnknownSubTask(self):
         returned = self.task_grounding.teach_new_task("test_task2", ["UNKNOWN TASK"], ["test1", "test2-1"])
