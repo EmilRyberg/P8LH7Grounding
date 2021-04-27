@@ -25,18 +25,6 @@ class ClassificationDataset(Dataset):
         self.catIdToIndexMap = {}
         for index, catId in enumerate(self.coco.getCatIds()):
             self.catIdToIndexMap[catId] = index
-        # self.data_transform = transforms.Compose([
-        #     transforms.Resize((224, 224)),
-        #     transforms.ToTensor(),
-        #     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        # ])
-        # self.data_transform_with_augmentation = transforms.Compose([
-        #         transforms.Resize((224, 224)),
-        #         transforms.ColorJitter(brightness=0.1, contrast=0.05, saturation=0.05, hue=0.05),
-        #         transforms.RandomAffine(degrees=180, scale=(0.8, 1.2), shear=20),
-        #         transforms.ToTensor(),
-        #         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        # ])
 
     def __len__(self):
         return len(self.allAnnIds)

@@ -1,8 +1,7 @@
 from task_grounding.task_grounding import TaskGrounding, TaskGroundingReturn, ErrorType
-from database_handler import DatabaseHandler
+from database_handler.database_handler import DatabaseHandler
 import unittest
-from unittest.mock import MagicMock, Mock
-from ner_lib.command_builder import CommandBuilder, PlaceTask, PickUpTask, FindTask, MoveTask
+from unittest.mock import Mock
 from ner_lib.ner import EntityType
 
 ################################# ISOLATED UNIT TESTS ----- BEGIN ##########################################################

@@ -1,11 +1,12 @@
-from grounding.grounding import Grounding, GroundingReturn, ErrorType
-from grounding.spatial import SpatialRelation
+from grounding_lib.grounding import Grounding, GroundingReturn, ErrorType
+from grounding_lib.spatial import SpatialRelation, StatusEnum
+from database_handler.database_handler import DatabaseHandler
 import numpy as np
 import unittest
 from unittest.mock import MagicMock, Mock
-from ner_lib.command_builder import CommandBuilder, ObjectEntity
+from ner_lib.command_builder import CommandBuilder, ObjectEntity, SpatialDescription, SpatialType
 from ner_lib.ner import EntityType
-from vision_lib.vision_controller import VisionController, ObjectInfoWithFeatures
+from vision_lib.object_info_with_features import ObjectInfoWithFeatures
 
 
 ################################# ISOLATED UNIT TESTS ----- BEGIN ##########################################################
@@ -43,8 +44,8 @@ class FindObjectIsolatedTest(unittest.TestCase):
         object_entity = ObjectEntity()
         object_entity.name = object_name
         object_entity.spatial_descriptions = object_spatial_desc
-        self.returned = self.grounding.find_object(object_entity)
-        self.assertEqual(self.returned.error_code, ErrorType.CANT_FIND)
+        returned = self.grounding.find_object(object_entity)
+        self.assertEqual(returned.error_code, ErrorType.CANT_FIND)
 
     def test_bestMatch(self):
         indexes = [1, 2, 3, 4, 5]
@@ -58,7 +59,7 @@ class FindObjectIsolatedTest(unittest.TestCase):
         self.assertTrue(self.grounding.is_same_object(features_1, features_2))
 
     def test_unknownObject(self):
-        object_info = ObjectInfoWithFeaturesWithFeatures()
+        object_info = ObjectInfoWithFeatures()
         features = []
         object_info.features = np.array([1, 1, 1, 1, 1])
         object_info.bbox_xxyy = np.array([1, 2, 3, 4])
@@ -72,12 +73,12 @@ class FindObjectIsolatedTest(unittest.TestCase):
         object_entity = ObjectEntity()
         object_entity.name = object_name
         object_entity.spatial_descriptions = object_spatial_desc
-        self.returned = self.grounding.find_object(object_entity)
-        self.assertEqual(self.returned.error_code, ErrorType.UNKNOWN)  # Should return false if the object is unknown
+        returned = self.grounding.find_object(object_entity)
+        self.assertEqual(returned.error_code, ErrorType.UNKNOWN)  # Should return false if the object is unknown
 
     def test_spatialPart(self):
         entities = [
-            (EntityType.TAKE, "pick up"),
+            (EntityType.TASK, "pick up"),
             (EntityType.COLOUR, "blue"),
             (EntityType.OBJECT, "cover"),
             (EntityType.LOCATION, "above"),
@@ -117,16 +118,18 @@ class FindObjectIsolatedTest(unittest.TestCase):
         self.db_mock.get_feature = Mock(return_value=np.array([1, 1, 1, 1, 1]))
         self.db_mock.get_all_features = Mock(return_value=db_features)
         self.ner_mock.get_entities = Mock(return_value=entities)
-        self.spatial_mock.locate_specific_object = Mock(return_value=1)
+        self.spatial_mock.locate_specific_object = Mock(return_value=(1, StatusEnum.SUCCESS))
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_execute_on
-        self.returned = self.grounding.find_object(object_entity)
-        self.assertTrue(self.returned.is_success)
-        self.assertIsNotNone(self.returned.object_info)
+        returned = self.grounding.find_object(object_entity)
+
+        self.assertTrue(returned.is_success)
+        self.assertIsNotNone(returned.object_info)
 
 
 class LearnObjectIsolatedTest(unittest.TestCase):
     def setUp(self):
+        self.skipTest("Not used ATM, needs to be refactored if we include learning objects")
         self.db_mock = Mock()
         self.vision_mock = Mock()
         self.grounding = Grounding(db=self.db_mock, vision_controller=self.vision_mock)
@@ -163,6 +166,7 @@ class LearnObjectIsolatedTest(unittest.TestCase):
 
 class UpdateFeaturesIsolatedTest(unittest.TestCase):
     def setUp(self):
+        self.skipTest("Feature is not used ATM and needs refactoring if it is implemented")
         self.db_mock = Mock()
         self.vision_mock = Mock()
         self.grounding = Grounding(db=self.db_mock, vision_controller=self.vision_mock)
@@ -210,7 +214,8 @@ class UpdateFeaturesIsolatedTest(unittest.TestCase):
 class SpatialModuleOneOfEach(unittest.TestCase):
     def setUp(self):
         self.ner_mock = Mock()
-        self.spatial = SpatialRelation()
+        self.db_mock = Mock()
+        self.spatial = SpatialRelation(database_handler=self.db_mock)
         self.cmd_builder = CommandBuilder("", "", self.ner_mock)
 
         self.objects = [  # bbox = [x1, x2, y1, y2] and images spans from 0,0 to 1500,2000
@@ -224,7 +229,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
 
     def test_above(self):
         entities = [
-            (EntityType.TAKE, "pick up"),
+            (EntityType.TASK, "pick up"),
             (EntityType.COLOUR, "blue"),
             (EntityType.OBJECT, "cover"),
             (EntityType.LOCATION, "above"),
@@ -234,11 +239,13 @@ class SpatialModuleOneOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_execute_on
-        self.assertEqual(self.objects[1][0], self.spatial.locate_specific_object(object_entity, self.objects))
+        expected_index = self.objects[1][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+        self.assertEqual(expected_index, actual_index)
 
     def test_right(self):
         entities = [
-            (EntityType.TAKE, "pick up"),
+            (EntityType.TASK, "pick up"),
             (EntityType.COLOUR, "blue"),
             (EntityType.OBJECT, "cover"),
             (EntityType.LOCATION, "right"),
@@ -249,11 +256,13 @@ class SpatialModuleOneOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_execute_on
-        self.assertEqual(self.objects[1][0], self.spatial.locate_specific_object(object_entity, self.objects))
+        expected_index = self.objects[1][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+        self.assertEqual(expected_index, actual_index)
 
     def test_left(self):
         entities = [
-            (EntityType.TAKE, "pick up"),
+            (EntityType.TASK, "pick up"),
             (EntityType.OBJECT, "fuse"),
             (EntityType.LOCATION, "left"),
             (EntityType.OBJECT, "bottom cover")
@@ -262,11 +271,13 @@ class SpatialModuleOneOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_execute_on
-        self.assertEqual(self.objects[2][0], self.spatial.locate_specific_object(object_entity, self.objects))
+        expected_index = self.objects[2][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+        self.assertEqual(expected_index, actual_index)
 
     def test_below(self):
         entities = [
-            (EntityType.TAKE, "pick up"),
+            (EntityType.TASK, "pick up"),
             (EntityType.COLOUR, "white"),
             (EntityType.OBJECT, "cover"),
             (EntityType.LOCATION, "below"),
@@ -276,11 +287,13 @@ class SpatialModuleOneOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_execute_on
-        self.assertEqual(self.objects[4][0], self.spatial.locate_specific_object(object_entity, self.objects))
+        expected_index = self.objects[4][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+        self.assertEqual(expected_index, actual_index)
 
     def test_diagonalRightUp1(self):
         entities = [
-            (EntityType.TAKE, "pick up"),
+            (EntityType.TASK, "pick up"),
             (EntityType.COLOUR, "blue"),
             (EntityType.OBJECT, "cover"),
             (EntityType.LOCATION, "above"),
@@ -290,11 +303,13 @@ class SpatialModuleOneOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_execute_on
-        self.assertEqual(self.objects[1][0], self.spatial.locate_specific_object(object_entity, self.objects))
+        expected_index = self.objects[1][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+        self.assertEqual(expected_index, actual_index)
 
     def test_diagonalRightUp2(self):
         entities = [
-            (EntityType.TAKE, "pick up"),
+            (EntityType.TASK, "pick up"),
             (EntityType.COLOUR, "blue"),
             (EntityType.OBJECT, "cover"),
             (EntityType.LOCATION, "right"),
@@ -304,11 +319,13 @@ class SpatialModuleOneOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_execute_on
-        self.assertEqual(self.objects[1][0], self.spatial.locate_specific_object(object_entity, self.objects))
+        expected_index = self.objects[1][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+        self.assertEqual(expected_index, actual_index)
 
     def test_serial(self):
         entities = [
-            (EntityType.TAKE, "pick up"),
+            (EntityType.TASK, "pick up"),
             (EntityType.COLOUR, "black"),
             (EntityType.OBJECT, "cover"),
             (EntityType.LOCATION, "left"),
@@ -323,13 +340,28 @@ class SpatialModuleOneOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_execute_on
-        self.assertEqual(self.objects[0][0], self.spatial.locate_specific_object(object_entity, self.objects))
+        expected_index = self.objects[0][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+        self.assertEqual(expected_index, actual_index)
+
+    def test_locate_specific_object__static_location__returns_closest_object(self):
+        object_entity = ObjectEntity(name="blue cover")
+        spatial_description = SpatialDescription(spatial_type=SpatialType.OTHER)
+        spatial_description.object_entity.name = "top left corner"
+        object_entity.spatial_descriptions.append(spatial_description)
+        self.db_mock.get_location_by_name = Mock(return_value=(100, 100, 0))
+
+        expected_index = self.objects[1][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+
+        self.assertEqual(expected_index, actual_index)
 
 
 class SpatialModuleTwoOfEach(unittest.TestCase):
     def setUp(self):
         self.ner_mock = Mock()
-        self.spatial = SpatialRelation()
+        self.db_mock = Mock()
+        self.spatial = SpatialRelation(database_handler=self.db_mock)
         self.cmd_builder = CommandBuilder("", "", self.ner_mock)
 
         self.objects = [  # bbox = [x1, x2, y1, y2] and images spans from 0,0 to 1500,2000
@@ -344,7 +376,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
 
     def test_above(self):
         entities = [
-            (EntityType.TAKE, "pick up"),
+            (EntityType.TASK, "pick up"),
             (EntityType.COLOUR, "blue"),
             (EntityType.OBJECT, "cover"),
             (EntityType.LOCATION, "above"),
@@ -354,11 +386,13 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_execute_on
-        self.assertEqual(self.objects[1][0], self.spatial.locate_specific_object(object_entity, self.objects))
+        expected_index = self.objects[1][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+        self.assertEqual(expected_index, actual_index)
 
     def test_right(self):
         entities = [
-            (EntityType.TAKE, "pick up"),
+            (EntityType.TASK, "pick up"),
             (EntityType.COLOUR, "blue"),
             (EntityType.OBJECT, "cover"),
             (EntityType.LOCATION, "right"),
@@ -368,11 +402,13 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_execute_on
-        self.assertEqual(self.objects[1][0], self.spatial.locate_specific_object(object_entity, self.objects))
+        expected_index = self.objects[1][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+        self.assertEqual(expected_index, actual_index)
 
     def test_left(self):
         entities = [
-            (EntityType.TAKE, "pick up"),
+            (EntityType.TASK, "pick up"),
             (EntityType.COLOUR, "white"),
             (EntityType.OBJECT, "cover"),
             (EntityType.LOCATION, "left"),
@@ -382,11 +418,13 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_execute_on
-        self.assertEqual(self.objects[4][0], self.spatial.locate_specific_object(object_entity, self.objects))
+        expected_index = self.objects[4][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+        self.assertEqual(expected_index, actual_index)
 
     def test_below(self):
         entities = [
-            (EntityType.TAKE, "pick up"),
+            (EntityType.TASK, "pick up"),
             (EntityType.COLOUR, "white"),
             (EntityType.OBJECT, "cover"),
             (EntityType.LOCATION, "below"),
@@ -396,11 +434,13 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_execute_on
-        self.assertEqual(self.objects[4][0], self.spatial.locate_specific_object(object_entity, self.objects))
+        expected_index = self.objects[4][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+        self.assertEqual(expected_index, actual_index)
 
     def test_diagonalRightUp(self):
         entities = [
-            (EntityType.TAKE, "pick up"),
+            (EntityType.TASK, "pick up"),
             (EntityType.COLOUR, "blue"),
             (EntityType.OBJECT, "cover"),
             (EntityType.LOCATION, "right"),
@@ -410,11 +450,13 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_execute_on
-        self.assertEqual(self.objects[1][0], self.spatial.locate_specific_object(object_entity, self.objects))
+        expected_index = self.objects[1][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+        self.assertEqual(expected_index, actual_index)
 
     def test_serial(self):
         entities = [
-            (EntityType.TAKE, "pick up"),
+            (EntityType.TASK, "pick up"),
             (EntityType.COLOUR, "blue"),
             (EntityType.OBJECT, "cover"),
             (EntityType.LOCATION, "right"),
@@ -429,11 +471,13 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_execute_on
-        self.assertEqual(self.objects[1][0], self.spatial.locate_specific_object(object_entity, self.objects))
+        expected_index = self.objects[1][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+        self.assertEqual(expected_index, actual_index)
 
     def test_twoOfReference(self):
         entities = [
-            (EntityType.TAKE, "pick up"),
+            (EntityType.TASK, "pick up"),
             (EntityType.COLOUR, "blue"),
             (EntityType.OBJECT, "cover"),
             (EntityType.LOCATION, "above"),
@@ -443,11 +487,14 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_execute_on
-        self.assertEqual(-1, self.spatial.locate_specific_object(object_entity, self.objects))
+        index, status = self.spatial.locate_specific_object(object_entity, self.objects)
+
+        self.assertEqual(StatusEnum.ERROR_TWO_REF, status)
 
     def test_locate_specific_object__two_valid_results__returns_list_with_correct_length(self):
+        self.skipTest("Contradicts twoOfReference test")
         entities = [
-            (EntityType.TAKE, "pick up"),
+            (EntityType.TASK, "pick up"),
             (EntityType.COLOUR, "blue"),
             (EntityType.OBJECT, "cover"),
             (EntityType.LOCATION, "above"),
@@ -467,6 +514,84 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
         object_entity = task.object_to_execute_on
         self.assertEqual(2, len(self.spatial.locate_specific_object(object_entity, objects)))
 
+    def test_locate_specific_object__static_location__returns_closest_object(self):
+        object_entity = ObjectEntity(name="blue cover")
+        spatial_description = SpatialDescription(spatial_type=SpatialType.OTHER)
+        spatial_description.object_entity.name = "top left corner"
+        object_entity.spatial_descriptions.append(spatial_description)
+        self.db_mock.get_location_by_name = Mock(return_value=(100, 100, 0))
+
+        expected_index = self.objects[0][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+
+        self.assertEqual(expected_index, actual_index)
+
+    def test_locate_specific_object__static_location_2__returns_closest_object(self):
+        object_entity = ObjectEntity(name="blue cover")
+        spatial_description = SpatialDescription(spatial_type=SpatialType.OTHER)
+        spatial_description.object_entity.name = "top left corner"
+        object_entity.spatial_descriptions.append(spatial_description)
+        self.db_mock.get_location_by_name = Mock(return_value=(700, 100, 0))
+
+        expected_index = self.objects[1][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+
+        self.assertEqual(expected_index, actual_index)
+
+    def test_locate_specific_object__relative_to_object_at_static_location__returns_closest_object(self):
+        object_entity = ObjectEntity(name="blue cover")
+        spatial_description = SpatialDescription(spatial_type=SpatialType.NEXT_TO)
+        spatial_description.object_entity.name = "white cover"
+        spatial_description_2 = SpatialDescription(spatial_type=SpatialType.OTHER)
+        spatial_description_2.object_entity.name = "top left corner"
+        object_entity.spatial_descriptions.append(spatial_description)
+        object_entity.spatial_descriptions.append(spatial_description_2)
+        self.db_mock.get_location_by_name = Mock(return_value=(100, 100, 0))
+
+        expected_index = self.objects[6][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+
+        self.assertEqual(expected_index, actual_index)
+
+    def test_get_location__static_location__returns_static_location(self):
+        spatial_description = SpatialDescription(spatial_type=SpatialType.OTHER)
+        spatial_description.object_entity.name = "top left corner"
+        spatial_descriptions = [spatial_description]
+        expected_x, expected_y = 100, 100
+        self.db_mock.get_location_by_name = Mock(return_value=(expected_x, expected_y, 0))
+
+        x, y = self.spatial.get_location(spatial_descriptions, self.objects)
+
+        self.assertEqual(expected_x, x)
+        self.assertEqual(expected_y, y)
+
+    def test_get_location__object_at_static_location__return_object_center(self):
+        objects = [ # copy to make sure setUp changes dont mess up this test
+            (0, "blue cover", [100, 400, 100, 300]),
+            (1, "blue cover", [700, 1100, 100, 300]),
+            (2, "fuse", [100, 400, 800, 1000]),
+            (3, "bottom cover", [700, 1100, 800, 1000]),
+            (4, "white cover", [100, 400, 1500, 1600]),
+            (5, "white cover", [700, 700, 1500, 1600]),
+            (6, "blue cover", [0, 100, 1550, 1600])
+        ]
+
+        spatial_description = SpatialDescription(spatial_type=SpatialType.NEXT_TO)
+        spatial_description.object_entity.name = "white cover"
+        spatial_description_2 = SpatialDescription(spatial_type=SpatialType.OTHER)
+        spatial_description_2.object_entity.name = "top left corner"
+        spatial_descriptions = []
+        spatial_descriptions.append(spatial_description)
+        spatial_descriptions.append(spatial_description_2)
+        expected_bbox = objects[4][2]
+        expected_x, expected_y = expected_bbox[1] - (expected_bbox[1] - expected_bbox[0]) / 2, expected_bbox[3] - (expected_bbox[3] - expected_bbox[2]) / 2
+        self.db_mock.get_location_by_name = Mock(return_value=(100, 100, 0))
+
+        x, y = self.spatial.get_location(spatial_descriptions, objects)
+
+        self.assertAlmostEqual(expected_x, x)
+        self.assertAlmostEqual(expected_y, y)
+
 
 ################################# ISOLATED UNIT TESTS ----- END ##########################################################
 
@@ -474,9 +599,11 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
 
 class FindObjectIntegrationTest(unittest.TestCase):
     def setUp(self):
-        self.grounding = Grounding()
+        self.skipTest("Skip until it is needed")
+        self.database_handler = DatabaseHandler("test_grounding.db")
         self.vision_mock = Mock()  # TODO remove this once we have a vision module
-        self.grounding = Grounding(vision_controller=self.vision_mock)
+        self.spatial_relation_mock = Mock()
+        self.grounding = Grounding(vision_controller=self.vision_mock, db=self.database_handler, spatial=self.spatial_relation_mock)
         self.returned = GroundingReturn()
 
     def test_failFindObject(self):
@@ -526,6 +653,7 @@ class FindObjectIntegrationTest(unittest.TestCase):
 
 class LearnObjectIntegrationTest(unittest.TestCase):
     def setUp(self):
+        self.skipTest("Skip until it is needed")
         self.vision_mock = Mock()
         self.grounding = Grounding(vision_controller=self.vision_mock)
         self.returned = GroundingReturn()
@@ -567,6 +695,7 @@ class LearnObjectIntegrationTest(unittest.TestCase):
 
 class UpdateFeaturesIntegrationTest(unittest.TestCase):
     def setUp(self):
+        self.skipTest("Skip until it is needed")
         self.vision_mock = Mock()
         self.grounding = Grounding(vision_controller=self.vision_mock)
         self.returned = GroundingReturn()

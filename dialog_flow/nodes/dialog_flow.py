@@ -6,9 +6,9 @@ from ner_lib.command_builder import CommandBuilder, PickUpTask, FindTask, MoveTa
 from little_helper_interfaces.msg import StringWithTimestamp
 from vision_lib.ros_camera_interface import ROSCamera
 from robot_control.robot_control import RobotController
-from grounding.grounding import Grounding
+from grounding_lib.grounding_lib import Grounding
 from vision_lib.vision_controller import VisionController
-from grounding.spatial import SpatialRelation
+from grounding_lib.spatial import SpatialRelation
 from database_handler.database_handler import DatabaseHandler
 from text_to_speech.srv import TextToSpeech
 from ui_interface_lib.ui_interface import UIInterface
@@ -19,10 +19,11 @@ class DialogFlow:
     def __init__(self, ner_model_path, ner_tag_path, feature_weights_path, db_path, background_image_file, websocket_uri):
         rospy.init_node('dialog_controller')
         self.first_convo_flag = True
-        self.grounding = Grounding(db=DatabaseHandler(db_path=db_path),
+        self.database_handler = DatabaseHandler(db_path=db_path)
+        self.grounding = Grounding(db=self.database_handler,
                                    vision_controller=VisionController(background_image_file=background_image_file,
                                                                       weights_path=feature_weights_path),
-                                   spatial=SpatialRelation())
+                                   spatial=SpatialRelation(database_handler=self.database_handler))
         self.sentence = ""
         self.object_info = ObjectInfo()
         self.robot = RobotController()

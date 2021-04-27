@@ -99,4 +99,4 @@ def train(dataset_path, tag_path, model_save_path):
 
 
 if __name__ == "__main__":
-    train("dataset_processed.txt", "tags.txt", "ner_1")
+    train("NER_4/dataset_processed.txt", "NER_4/tags.txt", "NER_4")
