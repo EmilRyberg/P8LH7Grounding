@@ -21,35 +21,10 @@ class SpatialRelation:
         local_objects = copy.deepcopy(objects)
         entity_name = object_entity.name
         spatial_desc = object_entity.spatial_descriptions
-        last_bbox = []
-        last_spatial_description = None
+        last_bbox, last_spatial_description, local_objects = self.filter_objects(spatial_desc, local_objects)
 
-        for instance in reversed(spatial_desc):
-            object_name = instance.object_entity.name
-            matching_objects = []
-            if instance.spatial_type != SpatialType.OTHER:
-                for (id, name, bbox) in local_objects:
-                    if name == object_name:
-                        matching_objects.append((id, name, bbox))
-                if last_spatial_description is None and len(matching_objects) > 1:
-                    return None, StatusEnum.ERROR_TWO_REF
-                if len(matching_objects) > 1:
-                    correct_bbox_index = self.find_best_match(matching_objects, last_spatial_description, last_bbox)
-                    (last_id, _, last_bbox) = matching_objects[correct_bbox_index]
-                    last_spatial_description = instance
-                else:
-                    (id, name, bbox) = matching_objects[0]
-                    last_spatial_description = instance
-                    last_id = id
-                    last_bbox = bbox
-                local_objects.remove((last_id, object_name, last_bbox))
-            else:
-                x, y, z = self.database_handler.get_location_by_name(instance.object_entity.name.lower())
-                if x is None:
-                    print("WARNING: static location is None")
-                    continue
-                last_bbox = [x - 1, x + 1, y - 1, y + 1]
-                last_spatial_description = instance
+        if last_spatial_description is None:
+            return None, StatusEnum.ERROR_TWO_REF
 
         matching_objects = []
         for x, (id, name, bbox) in enumerate(local_objects):
@@ -74,33 +49,10 @@ class SpatialRelation:
 
     def locate_last_object_in_spatial_descriptions(self, spatial_descriptions, objects):
         local_objects = copy.deepcopy(objects)
-        last_bbox = []
-        last_spatial_description = None
+        last_bbox, last_spatial_description, _ = self.filter_objects(spatial_descriptions, local_objects)
 
-        for instance in reversed(spatial_descriptions):
-            object_name = instance.object_entity.name
-            matching_objects = []
-            if instance.spatial_type != SpatialType.OTHER:
-                for (id, name, bbox) in local_objects:
-                    if name == object_name:
-                        matching_objects.append((id, name, bbox))
-                if last_spatial_description is None and len(matching_objects) > 1:
-                    return None, StatusEnum.ERROR_TWO_REF
-                if len(matching_objects) > 1:
-                    correct_bbox_index = self.find_best_match(matching_objects, last_spatial_description, last_bbox)
-                    (last_id, _, last_bbox) = matching_objects[correct_bbox_index]
-                    last_spatial_description = instance
-                else:
-                    (id, name, bbox) = matching_objects[0]
-                    last_spatial_description = instance
-                    last_bbox = bbox
-            else:
-                x, y, z = self.database_handler.get_location_by_name(instance.object_entity.name.lower())
-                if x is None:
-                    print("WARNING: static location is None")
-                    continue
-                last_bbox = [x - 1, x + 1, y - 1, y + 1]
-                last_spatial_description = instance
+        if last_spatial_description is None:
+            return None, StatusEnum.ERROR_TWO_REF
 
         matching_objects = []
         if last_spatial_description.spatial_type == SpatialType.OTHER:
@@ -122,6 +74,39 @@ class SpatialRelation:
                 return idx, StatusEnum.SUCCESS
             else:
                 return None, StatusEnum.ERROR_CANT_FIND
+
+    def filter_objects(self, spatial_descriptions, objects):
+        local_objects = copy.deepcopy(objects)
+        last_spatial_description = None
+        last_bbox = None
+
+        for instance in reversed(spatial_descriptions):
+            object_name = instance.object_entity.name
+            matching_objects = []
+            if instance.spatial_type != SpatialType.OTHER:
+                for (id, name, bbox) in local_objects:
+                    if name == object_name:
+                        matching_objects.append((id, name, bbox))
+                if last_spatial_description is None and len(matching_objects) > 1:
+                    return None, None, None
+                if len(matching_objects) > 1:
+                    correct_bbox_index = self.find_best_match(matching_objects, last_spatial_description, last_bbox)
+                    (last_id, _, last_bbox) = matching_objects[correct_bbox_index]
+                    last_spatial_description = instance
+                else:
+                    (last_id, name, bbox) = matching_objects[0]
+                    last_spatial_description = instance
+                    last_bbox = bbox
+                local_objects.remove((last_id, object_name, last_bbox))
+            else:
+                x, y, z = self.database_handler.get_location_by_name(instance.object_entity.name.lower())
+                if x is None:
+                    print("WARNING: static location is None")
+                    continue
+                last_bbox = [x - 1, x + 1, y - 1, y + 1]
+                last_spatial_description = instance
+
+        return last_bbox, last_spatial_description, local_objects
 
     def get_location(self, spatial_descriptions, objects):
         if len(spatial_descriptions) == 1 and spatial_descriptions[0].spatial_type == SpatialType.OTHER:
