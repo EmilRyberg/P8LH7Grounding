@@ -78,6 +78,66 @@ class CommandBuilderTestCase(unittest.TestCase):
         self.assertIsNotNone(task.object_to_execute_on.spatial_descriptions[0].object_entity)
         self.assertEqual("yellow bottom cover", task.object_to_execute_on.spatial_descriptions[0].object_entity.name)
 
+    def test_get_task__entites_with_static_location__returns_task_with_correct_spatial_type(self):
+        entities = [
+            (EntityType.TASK, "place"),
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "top left corner"),
+            (EntityType.OBJECT, "table")
+        ]
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
+
+        self.assertEqual(SpatialType.OTHER, task.object_to_execute_on.spatial_descriptions[0].spatial_type)
+
+    def test_get_task__entites_with_static_location__returns_task_with_correct_spatial_name(self):
+        entities = [
+            (EntityType.TASK, "place"),
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "top left corner"),
+            (EntityType.OBJECT, "table")
+        ]
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
+
+        self.assertEqual("top left corner", task.object_to_execute_on.spatial_descriptions[0].object_entity.name)
+
+    def test_get_task__entites_with_relative_and_static_location__returns_task_with_correct_spatial_types(self):
+        entities = [
+            (EntityType.TASK, "place"),
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "next"),
+            (EntityType.COLOUR, "white"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "top left corner"),
+            (EntityType.OBJECT, "table")
+        ]
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
+
+        self.assertEqual(SpatialType.NEXT_TO, task.object_to_execute_on.spatial_descriptions[0].spatial_type)
+        self.assertEqual(SpatialType.OTHER, task.object_to_execute_on.spatial_descriptions[1].spatial_type)
+
+    def test_get_task__entites_with_relative_and_static_location__returns_task_with_correct_spatial_names(self):
+        entities = [
+            (EntityType.TASK, "place"),
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "next"),
+            (EntityType.COLOUR, "white"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "top left corner"),
+            (EntityType.OBJECT, "table")
+        ]
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
+
+        self.assertEqual("white cover", task.object_to_execute_on.spatial_descriptions[0].object_entity.name)
+        self.assertEqual("top left corner", task.object_to_execute_on.spatial_descriptions[1].object_entity.name)
+
 
 class NERIntegrationTestCase(unittest.TestCase):
     def setUp(self):

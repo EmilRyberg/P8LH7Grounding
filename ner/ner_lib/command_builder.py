@@ -61,7 +61,7 @@ class ObjectEntity:
             if entity_type == EntityType.COLOUR or entity_type == EntityType.OBJECT:
                 if is_building_own_name:
                     self.object_descriptors.append(word)
-                else:
+                elif self.spatial_descriptions[current_spatial_descriptor].spatial_type != SpatialType.OTHER:
                     self.spatial_descriptions[current_spatial_descriptor].object_entity.object_descriptors.append(word)
             elif entity_type == EntityType.LOCATION:
                 spatial_type = SpatialType.OTHER
@@ -75,8 +75,8 @@ class ObjectEntity:
                 else:
                     self.spatial_descriptions[current_spatial_descriptor].object_entity.build_name()
                     current_spatial_descriptor += 1
-                    if spatial_type == SpatialType.OTHER:
-                        spatial_description.object_entity.object_descriptors.append(word)
+                if spatial_type == SpatialType.OTHER:
+                    spatial_description.object_entity.object_descriptors.append(word)
                 self.spatial_descriptions.append(spatial_description)
             elif entity_type == EntityType.TASK:
                 break

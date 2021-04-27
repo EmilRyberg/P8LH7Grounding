@@ -538,6 +538,60 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
 
         self.assertEqual(expected_index, actual_index)
 
+    def test_locate_specific_object__relative_to_object_at_static_location__returns_closest_object(self):
+        object_entity = ObjectEntity(name="blue cover")
+        spatial_description = SpatialDescription(spatial_type=SpatialType.NEXT_TO)
+        spatial_description.object_entity.name = "white cover"
+        spatial_description_2 = SpatialDescription(spatial_type=SpatialType.OTHER)
+        spatial_description_2.object_entity.name = "top left corner"
+        object_entity.spatial_descriptions.append(spatial_description)
+        object_entity.spatial_descriptions.append(spatial_description_2)
+        self.db_mock.get_location_by_name = Mock(return_value=(100, 100, 0))
+
+        expected_index = self.objects[6][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+
+        self.assertEqual(expected_index, actual_index)
+
+    def test_get_location__static_location__returns_static_location(self):
+        spatial_description = SpatialDescription(spatial_type=SpatialType.OTHER)
+        spatial_description.object_entity.name = "top left corner"
+        spatial_descriptions = [spatial_description]
+        expected_x, expected_y = 100, 100
+        self.db_mock.get_location_by_name = Mock(return_value=(expected_x, expected_y, 0))
+
+        x, y = self.spatial.get_location(spatial_descriptions, self.objects)
+
+        self.assertEqual(expected_x, x)
+        self.assertEqual(expected_y, y)
+
+    def test_get_location__object_at_static_location__return_object_center(self):
+        objects = [ # copy to make sure setUp changes dont mess up this test
+            (0, "blue cover", [100, 400, 100, 300]),
+            (1, "blue cover", [700, 1100, 100, 300]),
+            (2, "fuse", [100, 400, 800, 1000]),
+            (3, "bottom cover", [700, 1100, 800, 1000]),
+            (4, "white cover", [100, 400, 1500, 1600]),
+            (5, "white cover", [700, 700, 1500, 1600]),
+            (6, "blue cover", [0, 100, 1550, 1600])
+        ]
+
+        spatial_description = SpatialDescription(spatial_type=SpatialType.NEXT_TO)
+        spatial_description.object_entity.name = "white cover"
+        spatial_description_2 = SpatialDescription(spatial_type=SpatialType.OTHER)
+        spatial_description_2.object_entity.name = "top left corner"
+        spatial_descriptions = []
+        spatial_descriptions.append(spatial_description)
+        spatial_descriptions.append(spatial_description_2)
+        expected_bbox = objects[4][2]
+        expected_x, expected_y = expected_bbox[1] - (expected_bbox[1] - expected_bbox[0]) / 2, expected_bbox[3] - (expected_bbox[3] - expected_bbox[2]) / 2
+        self.db_mock.get_location_by_name = Mock(return_value=(100, 100, 0))
+
+        x, y = self.spatial.get_location(spatial_descriptions, objects)
+
+        self.assertAlmostEqual(expected_x, x)
+        self.assertAlmostEqual(expected_y, y)
+
 
 ################################# ISOLATED UNIT TESTS ----- END ##########################################################
 
@@ -545,6 +599,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
 
 class FindObjectIntegrationTest(unittest.TestCase):
     def setUp(self):
+        self.skipTest("Skip until it is needed")
         self.database_handler = DatabaseHandler("test_grounding.db")
         self.vision_mock = Mock()  # TODO remove this once we have a vision module
         self.spatial_relation_mock = Mock()
@@ -598,6 +653,7 @@ class FindObjectIntegrationTest(unittest.TestCase):
 
 class LearnObjectIntegrationTest(unittest.TestCase):
     def setUp(self):
+        self.skipTest("Skip until it is needed")
         self.vision_mock = Mock()
         self.grounding = Grounding(vision_controller=self.vision_mock)
         self.returned = GroundingReturn()
@@ -639,6 +695,7 @@ class LearnObjectIntegrationTest(unittest.TestCase):
 
 class UpdateFeaturesIntegrationTest(unittest.TestCase):
     def setUp(self):
+        self.skipTest("Skip until it is needed")
         self.vision_mock = Mock()
         self.grounding = Grounding(vision_controller=self.vision_mock)
         self.returned = GroundingReturn()
