@@ -1,7 +1,7 @@
 from database_handler import DatabaseHandler
 from ner_lib.ner import NER, EntityType
 
-from ner_lib.command_builder import CommandBuilder, PlaceTask, PickUpTask, FindTask, MoveTask
+from ner_lib.command_builder import CommandBuilder, ObjectEntity, PlaceTask, PickUpTask, FindTask, MoveTask
 import numpy as np
 from typing import Optional
 from enum import Enum
@@ -10,6 +10,8 @@ from enum import Enum
 class ErrorType(Enum):
     UNKNOWN = "unknown word"
     NO_OBJECT = "no object specified when required"
+    NO_SUBTASKS = "no specified subtasks"
+    NO_SPATIAL = "no spatial specified"
 
 
 class TaskGroundingReturn:
@@ -26,68 +28,98 @@ class TaskGrounding:
         self.return_object = TaskGroundingReturn()
 
     def get_task_from_entity(self, ner_task_word, task_entities=None):
-        (_, task_name) = self.db.get_task(ner_task_word)
-        self.task_switch(task_name, task_entities, ner_task_word)
+        (task_id, task_name) = self.db.get_task(ner_task_word)
+        self.task_switch(task_id, task_name, task_entities, ner_task_word)
         return self.return_object
 
-    def task_switch(self, task_name, task_entities, ner_word):
+    def task_switch(self, task_id, task_name, task_entities, ner_word, attached_object=None, spatial=None):
         if task_name is None:
             self.unknown_task_error(ner_word)
             return
         elif task_name == "pick up":  # Check the default skills first.
-            self.handle_pick_task(task_entities)
+            self.handle_pick_task(task_entities, attached_object, spatial)
         elif task_name == "find":
-            self.handle_find_task(task_entities)
+            self.handle_find_task(task_entities, attached_object, spatial)
         elif task_name == "move":
-            self.handle_move_task(task_entities)
+            self.handle_move_task(task_entities, attached_object, spatial)
         elif task_name == "place":
-            self.handle_place_task(task_entities)
+            self.handle_place_task(task_entities, spatial)
         else:
-            sub_tasks = self.db.get_sub_tasks(task_name)
-            if sub_tasks is not None:
-                sub_tasks = np.fromstring(sub_tasks, dtype=int, sep=',')
+            sub_tasks = self.db.get_sub_tasks(task_id)
+            if sub_tasks is None:
+                self.return_object.error_code = ErrorType.NO_SUBTASKS
+                self.return_object.error_task = ner_word
+                return
             self.handle_advanced_task(sub_tasks, task_entities, ner_word)
 
-    def handle_pick_task(self, task_entities):
+    def handle_pick_task(self, task_entities, attached_object, spatial):
         task = PickUpTask()
-        if task_entities is None:
-            self.missing_entities_error(task)
-            return
-        task.build_task(task_entities)
+        if attached_object is None:
+            if task_entities is None:
+                self.missing_entities_error(task)
+                return
+            else:
+                task.build_task(task_entities)
+        else:
+            object = ObjectEntity(attached_object)
+            if spatial is not None:
+                object.spatial_descriptions = spatial
+            task.object_to_execute_on = object
         self.return_object.is_success = True
         self.return_object.task_info.append(task)
 
-    def handle_move_task(self, task_entities):
+    def handle_move_task(self, task_entities, attached_object, spatial):
         task = MoveTask()
-        if task_entities is None:
-            self.missing_entities_error(task)
-            return
-        task.build_task(task_entities)
+        if attached_object is None:
+            if task_entities is None:
+                self.missing_entities_error(task)
+                return
+            else:
+                task.build_task(task_entities)
+        else:
+            object = ObjectEntity(attached_object)
+            if spatial is not None:
+                object.spatial_descriptions = spatial
+            task.object_to_execute_on = object
         self.return_object.is_success = True
         self.return_object.task_info.append(task)
 
-    def handle_find_task(self, task_entities):
+    def handle_find_task(self, task_entities, attached_object, spatial):
         task = FindTask()
-        if task_entities is None:
-            self.missing_entities_error(task)
-            return
-        task.build_task(task_entities)
+        if attached_object is None:
+            if task_entities is None:
+                self.missing_entities_error(task)
+                return
+            else:
+                task.build_task(task_entities)
+        else:
+            object = ObjectEntity(attached_object)
+            if spatial is not None:
+                object.spatial_descriptions = spatial
+            task.object_to_execute_on = object
         self.return_object.is_success = True
         self.return_object.task_info.append(task)
 
-    def handle_place_task(self, task_entities):
+    def handle_place_task(self, task_entities, spatial):
         task = PlaceTask()
-        if task_entities is None:
-            self.missing_entities_error(task)
-            return
-        task.build_task(task_entities)
+        if spatial is None:
+            if task_entities is None:
+                self.return_object.error_code = ErrorType.NO_SPATIAL
+                self.return_object.task_info.append(task)
+                return
+            else:
+                task.object_to_execute_on = ObjectEntity()
+                task.object_to_execute_on.build_object(task_entities)
+                self.return_object.task_info.append(task)
+        else:
+            task.object_to_execute_on = ObjectEntity()
+            task.object_to_execute_on.spatial_descriptions = spatial
         self.return_object.is_success = True
         self.return_object.task_info.append(task)
 
     def handle_advanced_task(self, sub_tasks, task_entities, ner_word):
-        for sub_task in sub_tasks:  # task idx
-            task_name = self.db.get_task_name(int(sub_task))
-            self.task_switch(task_name, task_entities, ner_word)
+        for i in range(len(sub_tasks[0])):  # task idx
+            self.task_switch(sub_tasks[0][i], sub_tasks[1][i], task_entities, ner_word, sub_tasks[2][i], sub_tasks[3][i])
 
     def teach_new_task(self, task_name, sub_tasks, words):
         self.db.add_task(task_name, words)
@@ -137,7 +169,7 @@ class TaskGrounding:
         return self.return_object
 
 
-if __name__ == "__main__":
+"""if __name__ == "__main__":
     task_grounding = TaskGrounding()
     entities = [
         (EntityType.COLOUR, "blue"),
@@ -149,4 +181,4 @@ if __name__ == "__main__":
         (EntityType.OBJECT, "bottom cover")
     ]
     task = task_grounding.get_task_from_entity("get", entities)
-    print(task)
+    print(task)"""

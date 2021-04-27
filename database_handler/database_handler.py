@@ -74,13 +74,13 @@ class DatabaseHandler:
         sub_task_ids = []
         sub_task_names = []
         attached_objects = []
-        locations = []
+        spatial_descriptions = []
         for row in result:
             sub_task_ids.append(row[0])
             sub_task_names.append(row[1])
             attached_objects.append(row[2])
-            locations.append(row[3])
-        sub_tasks = [sub_task_ids, sub_task_names, attached_objects, locations]
+            spatial_descriptions.append(row[3])
+        sub_tasks = [sub_task_ids, sub_task_names, attached_objects, spatial_descriptions]
         return sub_tasks
 
     def add_sub_task(self, task_id, sub_task_id, attached_object=None, location=None):
@@ -120,7 +120,8 @@ class DatabaseHandler:
 if __name__ == "__main__":
     db = DatabaseHandler("../dialog_flow/nodes/grounding.db")
     #db.add_task("Move blue", ["blue1", "blue2"])
-    #db.add_sub_task(6, 1, "blue cover",)
-    #db.add_sub_task(6, 3, "blue cover", "top right corner")
+    db.add_sub_task(5, 1, "blue cover",)
+    db.add_sub_task(5, 2, "blue cover")
+    db.add_sub_task(5, 3, "blue cover")
     test = db.get_sub_tasks(6)
     db.conn.close()

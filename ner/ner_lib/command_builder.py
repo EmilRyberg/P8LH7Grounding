@@ -26,7 +26,7 @@ class SpatialDescription:
 
 class ObjectEntity:
     def __init__(self, name=None):
-        self.name = None
+        self.name = name
         self.object_descriptors = []
         self.spatial_descriptions = []
 
