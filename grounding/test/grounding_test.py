@@ -4,7 +4,7 @@ from database_handler.database_handler import DatabaseHandler
 import numpy as np
 import unittest
 from unittest.mock import MagicMock, Mock
-from ner_lib.command_builder import CommandBuilder, ObjectEntity
+from ner_lib.command_builder import CommandBuilder, ObjectEntity, SpatialDescription, SpatialType
 from ner_lib.ner import EntityType
 from vision_lib.object_info_with_features import ObjectInfoWithFeatures
 
@@ -344,6 +344,18 @@ class SpatialModuleOneOfEach(unittest.TestCase):
         actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
         self.assertEqual(expected_index, actual_index)
 
+    def test_locate_specific_object__static_location__returns_closest_object(self):
+        object_entity = ObjectEntity(name="blue cover")
+        spatial_description = SpatialDescription(spatial_type=SpatialType.OTHER)
+        spatial_description.object_entity.name = "top left corner"
+        object_entity.spatial_descriptions.append(spatial_description)
+        self.db_mock.get_location_by_name = Mock(return_value=(100, 100, 0))
+
+        expected_index = self.objects[1][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+
+        self.assertEqual(expected_index, actual_index)
+
 
 class SpatialModuleTwoOfEach(unittest.TestCase):
     def setUp(self):
@@ -501,6 +513,30 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
         task = self.cmd_builder.get_task("Dummy sentence")
         object_entity = task.object_to_execute_on
         self.assertEqual(2, len(self.spatial.locate_specific_object(object_entity, objects)))
+
+    def test_locate_specific_object__static_location__returns_closest_object(self):
+        object_entity = ObjectEntity(name="blue cover")
+        spatial_description = SpatialDescription(spatial_type=SpatialType.OTHER)
+        spatial_description.object_entity.name = "top left corner"
+        object_entity.spatial_descriptions.append(spatial_description)
+        self.db_mock.get_location_by_name = Mock(return_value=(100, 100, 0))
+
+        expected_index = self.objects[0][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+
+        self.assertEqual(expected_index, actual_index)
+
+    def test_locate_specific_object__static_location_2__returns_closest_object(self):
+        object_entity = ObjectEntity(name="blue cover")
+        spatial_description = SpatialDescription(spatial_type=SpatialType.OTHER)
+        spatial_description.object_entity.name = "top left corner"
+        object_entity.spatial_descriptions.append(spatial_description)
+        self.db_mock.get_location_by_name = Mock(return_value=(700, 100, 0))
+
+        expected_index = self.objects[1][0]
+        actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
+
+        self.assertEqual(expected_index, actual_index)
 
 
 ################################# ISOLATED UNIT TESTS ----- END ##########################################################
