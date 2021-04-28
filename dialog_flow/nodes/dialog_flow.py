@@ -36,6 +36,7 @@ class DialogFlow:
         self.speech_to_text_subscriber = rospy.Subscriber("speech_to_text", StringWithTimestamp, callback=self.speech_to_text_callback, queue_size=1)
         self.ui_interface = UIInterface(websocket_uri)
         self.websocket_is_connected = self.ui_interface.connect()
+        self.carrying_object = False
 
     def controller(self):
         #check to see if initialising conversation and gets sentence
@@ -116,14 +117,25 @@ class DialogFlow:
         success = True
         if isinstance(task, PickUpTask):
             success = self.robot.pick_up(grounding_return.object_info, np_rgb, np_depth)
+            self.carrying_object = True
+
         elif isinstance(task, FindTask):
             success = self.robot.point_at(grounding_return.object_info, np_rgb, np_depth)
-        elif isinstance(task, MoveTask):
-            pass
-            #TODO implement code for moving object
+
         elif isinstance(task, PlaceTask):
-            pass
-            #TODO implement code to place object
+            if not self.carrying_object:
+                self.ui_interface.send_as_robot("The place task could not be accomplished as no object is carried.")
+                success = 0
+            else:
+                position = [200, -250, 100]
+                success = self.robot.place(position)
+                self.carrying_object = False
+
+        elif isinstance(task, MoveTask):
+            success = self.robot.pick_up(grounding_return.object_info, np_rgb, np_depth)
+            if success:
+                position = [200, -250, 100]
+                success = self.robot.place(position)
 
         if success:
             self.tts("Done!")
