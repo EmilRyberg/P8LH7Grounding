@@ -120,7 +120,7 @@ class FindObjectIsolatedTest(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         self.spatial_mock.locate_specific_object = Mock(return_value=(1, StatusEnum.SUCCESS))
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_execute_on
+        object_entity = task.objects_to_execute_on[0]
         returned = self.grounding.find_object(object_entity)
 
         self.assertTrue(returned.is_success)
@@ -238,7 +238,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_execute_on
+        object_entity = task.objects_to_execute_on[0]
         expected_index = self.objects[1][0]
         actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
         self.assertEqual(expected_index, actual_index)
@@ -255,7 +255,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_execute_on
+        object_entity = task.objects_to_execute_on[0]
         expected_index = self.objects[1][0]
         actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
         self.assertEqual(expected_index, actual_index)
@@ -270,7 +270,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_execute_on
+        object_entity = task.objects_to_execute_on[0]
         expected_index = self.objects[2][0]
         actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
         self.assertEqual(expected_index, actual_index)
@@ -286,7 +286,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_execute_on
+        object_entity = task.objects_to_execute_on[0]
         expected_index = self.objects[4][0]
         actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
         self.assertEqual(expected_index, actual_index)
@@ -302,7 +302,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_execute_on
+        object_entity = task.objects_to_execute_on[0]
         expected_index = self.objects[1][0]
         actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
         self.assertEqual(expected_index, actual_index)
@@ -318,7 +318,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_execute_on
+        object_entity = task.objects_to_execute_on[0]
         expected_index = self.objects[1][0]
         actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
         self.assertEqual(expected_index, actual_index)
@@ -339,7 +339,7 @@ class SpatialModuleOneOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_execute_on
+        object_entity = task.objects_to_execute_on[0]
         expected_index = self.objects[0][0]
         actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
         self.assertEqual(expected_index, actual_index)
@@ -385,7 +385,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_execute_on
+        object_entity = task.objects_to_execute_on[0]
         expected_index = self.objects[1][0]
         actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
         self.assertEqual(expected_index, actual_index)
@@ -401,7 +401,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_execute_on
+        object_entity = task.objects_to_execute_on[0]
         expected_index = self.objects[1][0]
         actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
         self.assertEqual(expected_index, actual_index)
@@ -417,7 +417,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_execute_on
+        object_entity = task.objects_to_execute_on[0]
         expected_index = self.objects[4][0]
         actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
         self.assertEqual(expected_index, actual_index)
@@ -433,7 +433,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_execute_on
+        object_entity = task.objects_to_execute_on[0]
         expected_index = self.objects[4][0]
         actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
         self.assertEqual(expected_index, actual_index)
@@ -449,7 +449,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_execute_on
+        object_entity = task.objects_to_execute_on[0]
         expected_index = self.objects[1][0]
         actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
         self.assertEqual(expected_index, actual_index)
@@ -470,7 +470,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_execute_on
+        object_entity = task.objects_to_execute_on[0]
         expected_index = self.objects[1][0]
         actual_index, success_enum = self.spatial.locate_specific_object(object_entity, self.objects)
         self.assertEqual(expected_index, actual_index)
@@ -486,7 +486,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_execute_on
+        object_entity = task.objects_to_execute_on[0]
         index, status = self.spatial.locate_specific_object(object_entity, self.objects)
 
         self.assertEqual(StatusEnum.ERROR_TWO_REF, status)
@@ -511,7 +511,7 @@ class SpatialModuleTwoOfEach(unittest.TestCase):
 
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        object_entity = task.object_to_execute_on
+        object_entity = task.objects_to_execute_on[0]
         self.assertEqual(2, len(self.spatial.locate_specific_object(object_entity, objects)))
 
     def test_locate_specific_object__static_location__returns_closest_object(self):

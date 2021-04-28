@@ -1,4 +1,4 @@
-from ner.command_builder import CommandBuilder
+from ner_lib.command_builder import CommandBuilder
 
 
 def test_ner(model_path, tag_path):

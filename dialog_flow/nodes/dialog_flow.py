@@ -59,7 +59,7 @@ class DialogFlow:
                 self.ui_interface.send_as_robot(sentence)
             return
 
-        log_string = f"Ok, just to be sure. You want me to {task.plaintext_name} the {self.build_object_sentence(task.object_to_execute_on)}"
+        log_string = f"Ok, just to be sure. You want me to {task.plaintext_name} the {self.build_object_sentence(task.objects_to_execute_on[0])}"
         rospy.loginfo(log_string)
         self.tts(log_string)
         if self.websocket_is_connected:
@@ -86,9 +86,9 @@ class DialogFlow:
                 attempts += 1
 
         if isinstance(task, PlaceTask):
-            sentence = f"Okay, I will now try to {task.plaintext_name} this next to the {task.object_to_execute_on.name}"
+            sentence = f"Okay, I will now try to {task.plaintext_name} this next to the {task.objects_to_execute_on[0].name}"
         else:
-            sentence = f"Okay, I will now try to {task.plaintext_name} the {task.object_to_execute_on.name}"
+            sentence = f"Okay, I will now try to {task.plaintext_name} the {task.objects_to_execute_on[0].name}"
         self.tts(sentence)
         rospy.loginfo(sentence)
         if self.websocket_is_connected:
@@ -101,7 +101,7 @@ class DialogFlow:
         np_rgb = self.camera.get_image()
         np_depth = self.camera.get_depth()
 
-        grounding_return = self.grounding.find_object(task.object_to_execute_on)
+        grounding_return = self.grounding.find_object(task.objects_to_execute_on[0])
         if not grounding_return.is_success:
             # TODO: Handle unknown object here
             sentence = "I could not find the object you were looking for. Restarting."

@@ -57,13 +57,25 @@ class ObjectEntity:
     def build_object(self, entities):
         is_building_own_name = True
         current_spatial_descriptor = None
+        has_encountered_object_entity = False  # This flag is used to switch out of building object,
+                                               # if a new object is found that is not a spatial description
+        index_offset = 0
+        is_object = False
+        stop_building_objects = False
         for index, (entity_type, word) in enumerate(entities):
+            index_offset = index
             if entity_type == EntityType.COLOUR or entity_type == EntityType.OBJECT:
+                if has_encountered_object_entity:
+                    break  # second item
+                if entity_type == EntityType.OBJECT:
+                    has_encountered_object_entity = True
                 if is_building_own_name:
+                    is_object = True
                     self.object_descriptors.append(word)
                 elif self.spatial_descriptions[current_spatial_descriptor].spatial_type != SpatialType.OTHER:
                     self.spatial_descriptions[current_spatial_descriptor].object_entity.object_descriptors.append(word)
             elif entity_type == EntityType.LOCATION:
+                has_encountered_object_entity = False
                 spatial_type = SpatialType.OTHER
                 if word.lower() in WORD_TO_SPATIAL_TYPE_MAPPING.keys():
                     spatial_type = WORD_TO_SPATIAL_TYPE_MAPPING[word.lower()]
@@ -80,11 +92,15 @@ class ObjectEntity:
                 self.spatial_descriptions.append(spatial_description)
             elif entity_type == EntityType.TASK:
                 break
+            if index == len(entities) - 1:
+                stop_building_objects = True
         if current_spatial_descriptor is not None:
             self.spatial_descriptions[current_spatial_descriptor].object_entity.build_name() # build name for last object
         else:
             self.build_name()
-        return self
+        if not is_object:
+            stop_building_objects = True
+        return is_object, stop_building_objects, index_offset
 
     def __str__(self):
         output = f"[{self.name}]"
@@ -97,11 +113,18 @@ class ObjectEntity:
 class BaseTask:
     def __init__(self):
         self.child_tasks = []
-        self.object_to_execute_on = ObjectEntity()
+        self.objects_to_execute_on = []
         self.plaintext_name = "base task"
 
     def build_task(self, entities):
-        self.object_to_execute_on.build_object(entities)
+        stop_building = False
+        index_offset = 0
+        while not stop_building:
+            new_object = ObjectEntity()
+            is_object, stop_building, local_index_offset = new_object.build_object(entities[index_offset:])
+            index_offset += local_index_offset
+            if is_object:
+                self.objects_to_execute_on.append(new_object)
         return self
 
     def __str__(self):
@@ -118,15 +141,11 @@ class PickUpTask(BaseTask):
         super().__init__()
         self.plaintext_name = "pick up"
 
-    def build_task(self, entities):
-        self.object_to_execute_on.build_object(entities)
-        return self
-
     def get_name(self):
         return PickUpTask.__name__
 
     def __str__(self):
-        return f"Task type: {PickUpTask.__name__}\n\tObject to pick up: {self.object_to_execute_on}\n{super().__str__()}"
+        return f"Task type: {PickUpTask.__name__}\n\tObject to pick up: {self.objects_to_execute_on[0]}\n{super().__str__()}"
 
 
 class FindTask(BaseTask):
@@ -134,15 +153,11 @@ class FindTask(BaseTask):
         super().__init__()
         self.plaintext_name = "find"
 
-    def build_task(self, entities):
-        self.object_to_execute_on.build_object(entities)
-        return self
-
     def get_name(self):
         return FindTask.__name__
 
     def __str__(self):
-        return f"Task type: {FindTask.__name__}\n\tObject to find: {self.object_to_execute_on}\n{super().__str__()}"
+        return f"Task type: {FindTask.__name__}\n\tObject to find: {self.objects_to_execute_on[0]}\n{super().__str__()}"
 
 
 class MoveTask(BaseTask):
@@ -150,15 +165,11 @@ class MoveTask(BaseTask):
         super().__init__()
         self.plaintext_name = "move"
 
-    def build_task(self, entities):
-        self.object_to_execute_on.build_object(entities)
-        return self
-
     def get_name(self):
         return MoveTask.__name__
 
     def __str__(self):
-        return f"Task type: {MoveTask.__name__}\n\tObject to move: {self.object_to_execute_on}\n{super().__str__()}"
+        return f"Task type: {MoveTask.__name__}\n\tObject to move: {self.objects_to_execute_on[0]}\n{super().__str__()}"
 
 
 class PlaceTask(BaseTask):
@@ -166,15 +177,11 @@ class PlaceTask(BaseTask):
         super().__init__()
         self.plaintext_name = "place"
 
-    def build_task(self, entities):
-        self.object_to_execute_on.build_object(entities)
-        return self
-
     def get_name(self):
         return PlaceTask.__name__
 
     def __str__(self):
-        return f"Task type: {PlaceTask.__name__}\n\tObject to place next to: {self.object_to_execute_on}\n{super().__str__()}"
+        return f"Task type: {PlaceTask.__name__}\n\tObject to place next to: {self.objects_to_execute_on[0]}\n{super().__str__()}"
 
 
 class CommandBuilder:

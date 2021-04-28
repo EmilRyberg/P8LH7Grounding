@@ -38,15 +38,92 @@ class CommandBuilderTestCase(unittest.TestCase):
         ]
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        self.assertIsNotNone(task.object_to_execute_on)
-        self.assertEqual("blue cover", task.object_to_execute_on.name)
-        self.assertEqual(2, len(task.object_to_execute_on.spatial_descriptions))
-        self.assertEqual(SpatialType.NEXT_TO, task.object_to_execute_on.spatial_descriptions[0].spatial_type)
-        self.assertIsNotNone(task.object_to_execute_on.spatial_descriptions[0].object_entity)
-        self.assertEqual("black bottom cover", task.object_to_execute_on.spatial_descriptions[0].object_entity.name)
-        self.assertEqual(SpatialType.ABOVE, task.object_to_execute_on.spatial_descriptions[1].spatial_type)
-        self.assertIsNotNone(task.object_to_execute_on.spatial_descriptions[1].object_entity)
-        self.assertEqual("bottom cover", task.object_to_execute_on.spatial_descriptions[1].object_entity.name)
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual("blue cover", task.objects_to_execute_on[0].name)
+        self.assertEqual(2, len(task.objects_to_execute_on[0].spatial_descriptions))
+        self.assertEqual(SpatialType.NEXT_TO, task.objects_to_execute_on[0].spatial_descriptions[0].spatial_type)
+        self.assertIsNotNone(task.objects_to_execute_on[0].spatial_descriptions[0].object_entity)
+        self.assertEqual("black bottom cover", task.objects_to_execute_on[0].spatial_descriptions[0].object_entity.name)
+        self.assertEqual(SpatialType.ABOVE, task.objects_to_execute_on[0].spatial_descriptions[1].spatial_type)
+        self.assertIsNotNone(task.objects_to_execute_on[0].spatial_descriptions[1].object_entity)
+        self.assertEqual("bottom cover", task.objects_to_execute_on[0].spatial_descriptions[1].object_entity.name)
+
+    def test_get_task__entities_with_pick_up_task__returns_pick_up_task_with_two_objects(self):
+        entities = [
+            (EntityType.TASK, "pick up"),
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.COLOUR, "black"),
+            (EntityType.OBJECT, "bottom cover")
+        ]
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
+
+        self.assertEqual("blue cover", task.objects_to_execute_on[0].name)
+        self.assertEqual("black bottom cover", task.objects_to_execute_on[1].name)
+
+    def test_get_task__entities_with_pick_up_task__returns_pick_up_task_with_multiple_objects(self):
+        entities = [
+            (EntityType.TASK, "pick up"),
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.COLOUR, "green"),
+            (EntityType.OBJECT, "fuse"),
+            (EntityType.COLOUR, "black"),
+            (EntityType.OBJECT, "bottom cover"),
+            (EntityType.COLOUR, "red"),
+            (EntityType.OBJECT, "fuse")
+        ]
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
+
+        self.assertEqual("blue cover", task.objects_to_execute_on[0].name)
+        self.assertEqual("green fuse", task.objects_to_execute_on[1].name)
+        self.assertEqual("black bottom cover", task.objects_to_execute_on[2].name)
+        self.assertEqual("red fuse", task.objects_to_execute_on[3].name)
+
+    def test_get_task__entities_with_pick_up_task__returns_pick_up_task_with_multiple_objects_with_spatial_description(self):
+        entities = [
+            (EntityType.TASK, "pick up"),
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "next"),
+            (EntityType.COLOUR, "green"),
+            (EntityType.OBJECT, "fuse"),
+            (EntityType.COLOUR, "black"),
+            (EntityType.OBJECT, "bottom cover"),
+            (EntityType.COLOUR, "red"),
+            (EntityType.OBJECT, "fuse")
+        ]
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
+
+        self.assertEqual("blue cover", task.objects_to_execute_on[0].name)
+        self.assertEqual("green fuse", task.objects_to_execute_on[0].spatial_descriptions[0].object_entity.name)
+        self.assertEqual("black bottom cover", task.objects_to_execute_on[1].name)
+        self.assertEqual("red fuse", task.objects_to_execute_on[2].name)
+
+    def test_get_task__entities_with_pick_up_task__returns_pick_up_task_with_multiple_objects_with_multiple_spatial_descriptions(self):
+        entities = [
+            (EntityType.TASK, "pick up"),
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "next"),
+            (EntityType.COLOUR, "green"),
+            (EntityType.OBJECT, "fuse"),
+            (EntityType.COLOUR, "black"),
+            (EntityType.OBJECT, "bottom cover"),
+            (EntityType.LOCATION, "next"),
+            (EntityType.COLOUR, "red"),
+            (EntityType.OBJECT, "fuse")
+        ]
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
+
+        self.assertEqual("blue cover", task.objects_to_execute_on[0].name)
+        self.assertEqual("green fuse", task.objects_to_execute_on[0].spatial_descriptions[0].object_entity.name)
+        self.assertEqual("black bottom cover", task.objects_to_execute_on[1].name)
+        self.assertEqual("red fuse", task.objects_to_execute_on[1].spatial_descriptions[0].object_entity.name)
 
     def test_get_task__entities_with_pick_up_task_with_no_spatial_relations__returns_pick_up_task(self):
         entities = [
@@ -56,9 +133,9 @@ class CommandBuilderTestCase(unittest.TestCase):
         ]
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        self.assertIsNotNone(task.object_to_execute_on)
-        self.assertEqual("blue cover", task.object_to_execute_on.name)
-        self.assertEqual(0, len(task.object_to_execute_on.spatial_descriptions))
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual("blue cover", task.objects_to_execute_on[0].name)
+        self.assertEqual(0, len(task.objects_to_execute_on[0].spatial_descriptions))
 
     def test_get_task__entities_with_find_task__returns_find_task_and_locations(self):
         entities = [
@@ -71,12 +148,12 @@ class CommandBuilderTestCase(unittest.TestCase):
         ]
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        self.assertIsNotNone(task.object_to_execute_on)
-        self.assertEqual("blue cover", task.object_to_execute_on.name)
-        self.assertEqual(1, len(task.object_to_execute_on.spatial_descriptions))
-        self.assertEqual(SpatialType.NEXT_TO, task.object_to_execute_on.spatial_descriptions[0].spatial_type)
-        self.assertIsNotNone(task.object_to_execute_on.spatial_descriptions[0].object_entity)
-        self.assertEqual("yellow bottom cover", task.object_to_execute_on.spatial_descriptions[0].object_entity.name)
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual("blue cover", task.objects_to_execute_on[0].name)
+        self.assertEqual(1, len(task.objects_to_execute_on[0].spatial_descriptions))
+        self.assertEqual(SpatialType.NEXT_TO, task.objects_to_execute_on[0].spatial_descriptions[0].spatial_type)
+        self.assertIsNotNone(task.objects_to_execute_on[0].spatial_descriptions[0].object_entity)
+        self.assertEqual("yellow bottom cover", task.objects_to_execute_on[0].spatial_descriptions[0].object_entity.name)
 
     def test_get_task__entites_with_static_location__returns_task_with_correct_spatial_type(self):
         entities = [
@@ -89,7 +166,7 @@ class CommandBuilderTestCase(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
 
-        self.assertEqual(SpatialType.OTHER, task.object_to_execute_on.spatial_descriptions[0].spatial_type)
+        self.assertEqual(SpatialType.OTHER, task.objects_to_execute_on[0].spatial_descriptions[0].spatial_type)
 
     def test_get_task__entites_with_static_location__returns_task_with_correct_spatial_name(self):
         entities = [
@@ -102,7 +179,7 @@ class CommandBuilderTestCase(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
 
-        self.assertEqual("top left corner", task.object_to_execute_on.spatial_descriptions[0].object_entity.name)
+        self.assertEqual("top left corner", task.objects_to_execute_on[0].spatial_descriptions[0].object_entity.name)
 
     def test_get_task__entites_with_relative_and_static_location__returns_task_with_correct_spatial_types(self):
         entities = [
@@ -118,8 +195,8 @@ class CommandBuilderTestCase(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
 
-        self.assertEqual(SpatialType.NEXT_TO, task.object_to_execute_on.spatial_descriptions[0].spatial_type)
-        self.assertEqual(SpatialType.OTHER, task.object_to_execute_on.spatial_descriptions[1].spatial_type)
+        self.assertEqual(SpatialType.NEXT_TO, task.objects_to_execute_on[0].spatial_descriptions[0].spatial_type)
+        self.assertEqual(SpatialType.OTHER, task.objects_to_execute_on[0].spatial_descriptions[1].spatial_type)
 
     def test_get_task__entites_with_relative_and_static_location__returns_task_with_correct_spatial_names(self):
         entities = [
@@ -135,8 +212,8 @@ class CommandBuilderTestCase(unittest.TestCase):
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
 
-        self.assertEqual("white cover", task.object_to_execute_on.spatial_descriptions[0].object_entity.name)
-        self.assertEqual("top left corner", task.object_to_execute_on.spatial_descriptions[1].object_entity.name)
+        self.assertEqual("white cover", task.objects_to_execute_on[0].spatial_descriptions[0].object_entity.name)
+        self.assertEqual("top left corner", task.objects_to_execute_on[0].spatial_descriptions[1].object_entity.name)
 
 
 class NERIntegrationTestCase(unittest.TestCase):
@@ -145,21 +222,21 @@ class NERIntegrationTestCase(unittest.TestCase):
 
     def test_get_task__sentence_with_pick_up_task__returns_pick_up_task_and_locations(self):
         task = self.cmd_builder.get_task("Please pick up the blue cover that is next to the black bottom cover which is above a bottom cover")
-        self.assertIsNotNone(task.object_to_execute_on)
-        self.assertEqual(task.object_to_execute_on.name, "blue cover")
-        self.assertEqual(len(task.object_to_execute_on.spatial_descriptions), 2)
-        self.assertEqual(task.object_to_execute_on.spatial_descriptions[0].spatial_type, SpatialType.NEXT_TO)
-        self.assertIsNotNone(task.object_to_execute_on.spatial_descriptions[0].object_entity)
-        self.assertEqual("black bottom cover", task.object_to_execute_on.spatial_descriptions[0].object_entity.name)
-        self.assertEqual(task.object_to_execute_on.spatial_descriptions[1].spatial_type, SpatialType.ABOVE)
-        self.assertIsNotNone(task.object_to_execute_on.spatial_descriptions[1].object_entity)
-        self.assertEqual("bottom cover", task.object_to_execute_on.spatial_descriptions[1].object_entity.name)
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual(task.objects_to_execute_on[0].name, "blue cover")
+        self.assertEqual(len(task.objects_to_execute_on[0].spatial_descriptions), 2)
+        self.assertEqual(task.objects_to_execute_on[0].spatial_descriptions[0].spatial_type, SpatialType.NEXT_TO)
+        self.assertIsNotNone(task.objects_to_execute_on[0].spatial_descriptions[0].object_entity)
+        self.assertEqual("black bottom cover", task.objects_to_execute_on[0].spatial_descriptions[0].object_entity.name)
+        self.assertEqual(task.objects_to_execute_on[0].spatial_descriptions[1].spatial_type, SpatialType.ABOVE)
+        self.assertIsNotNone(task.objects_to_execute_on[0].spatial_descriptions[1].object_entity)
+        self.assertEqual("bottom cover", task.objects_to_execute_on[0].spatial_descriptions[1].object_entity.name)
 
     def test_get_task__sentence_with_find_task__returns_pick_up_task_and_locations(self):
         task = self.cmd_builder.get_task("Please find the blue cover that is next to the yellow bottom cover")
-        self.assertIsNotNone(task.object_to_execute_on)
-        self.assertEqual(task.object_to_execute_on.name, "blue cover")
-        self.assertEqual(len(task.object_to_execute_on.spatial_descriptions), 1)
-        self.assertEqual(task.object_to_execute_on.spatial_descriptions[0].spatial_type, SpatialType.NEXT_TO)
-        self.assertIsNotNone(task.object_to_execute_on.spatial_descriptions[0].object_entity)
-        self.assertEqual(task.object_to_execute_on.spatial_descriptions[0].object_entity.name, "yellow bottom cover")
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual(task.objects_to_execute_on[0].name, "blue cover")
+        self.assertEqual(len(task.objects_to_execute_on[0].spatial_descriptions), 1)
+        self.assertEqual(task.objects_to_execute_on[0].spatial_descriptions[0].spatial_type, SpatialType.NEXT_TO)
+        self.assertIsNotNone(task.objects_to_execute_on[0].spatial_descriptions[0].object_entity)
+        self.assertEqual(task.objects_to_execute_on[0].spatial_descriptions[0].object_entity.name, "yellow bottom cover")
