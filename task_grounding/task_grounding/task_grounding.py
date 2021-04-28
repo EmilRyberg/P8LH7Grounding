@@ -63,7 +63,7 @@ class TaskGrounding:
             object = ObjectEntity(attached_object)
             if spatial is not None:
                 object.spatial_descriptions = spatial
-            task.object_to_execute_on = object
+            task.objects_to_execute_on.append(object)
         self.return_object.is_success = True
         self.return_object.task_info.append(task)
 
@@ -79,7 +79,7 @@ class TaskGrounding:
             object = ObjectEntity(attached_object)
             if spatial is not None:
                 object.spatial_descriptions = spatial
-            task.object_to_execute_on = object
+            task.objects_to_execute_on.append(object)
         self.return_object.is_success = True
         self.return_object.task_info.append(task)
 
@@ -95,7 +95,7 @@ class TaskGrounding:
             object = ObjectEntity(attached_object)
             if spatial is not None:
                 object.spatial_descriptions = spatial
-            task.object_to_execute_on = object
+            task.objects_to_execute_on.append(object)
         self.return_object.is_success = True
         self.return_object.task_info.append(task)
 
@@ -107,12 +107,14 @@ class TaskGrounding:
                 self.return_object.task_info.append(task)
                 return
             else:
-                task.object_to_execute_on = ObjectEntity()
-                task.object_to_execute_on.build_object(task_entities)
+                object_entity = ObjectEntity()
+                object_entity.build_object(task_entities)
+                task.objects_to_execute_on.append(ObjectEntity())
                 self.return_object.task_info.append(task)
         else:
-            task.object_to_execute_on = ObjectEntity()
-            task.object_to_execute_on.spatial_descriptions = spatial
+            object_entity = ObjectEntity()
+            object_entity.spatial_descriptions = spatial
+            task.objects_to_execute_on.append(object_entity)
         self.return_object.is_success = True
         self.return_object.task_info.append(task)
 
