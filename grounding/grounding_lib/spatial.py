@@ -118,7 +118,7 @@ class SpatialRelation:
 
         best_object_index, status = self.locate_last_object_in_spatial_descriptions(spatial_descriptions, objects)
         if status != StatusEnum.SUCCESS:
-            return None, status
+            return None, None
         else:
             idx, name, bbox = objects[best_object_index]
             center_x, center_y, _ = self.get_center_and_size(bbox)
