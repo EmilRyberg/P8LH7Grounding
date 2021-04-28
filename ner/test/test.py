@@ -1,8 +1,8 @@
 import unittest
-from ner.ner_lib.ner import NER, EntityType
+from ner_lib.ner import NER, EntityType
 from unittest.mock import MagicMock, Mock
-from ner.ner_lib.command_builder import CommandBuilder, PickUpTask, SpatialDescription, ObjectEntity, SpatialType, \
-    FindTask, AndTask, OrTask
+from ner_lib.command_builder import CommandBuilder, PickUpTask, SpatialDescription, ObjectEntity, SpatialType, \
+    FindTask
 
 
 class NERTestCase(unittest.TestCase):
@@ -70,69 +70,82 @@ class CommandBuilderTestCase(unittest.TestCase):
         self.assertIsNotNone(task.secondTask.object_to_pick_up)
         self.assertEqual("black bottom cover", task.secondTask.object_to_pick_up.name)
 
-    def test_get_task__entities_with_pick_up_task__returns_pick_up_task_or_logical_connectors(self):
+    def test_get_task__entities_with_pick_up_task__returns_pick_up_task_with_two_objects(self):
         entities = [
             (EntityType.TAKE, "pick up"),
             (EntityType.COLOUR, "blue"),
             (EntityType.OBJECT, "cover"),
-            (EntityType.LOGICAL_OR, "or"),
-            (EntityType.TAKE, "pick up"),
             (EntityType.COLOUR, "black"),
             (EntityType.OBJECT, "bottom cover")
         ]
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        self.assertIsInstance(task, OrTask)
 
-        self.assertIsNotNone(task.firstTask.object_to_pick_up)
-        self.assertEqual("blue cover", task.firstTask.object_to_pick_up.name)
+        self.assertEqual("blue cover", task.objects_to_handle[0].name)
+        self.assertEqual("black bottom cover", task.objects_to_handle[1].name)
 
-        self.assertIsNotNone(task.secondTask.object_to_pick_up)
-        self.assertEqual("black bottom cover", task.secondTask.object_to_pick_up.name)
-
-    def test_get_task__entities_with_pick_up_task__returns_pick_up_task_multiple_stacked_logical_connectors(self):
+    def test_get_task__entities_with_pick_up_task__returns_pick_up_task_with_multiple_objects(self):
         entities = [
             (EntityType.TAKE, "pick up"),
             (EntityType.COLOUR, "blue"),
             (EntityType.OBJECT, "cover"),
-            (EntityType.LOGICAL_AND, "and"),
-            (EntityType.TAKE, "pick up"),
             (EntityType.COLOUR, "green"),
             (EntityType.OBJECT, "fuse"),
-            (EntityType.LOGICAL_OR, "or"),
-            (EntityType.TAKE, "pick up"),
             (EntityType.COLOUR, "black"),
             (EntityType.OBJECT, "bottom cover"),
-            (EntityType.LOGICAL_AND, "and"),
-            (EntityType.TAKE, "pick up"),
             (EntityType.COLOUR, "red"),
             (EntityType.OBJECT, "fuse")
         ]
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
-        ''' Should be interpreted as A AND (B OR (C AND D))'''
-        self.assertIsInstance(task, AndTask)
 
-        self.assertIsNotNone(task.firstTask.object_to_pick_up)
-        self.assertEqual("blue cover", task.firstTask.object_to_pick_up.name)
+        self.assertEqual("blue cover", task.objects_to_handle[0].name)
+        self.assertEqual("green fuse", task.objects_to_handle[1].name)
+        self.assertEqual("black bottom cover", task.objects_to_handle[2].name)
+        self.assertEqual("red fuse", task.objects_to_handle[3].name)
 
-        self.assertIsNotNone(task.secondTask)
-        self.assertIsInstance(task.secondTask, OrTask)
+    def test_get_task__entities_with_pick_up_task__returns_pick_up_task_with_multiple_objects_with_spatial_description(self):
+        entities = [
+            (EntityType.TAKE, "pick up"),
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "next"),
+            (EntityType.COLOUR, "green"),
+            (EntityType.OBJECT, "fuse"),
+            (EntityType.COLOUR, "black"),
+            (EntityType.OBJECT, "bottom cover"),
+            (EntityType.COLOUR, "red"),
+            (EntityType.OBJECT, "fuse")
+        ]
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
 
-        self.assertIsNotNone(task.secondTask.firstTask)
-        self.assertIsInstance(task.secondTask.firstTask, PickUpTask)
-        self.assertEqual("green fuse", task.secondTask.firstTask.object_to_pick_up.name)
+        self.assertEqual("blue cover", task.objects_to_handle[0].name)
+        self.assertEqual("green fuse", task.objects_to_handle[0].spatial_descriptions[0].object_entity.name)
+        self.assertEqual("black bottom cover", task.objects_to_handle[1].name)
+        self.assertEqual("red fuse", task.objects_to_handle[2].name)
 
-        self.assertIsNotNone(task.secondTask.secondTask)
-        self.assertIsInstance(task.secondTask.secondTask, AndTask)
+    def test_get_task__entities_with_pick_up_task__returns_pick_up_task_with_multiple_objects_with_multiple_spatial_descriptions(self):
+        entities = [
+            (EntityType.TAKE, "pick up"),
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "next"),
+            (EntityType.COLOUR, "green"),
+            (EntityType.OBJECT, "fuse"),
+            (EntityType.COLOUR, "black"),
+            (EntityType.OBJECT, "bottom cover"),
+            (EntityType.LOCATION, "next"),
+            (EntityType.COLOUR, "red"),
+            (EntityType.OBJECT, "fuse")
+        ]
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
 
-        self.assertIsNotNone(task.secondTask.secondTask.firstTask)
-        self.assertIsInstance(task.secondTask.secondTask.firstTask, PickUpTask)
-        self.assertEqual("black bottom cover", task.secondTask.secondTask.firstTask.object_to_pick_up.name)
-
-        self.assertIsNotNone(task.secondTask.secondTask.secondTask)
-        self.assertIsInstance(task.secondTask.secondTask.secondTask, PickUpTask)
-        self.assertEqual("red fuse", task.secondTask.secondTask.secondTask.object_to_pick_up.name)
+        self.assertEqual("blue cover", task.objects_to_handle[0].name)
+        self.assertEqual("green fuse", task.objects_to_handle[0].spatial_descriptions[0].object_entity.name)
+        self.assertEqual("black bottom cover", task.objects_to_handle[1].name)
+        self.assertEqual("red fuse", task.objects_to_handle[1].spatial_descriptions[0].object_entity.name)
 
     def test_get_task__entities_with_pick_up_task_with_no_spatial_relations__returns_pick_up_task(self):
         entities = [
