@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import os
 
 
 class ObjectInfo:
@@ -94,8 +95,18 @@ class FindObjects:
 if __name__ == "__main__":
     background_img = cv2.imread("../../bin_picking/testing_resources/background_test.png")
     img = cv2.imread("../../bin_picking/testing_resources/img.png")
-    object_finder = FindObjects(background_img, crop_widths=[50, 50, 400, 600])
-    object_finder.scale = 0.4
-    result = object_finder.find_objects(img, debug=True)
+    object_finder = FindObjects(background_img, crop_widths=[50, 0, 400, 600])
+    #object_finder.scale = 0.4
+    #result = object_finder.find_objects(img, debug=True)
     #result2 = object_finder.find_objects(img, debug=True)
+
+    files = os.listdir("images")
+    for file in files:
+        img = cv2.imread("images/"+file)
+        result = object_finder.find_objects(img)
+        cv2.imwrite("masks/"+file, result[0].mask_full)
+        cv2.imwrite("cutout_images/"+file, result[0].object_img_cutout_cropped)
+        print("wrote "+file)
+
+    a=1
     cv2.waitKey()

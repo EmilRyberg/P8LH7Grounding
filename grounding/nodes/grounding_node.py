@@ -2,8 +2,8 @@
 import rospy
 from std_msgs.msg import String
 from little_helper_interfaces.msg import ObjectEntity, ObjectInfo, OuterObjectEntity, ROSGroundingReturn
-from grounding.srv import ROSGrounding, ROSGroundingResponse, ROSGroundingRequest
-from grounding.grounding import Grounding, GroundingReturn, ErrorType
+from grounding_lib.srv import ROSGrounding, ROSGroundingResponse, ROSGroundingRequest
+from grounding_lib.grounding_lib import Grounding, GroundingReturn, ErrorType
 
 
 def create_ros_return(non_ros_return):
@@ -14,7 +14,7 @@ def create_ros_return(non_ros_return):
     return ros_return
 
 
-class GroundingService():
+class GroundingService:
     def __init__(self):
         self.grounding = Grounding()
         self.returned = GroundingReturn()

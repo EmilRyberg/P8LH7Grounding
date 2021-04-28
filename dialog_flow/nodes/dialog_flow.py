@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 import argparse
-import sys
 import rospy
 from find_objects.find_objects import ObjectInfo
-from ner_lib.command_builder import CommandBuilder, PickUpTask, SpatialType, ObjectEntity as ObjectEntityType
-from little_helper_interfaces.msg import Task, ObjectEntity, OuterObjectEntity, SpatialDescription, OuterTask, StringWithTimestamp
+from ner_lib.command_builder import CommandBuilder, PickUpTask, FindTask, MoveTask, PlaceTask, SpatialType, ObjectEntity as ObjectEntityType
+from little_helper_interfaces.msg import StringWithTimestamp
 from vision_lib.ros_camera_interface import ROSCamera
 from robot_control.robot_control import RobotController
-from grounding.grounding import Grounding
+from grounding_lib.grounding_lib import Grounding
 from vision_lib.vision_controller import VisionController
-from grounding.spatial import SpatialRelation
-from grounding.database_handler import DatabaseHandler
-from text_to_speech.srv import TextToSpeech, TextToSpeechRequest
+from grounding_lib.spatial import SpatialRelation
+from database_handler.database_handler import DatabaseHandler
+from text_to_speech.srv import TextToSpeech
 from ui_interface_lib.ui_interface import UIInterface
 import random
 
@@ -20,10 +19,11 @@ class DialogFlow:
     def __init__(self, ner_model_path, ner_tag_path, feature_weights_path, db_path, background_image_file, websocket_uri):
         rospy.init_node('dialog_controller')
         self.first_convo_flag = True
-        self.grounding = Grounding(db=DatabaseHandler(db_path=db_path),
+        self.database_handler = DatabaseHandler(db_path=db_path)
+        self.grounding = Grounding(db=self.database_handler,
                                    vision_controller=VisionController(background_image_file=background_image_file,
                                                                       weights_path=feature_weights_path),
-                                   spatial=SpatialRelation())
+                                   spatial=SpatialRelation(database_handler=self.database_handler))
         self.sentence = ""
         self.object_info = ObjectInfo()
         self.robot = RobotController()
@@ -51,15 +51,15 @@ class DialogFlow:
             self.ui_interface.send_as_user(self.last_received_sentence)
         task = self.command_builder.get_task(self.last_received_sentence)
 
-        if not isinstance(task, PickUpTask):
-            rospy.loginfo("Only pick up is supported at the moment")
-            self.tts("Only picking up objects are supported at this moment")
+        if not isinstance(task, (PickUpTask, FindTask, MoveTask, PlaceTask)):
+            sentence = "Only default tasks are supported at the moment"
+            rospy.loginfo(sentence)
+            self.tts(sentence)
             if self.websocket_is_connected:
-                self.ui_interface.send_as_robot("Only picking up objects are supported at this moment")
+                self.ui_interface.send_as_robot(sentence)
             return
 
-        task_type = "pick up"
-        log_string = f"Ok, just to be sure. You want me to {task_type} the {self.build_object_sentence(task.object_to_pick_up)}"
+        log_string = f"Ok, just to be sure. You want me to {task.plaintext_name} the {self.build_object_sentence(task.object_to_execute_on)}"
         rospy.loginfo(log_string)
         self.tts(log_string)
         if self.websocket_is_connected:
@@ -85,11 +85,14 @@ class DialogFlow:
                     self.ui_interface.send_as_robot("Sorry, I did not understand what you just said. Please say yes or no.")
                 attempts += 1
 
-        # TODO: Switch based on task type
-        self.tts(f"Okay, I will now look for the {task.object_to_pick_up.name}")
-        rospy.loginfo(f"Okay, I will now look for the {task.object_to_pick_up}")
+        if isinstance(task, PlaceTask):
+            sentence = f"Okay, I will now try to {task.plaintext_name} this next to the {task.object_to_execute_on.name}"
+        else:
+            sentence = f"Okay, I will now try to {task.plaintext_name} the {task.object_to_execute_on.name}"
+        self.tts(sentence)
+        rospy.loginfo(sentence)
         if self.websocket_is_connected:
-            self.ui_interface.send_as_robot(f"Okay, I will now look for the {task.object_to_pick_up.name}")
+            self.ui_interface.send_as_robot(sentence)
 
         #To make sure robot is out of view, might be unecesarry
         #while not self.robot.is_out_of_view():
@@ -98,18 +101,30 @@ class DialogFlow:
         np_rgb = self.camera.get_image()
         np_depth = self.camera.get_depth()
 
-        grounding_return = self.grounding.find_object(task.object_to_pick_up)
-        if not grounding_return.is_succes:
+        grounding_return = self.grounding.find_object(task.object_to_execute_on)
+        if not grounding_return.is_success:
             # TODO: Handle unknown object here
-            sentence = "I could not find the object you were looking for. Maybe I need some calibration."
+            sentence = "I could not find the object you were looking for. Restarting."
             self.tts(sentence)
             rospy.loginfo(sentence)
             if self.websocket_is_connected:
                 self.ui_interface.send_as_robot(sentence)
+            return
+        else:
+            if self.websocket_is_connected:
+                self.ui_interface.send_images(np_rgb, grounding_return.object_info.object_img_cutout_cropped)
 
         success = True
         if isinstance(task, PickUpTask):
             success = self.robot.pick_up(grounding_return.object_info, np_rgb, np_depth)
+        elif isinstance(task, FindTask):
+            success = self.robot.point_at(grounding_return.object_info, np_rgb, np_depth)
+        elif isinstance(task, MoveTask):
+            pass
+            #TODO implement code for moving object
+        elif isinstance(task, PlaceTask):
+            pass
+            #TODO implement code to place object
 
         if success:
             self.tts("Done!")

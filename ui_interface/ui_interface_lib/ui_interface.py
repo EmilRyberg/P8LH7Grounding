@@ -1,5 +1,7 @@
 import asyncio
 import websockets
+import cv2
+import base64
 
 
 class UIInterface:
@@ -22,6 +24,11 @@ class UIInterface:
 
     def send_as_user(self, message):
         self.loop.run_until_complete(self.websocket.send(f"usr||{message}"))
+
+    def send_images(self, image_full, image_cutout):
+        _, buffer_full = cv2.imencode(".png", image_full)
+        _, buffer_cutout = cv2.imencode(".png", image_cutout)
+        self.loop.run_until_complete(self.websocket.send(f"imgs||{base64.b64encode(buffer_cutout)}||{base64.b64encode(buffer_full)}"))
 
     def __del__(self):
         if self.is_connected:

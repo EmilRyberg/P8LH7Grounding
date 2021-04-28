@@ -1,9 +1,8 @@
-from grounding.database_handler import DatabaseHandler
-from grounding.spatial import SpatialRelation, StatusEnum
+from database_handler.database_handler import DatabaseHandler
+from grounding_lib.spatial import SpatialRelation, StatusEnum
 import numpy as np
 from typing import Optional
 from scripts.vision_controller import VisionController as FakeVisionController
-from vision_lib.vision_controller import VisionController
 from enum import Enum
 
 
@@ -22,7 +21,7 @@ class GroundingReturn:
 
 
 class Grounding:
-    def __init__(self, db=DatabaseHandler("../grounding.db"), vision_controller=FakeVisionController(), spatial=SpatialRelation()):
+    def __init__(self, db: DatabaseHandler, vision_controller, spatial: SpatialRelation):
         self.db = db
         self.spatial = spatial
         self.vision = vision_controller
@@ -99,7 +98,7 @@ class Grounding:
         target_index, status = self.spatial.locate_specific_object(object_entity, objects)
         if status == StatusEnum.SUCCESS:
             object_info = object_info_with_features[target_index]
-            return object_info
+            return object_info, status
 
         return None, status
 
