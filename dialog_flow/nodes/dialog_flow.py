@@ -6,7 +6,7 @@ from ner_lib.command_builder import CommandBuilder, PickUpTask, FindTask, MoveTa
 from little_helper_interfaces.msg import StringWithTimestamp
 from vision_lib.ros_camera_interface import ROSCamera
 from robot_control.robot_control import RobotController
-from grounding_lib.grounding_lib import Grounding
+from grounding_lib.grounding import Grounding
 from vision_lib.vision_controller import VisionController
 from grounding_lib.spatial import SpatialRelation
 from database_handler.database_handler import DatabaseHandler

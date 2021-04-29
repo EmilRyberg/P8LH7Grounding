@@ -1,7 +1,7 @@
 import unittest
 from ner_lib.ner import NER, EntityType
-from unittest.mock import MagicMock, Mock
-from ner_lib.command_builder import CommandBuilder, PickUpTask, SpatialDescription, ObjectEntity, SpatialType, FindTask
+from unittest.mock import Mock
+from ner_lib.command_builder import CommandBuilder, SpatialType
 
 
 class NERTestCase(unittest.TestCase):
@@ -38,6 +38,7 @@ class CommandBuilderTestCase(unittest.TestCase):
         ]
         self.ner_mock.get_entities = Mock(return_value=entities)
         task = self.cmd_builder.get_task("Dummy sentence")
+
         self.assertIsNotNone(task.objects_to_execute_on[0])
         self.assertEqual("blue cover", task.objects_to_execute_on[0].name)
         self.assertEqual(2, len(task.objects_to_execute_on[0].spatial_descriptions))
@@ -47,6 +48,17 @@ class CommandBuilderTestCase(unittest.TestCase):
         self.assertEqual(SpatialType.ABOVE, task.objects_to_execute_on[0].spatial_descriptions[1].spatial_type)
         self.assertIsNotNone(task.objects_to_execute_on[0].spatial_descriptions[1].object_entity)
         self.assertEqual("bottom cover", task.objects_to_execute_on[0].spatial_descriptions[1].object_entity.name)
+
+    def test_get_task__entities_with_task__returns_task_with_name(self):
+        entities = [
+            (EntityType.TASK, "pick up"),
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+        ]
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
+
+        self.assertEqual("pick up", task.name)
 
     def test_get_task__entities_with_pick_up_task__returns_pick_up_task_with_two_objects(self):
         entities = [

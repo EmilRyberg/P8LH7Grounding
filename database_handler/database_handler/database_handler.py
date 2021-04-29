@@ -1,5 +1,7 @@
 import sqlite3
 import numpy as np
+import jsonpickle
+from ner_lib.command_builder import Task, TaskType, SpatialType, ObjectEntity, SpatialDescription
 
 # This class works as a handler for the database. It has functions that should be called from outside
 # but also has a few functions like the 'create_table' that should be modified from here and called by running this module.
@@ -67,28 +69,33 @@ class DatabaseHandler:
         return task_id
 
     def get_sub_tasks(self, task_id):
-        result = self.conn.execute("SELECT SUB_TASK_ID, TASK_NAME, OBJECT_ATTACHED, SPATIAL_DESCRIPTION from "
+        result = self.conn.execute("SELECT SUB_TASK_ID, TASK_NAME, JSON_TASK from "
                                    "TASK_SUBTASKS inner join TASK_INFO on TASK_SUBTASKS.SUB_TASK_ID=TASK_INFO.TASK_ID "
                                    "where "
                                    "TASK_SUBTASKS.TASK_ID=? order by TASK_ORDER;", (task_id,))
         sub_task_ids = []
         sub_task_names = []
-        attached_objects = []
-        spatial_descriptions = []
+        task_objects = []
         for row in result:
             sub_task_ids.append(row[0])
             sub_task_names.append(row[1])
-            attached_objects.append(row[2])
-            spatial_descriptions.append(row[3])
-        sub_tasks = [sub_task_ids, sub_task_names, attached_objects, spatial_descriptions]
+            task_json = row[2]
+            task_object = None
+            if task_json is not None:
+                task_object = jsonpickle.decode(row[2])
+            task_objects.append(task_object)
+        sub_tasks = [sub_task_ids, sub_task_names, task_objects]
         return sub_tasks
 
-    def add_sub_task(self, task_id, sub_task_id, attached_object=None, location=None):
+    def add_sub_task(self, task_id, sub_task_id, task=None):
         current_sub_tasks = self.get_sub_tasks(task_id)
         current_amount_of_sub_tasks = len(current_sub_tasks[0])
-        self.conn.execute("INSERT INTO TASK_SUBTASKS (TASK_ID, TASK_ORDER, SUB_TASK_ID, OBJECT_ATTACHED, "
-                          "SPATIAL_DESCRIPTION) VALUES (?, ?, ?, ?, ?);", (task_id, current_amount_of_sub_tasks+1,
-                                                                         sub_task_id, attached_object, location))
+        json_task = None
+        if task:
+            json_task = jsonpickle.encode(task)
+        self.conn.execute("INSERT INTO TASK_SUBTASKS (TASK_ID, TASK_ORDER, SUB_TASK_ID, "
+                          "JSON_TASK) VALUES (?, ?, ?, ?);", (task_id, current_amount_of_sub_tasks+1,
+                                                                         sub_task_id, json_task))
         self.conn.commit()
 
     def add_task(self, task_name, words):
@@ -106,7 +113,7 @@ class DatabaseHandler:
             self.conn.execute("INSERT INTO TASK_WORDS (TASK_ID, WORD) VALUES (?,?);", (task_id, word))
             self.conn.commit()
         except:
-            raise Exception("Unable to add word:", word, " to task: ",task_id)
+            raise Exception("Unable to add word:", word, " to task: ", task_id)
 
     def update(self, name, feature_vector):
         self.conn.execute("UPDATE FEATURES set FEATURE_VECTOR = ? where NAME = ?;", (",".join([str(x) for x in feature_vector]),name))
@@ -143,10 +150,16 @@ class DatabaseHandler:
 
 
 if __name__ == "__main__":
-    db = DatabaseHandler("../dialog_flow/nodes/grounding.db")
+    db = DatabaseHandler("../../dialog_flow/nodes/grounding.db")
     #db.add_task("Move blue", ["blue1", "blue2"])
-    db.add_sub_task(5, 1, "blue cover",)
-    db.add_sub_task(5, 2, "blue cover")
-    db.add_sub_task(5, 3, "blue cover")
-    test = db.get_sub_tasks(6)
-    db.conn.close()
+    # task = Task("pick up")
+    # object_entity = ObjectEntity("blue cover")
+    # spatial_description = SpatialDescription(spatial_type=SpatialType.NEXT_TO)
+    # spatial_description.object_entity.name = "black cover"
+    # object_entity.spatial_descriptions.append(spatial_description)
+    # task.objects_to_execute_on.append(object_entity)
+    # db.add_sub_task(5, 1, task)
+    tasks = db.get_sub_tasks(5)
+    print(tasks)
+    #test = db.get_sub_tasks(6)
+    #db.conn.close()

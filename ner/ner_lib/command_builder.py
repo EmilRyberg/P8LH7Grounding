@@ -12,6 +12,15 @@ class SpatialType(Enum):
     TOP_OF = "top"
     OTHER = "other"
 
+
+class TaskType(Enum):
+    PLACE = "place"
+    PICK = "pick"
+    FIND = "find"
+    MOVE = "move"
+    OTHER = "other"
+    NOT_SET = "not_set"
+
 WORD_TO_SPATIAL_TYPE_MAPPING = { # Maybe add this to database
     "next": SpatialType.NEXT_TO,
     "next to": SpatialType.NEXT_TO,
@@ -110,11 +119,12 @@ class ObjectEntity:
         return output
 
 
-class BaseTask:
-    def __init__(self):
+class Task:
+    def __init__(self, name=None):
         self.child_tasks = []
+        self.name = name
+        self.task_type = TaskType.NOT_SET  # this will be set in task grounding
         self.objects_to_execute_on = []
-        self.plaintext_name = "base task"
 
     def build_task(self, entities):
         stop_building = False
@@ -130,58 +140,12 @@ class BaseTask:
     def __str__(self):
         if len(self.child_tasks) == 0:
             return ""
-        output_str = f"Child tasks:\n"
+        output_str = f"Task type: {self.task_type.name}\n\t" \
+                     f"Objects to handle: {self.objects_to_execute_on}\n" \
+                     f"Child tasks:\n"
         for task in self.child_tasks:
             output_str += f"\t{task}"
         return output_str
-
-
-class PickUpTask(BaseTask):
-    def __init__(self):
-        super().__init__()
-        self.plaintext_name = "pick up"
-
-    def get_name(self):
-        return PickUpTask.__name__
-
-    def __str__(self):
-        return f"Task type: {PickUpTask.__name__}\n\tObject to pick up: {self.objects_to_execute_on[0]}\n{super().__str__()}"
-
-
-class FindTask(BaseTask):
-    def __init__(self):
-        super().__init__()
-        self.plaintext_name = "find"
-
-    def get_name(self):
-        return FindTask.__name__
-
-    def __str__(self):
-        return f"Task type: {FindTask.__name__}\n\tObject to find: {self.objects_to_execute_on[0]}\n{super().__str__()}"
-
-
-class MoveTask(BaseTask):
-    def __init__(self):
-        super().__init__()
-        self.plaintext_name = "move"
-
-    def get_name(self):
-        return MoveTask.__name__
-
-    def __str__(self):
-        return f"Task type: {MoveTask.__name__}\n\tObject to move: {self.objects_to_execute_on[0]}\n{super().__str__()}"
-
-
-class PlaceTask(BaseTask):
-    def __init__(self):
-        super().__init__()
-        self.plaintext_name = "place"
-
-    def get_name(self):
-        return PlaceTask.__name__
-
-    def __str__(self):
-        return f"Task type: {PlaceTask.__name__}\n\tObject to place next to: {self.objects_to_execute_on[0]}\n{super().__str__()}"
 
 
 class CommandBuilder:
@@ -195,9 +159,9 @@ class CommandBuilder:
         for index, (entity_type, word) in enumerate(entities):
             if entity_type == EntityType.TASK:
                 if not is_main_task:
-                    task.child_tasks.append(BaseTask().build_task(entities[index+1:]))
+                    task.child_tasks.append(Task(word).build_task(entities[index + 1:]))
                 else:
                     is_main_task = False
-                    task = BaseTask().build_task(entities[index+1:])
+                    task = Task(word).build_task(entities[index + 1:])
         return task
 
