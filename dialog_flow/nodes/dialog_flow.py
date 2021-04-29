@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import rospy
+from enum import Enum
 from find_objects.find_objects import ObjectInfo
 from ner_lib.command_builder import CommandBuilder, PickUpTask, FindTask, MoveTask, PlaceTask, SpatialType, ObjectEntity as ObjectEntityType
 from little_helper_interfaces.msg import StringWithTimestamp
@@ -13,6 +14,24 @@ from database_handler.database_handler import DatabaseHandler
 from text_to_speech.srv import TextToSpeech
 from ui_interface_lib.ui_interface import UIInterface
 import random
+
+class DialogState(Enum):
+    INITIALISE = 0
+    WAIT_FOR_GREETING = 1
+    GREET = 2
+    ASK_FOR_REQUEST = 3
+    WAIT_FOR_REQUEST = 4
+    VERIFY_REQUEST = 5
+    WAIT_FOR_VERIFICATION = 6
+    EXTRACT_TASK = 7
+    CHECK_FOR_MISSING_CLARIFICATION = 8
+    ASK_FOR_CLARIFICATION = 9
+    PROCESS_CLARIFICATION = 10
+    PERFORM_TASK = 11
+    ASK_FOR_FURTHER_INSTRUCTION = 12
+    WAIT_FURTHER_INSTRUCTION = 13
+    PROCESS_FURTHER_INSTRUCTION = 14
+
 
 
 class DialogFlow:
@@ -37,34 +56,68 @@ class DialogFlow:
         self.speech_to_text_subscriber = rospy.Subscriber("speech_to_text", StringWithTimestamp, callback=self.speech_to_text_callback, queue_size=1)
         self.ui_interface = UIInterface(websocket_uri)
         self.websocket_is_connected = self.ui_interface.connect()
+<<<<<<< Updated upstream
         self.carrying_object = False
+=======
+        self.task = None
+        self.current_state = DialogState.INITIALISE
+>>>>>>> Stashed changes
 
     def controller(self):
-        #check to see if initialising conversation and gets sentence
-        if self.first_convo_flag == True:
-            self.first_conversation()
-            self.first_convo_flag = False
-        else:
-            self.continuing_conversation()
-
-        rospy.loginfo(f"Got sentence: {self.last_received_sentence}")
-        if self.websocket_is_connected:
-            self.ui_interface.send_as_user(self.last_received_sentence)
-        task = self.command_builder.get_task(self.last_received_sentence)
-
-        if not isinstance(task, (PickUpTask, FindTask, MoveTask, PlaceTask)):
-            sentence = "Only default tasks are supported at the moment"
-            rospy.loginfo(sentence)
-            self.tts(sentence)
-            if self.websocket_is_connected:
-                self.ui_interface.send_as_robot(sentence)
+        if self.current_state == DialogState.INITIALISE:
+            self.state_initialise()
             return
+        elif self.current_state == DialogState.WAIT_FOR_GREETING:
+            self.wait_for_greeting()
+            return
+        elif self.current_state == DialogState.GREET:
+            self.state_greet()
+            return
+        elif self.current_state == DialogState.ASK_FOR_REQUEST:
+            self.state_ask_for_command()
+            return
+        elif self.current_state == DialogState.WAIT_FOR_REQUEST:
+            self.state_wait_for_command()
+            return
+        elif self.current_state == DialogState.VERIFY_REQUEST:
+            self.state_verify_command()
+            return
+        elif self.current_state == DialogState.WAIT_FOR_VERIFICATION:
+            self.state_wait_for_verification()
+            return
+        elif self.current_state == DialogState.EXTRACT_TASK:
+            self.state_extract_task()
+            return
+        elif self.current_state == DialogState.CHECK_FOR_MISSING_CLARIFICATION:
+            self.state_check_for_missing_clarification()
+            return
+        elif self.current_state == DialogState.ASK_FOR_CLARIFICATION:
+            self.state_ask_for_clarification()
+            return
+        elif self.current_state == DialogState.PROCESS_CLARIFICATION:
+            self.state_process_clarification()
+            return
+        elif self.current_state == DialogState.PERFORM_TASK:
+            self.state_perform_task()
+            return
+        elif self.current_state == DialogState.ASK_FOR_FURTHER_INSTRUCTION:
+            self.state_ask_further_instructions()
+            return
+        elif self.current_state == DialogState.WAIT_FURTHER_INSTRUCTION:
+            self.state_wait_further_instructions()
+            return
+        elif self.current_state == DialogState.PROCESS_FURTHER_INSTRUCTION:
+            self.state_process_further_instructions()
+            return
+<<<<<<< Updated upstream
 
         log_string = f"Ok, just to be sure. You want me to {task.plaintext_name} the {self.build_object_sentence(task.objects_to_execute_on[0])}"
         rospy.loginfo(log_string)
         self.tts(log_string)
         if self.websocket_is_connected:
             self.ui_interface.send_as_robot(log_string)
+=======
+>>>>>>> Stashed changes
 
         attempts = 0
         while attempts < 5:
@@ -149,21 +202,76 @@ class DialogFlow:
             if self.websocket_is_connected:
                 self.ui_interface.send_as_robot("The pick up task failed. I might have done something wrong. I'm sorry master.")
 
-    def first_conversation(self):
-        spoken_sentence = "Hello. What would you like me to do?"
-        rospy.loginfo(spoken_sentence)
-        self.tts(spoken_sentence)
-        if self.websocket_is_connected:
-            self.ui_interface.send_as_robot(spoken_sentence)
-        self.spin_until_new_sentence()
+    def state_initialise(self):
+        self.current_state = DialogState.GREET
 
-    def continuing_conversation(self):
-        spoken_sentence = "Is there anything else you want me to do?"
+    def wait_for_greeting(self):
+        self.current_state = DialogState.GREET
+
+    def state_greet(self):
+        spoken_sentence = "Hello."
         rospy.loginfo(spoken_sentence)
         self.tts(spoken_sentence)
         if self.websocket_is_connected:
             self.ui_interface.send_as_robot(spoken_sentence)
+        self.current_state = DialogState.ASK_FOR_REQUEST
+
+    def state_ask_for_command(self):
+        spoken_sentence = "What would you like me to do?"
+        rospy.loginfo(spoken_sentence)
+        self.tts(spoken_sentence)
+        if self.websocket_is_connected:
+            self.ui_interface.send_as_robot(spoken_sentence)
+        self.current_state = DialogState.WAIT_FOR_REQUEST
+
+    def state_wait_for_command(self):
         self.spin_until_new_sentence()
+        self.current_state = DialogState.VERIFY_REQUEST
+
+    def state_verify_command(self):
+        rospy.loginfo(f"Got sentence: {self.last_received_sentence}")
+        if self.websocket_is_connected:
+            self.ui_interface.send_as_user(self.last_received_sentence)
+        self.task = self.command_builder.get_task(self.last_received_sentence)
+
+        log_string = f"Ok, just to be sure. You want me to {self.task.name} the {self.build_object_sentence(self.task.objects_to_execute_on[0])}"
+        rospy.loginfo(log_string)
+        self.tts(log_string)
+        if self.websocket_is_connected:
+            self.ui_interface.send_as_robot(log_string)
+
+    def state_wait_for_verification(self):
+
+    def state_extract_task(self):
+        if not isinstance(task, (PickUpTask, FindTask, PlaceTask)):
+            sentence = "Only default skills are supported at the moment, I "
+            rospy.loginfo(sentence)
+            self.tts(sentence)
+            if self.websocket_is_connected:
+                self.ui_interface.send_as_robot(sentence)
+            return
+
+    def state_check_for_missing_clarification(self):
+
+    def state_ask_for_clarification(self):
+
+    def state_process_clarification(self):
+
+    def state_perform_task(self):
+
+    def state_ask_further_instructions(self):
+        spoken_sentence = "I have now performed the task you requested. Is there anything else you want me to do?"
+        rospy.loginfo(spoken_sentence)
+        self.tts(spoken_sentence)
+        if self.websocket_is_connected:
+            self.ui_interface.send_as_robot(spoken_sentence)
+        self.current_state = DialogState.WAIT_FURTHER_INSTRUCTION
+
+    def state_wait_further_instructions(self):
+        self.spin_until_new_sentence()
+        self.current_state = DialogState.PROCESS_FURTHER_INSTRUCTION
+
+    def state_process_further_instructions(self):
 
     def spin_until_new_sentence(self):
         start_timestamp = rospy.get_rostime()
@@ -184,15 +292,15 @@ class DialogFlow:
 
     def learn_control(self, name, image):
         self.tts("I will try and learn the new object")
-        self.grounding.learn_new_object(name, image) #placeholder
+        self.grounding.learn_new_object(name, image) # placeholder
 
     def pick_control(self, object_info, rgb, depth):
-        self.tts(f"Okay, I will try to pick up the {object_info.name}") #might need to rework if we take the name out of objectinfo
-        self.robot.pick_up(object_info, rgb, depth) #placeholder
+        self.tts(f"Okay, I will try to pick up the {object_info.name}") # might need to rework if we take the name out of objectinfo
+        self.robot.pick_up(object_info, rgb, depth) # placeholder
 
     def find_control(self, object_info, rgb):
         self.tts(f"Okay, I will try to find the {object_info.name}")
-        self.robot.find(object_info, rgb) #placeholder
+        self.robot.find(object_info, rgb) # placeholder
 
     def build_object_sentence(self, main_object: ObjectEntityType):
         sentence = main_object.name
