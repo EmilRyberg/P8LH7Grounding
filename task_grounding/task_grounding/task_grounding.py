@@ -6,7 +6,7 @@ import numpy as np
 from enum import Enum
 
 
-class ErrorType(Enum):
+class TaskErrorType(Enum):
     UNKNOWN = "unknown word"
     NO_OBJECT = "no object specified when required"
     NO_SUBTASKS = "no specified subtasks"
@@ -75,7 +75,7 @@ class TaskGrounding:
             sub_tasks = self.db.get_sub_tasks(task_id)
             if sub_tasks is None:
                 error = TaskGroundingError()
-                error.error_code = ErrorType.NO_SUBTASKS
+                error.error_code = TaskErrorType.NO_SUBTASKS
                 return None, error
             tasks = self.handle_custom_task(sub_tasks)
         return tasks, None
@@ -139,12 +139,12 @@ class TaskGrounding:
 
     def missing_entities_error(self, task):
         error = TaskGroundingError()
-        error.error_code = ErrorType.NO_OBJECT
+        error.error_code = TaskErrorType.NO_OBJECT
         return error
 
     def unknown_task_error(self, task_word):
         error = TaskGroundingError()
-        error.error_code = ErrorType.UNKNOWN
+        error.error_code = TaskErrorType.UNKNOWN
         error.error_task = task_word
         return error
 

@@ -3,7 +3,8 @@ import argparse
 import rospy
 from enum import Enum
 from find_objects.find_objects import ObjectInfo
-from ner_lib.command_builder import CommandBuilder, PickUpTask, FindTask, MoveTask, PlaceTask, SpatialType, ObjectEntity as ObjectEntityType
+from ner_lib.command_builder import CommandBuilder, SpatialType, Task, TaskType, ObjectEntity as ObjectEntityType
+from ner_lib.ner import NER, EntityType
 from little_helper_interfaces.msg import StringWithTimestamp
 from vision_lib.ros_camera_interface import ROSCamera
 from robot_control.robot_control import RobotController
@@ -12,6 +13,7 @@ from vision_lib.vision_controller import VisionController
 from grounding_lib.spatial import SpatialRelation
 from database_handler.database_handler import DatabaseHandler
 from text_to_speech.srv import TextToSpeech
+from task_grounding.task_grounding import TaskGrounding, TaskGroundingError, TaskErrorType, TaskGroundingReturn
 from ui_interface_lib.ui_interface import UIInterface
 import random
 
@@ -19,9 +21,9 @@ class DialogState(Enum):
     INITIALISE = 0
     WAIT_FOR_GREETING = 1
     GREET = 2
-    ASK_FOR_REQUEST = 3
-    WAIT_FOR_REQUEST = 4
-    VERIFY_REQUEST = 5
+    ASK_FOR_COMMAND = 3
+    WAIT_FOR_COMMAND = 4
+    VERIFY_COMMAND = 5
     WAIT_FOR_VERIFICATION = 6
     EXTRACT_TASK = 7
     CHECK_FOR_MISSING_CLARIFICATION = 8
@@ -43,11 +45,13 @@ class DialogFlow:
                                    vision_controller=VisionController(background_image_file=background_image_file,
                                                                       weights_path=feature_weights_path),
                                    spatial=SpatialRelation(database_handler=self.database_handler))
+        self.task_grounding = TaskGrounding(self.database_handler)
         self.sentence = ""
         self.object_info = ObjectInfo()
         self.robot = RobotController()
         self.camera = ROSCamera()
-        self.command_builder = CommandBuilder(ner_model_path, ner_tag_path)
+        self.ner = NER(ner_model_path, ner_tag_path)
+        self.command_builder = CommandBuilder(self.ner)
         self.last_received_sentence = None
         self.last_received_sentence_timestamp = None
         rospy.loginfo("Waiting for TTS service to come online")
@@ -56,12 +60,11 @@ class DialogFlow:
         self.speech_to_text_subscriber = rospy.Subscriber("speech_to_text", StringWithTimestamp, callback=self.speech_to_text_callback, queue_size=1)
         self.ui_interface = UIInterface(websocket_uri)
         self.websocket_is_connected = self.ui_interface.connect()
-<<<<<<< Updated upstream
         self.carrying_object = False
-=======
-        self.task = None
+        self.base_task = None
+        self.tasks_to_perform = None
         self.current_state = DialogState.INITIALISE
->>>>>>> Stashed changes
+
 
     def controller(self):
         if self.current_state == DialogState.INITIALISE:
@@ -73,13 +76,13 @@ class DialogFlow:
         elif self.current_state == DialogState.GREET:
             self.state_greet()
             return
-        elif self.current_state == DialogState.ASK_FOR_REQUEST:
+        elif self.current_state == DialogState.ASK_FOR_COMMAND:
             self.state_ask_for_command()
             return
-        elif self.current_state == DialogState.WAIT_FOR_REQUEST:
+        elif self.current_state == DialogState.WAIT_FOR_COMMAND:
             self.state_wait_for_command()
             return
-        elif self.current_state == DialogState.VERIFY_REQUEST:
+        elif self.current_state == DialogState.VERIFY_COMMAND:
             self.state_verify_command()
             return
         elif self.current_state == DialogState.WAIT_FOR_VERIFICATION:
@@ -109,15 +112,6 @@ class DialogFlow:
         elif self.current_state == DialogState.PROCESS_FURTHER_INSTRUCTION:
             self.state_process_further_instructions()
             return
-<<<<<<< Updated upstream
-
-        log_string = f"Ok, just to be sure. You want me to {task.plaintext_name} the {self.build_object_sentence(task.objects_to_execute_on[0])}"
-        rospy.loginfo(log_string)
-        self.tts(log_string)
-        if self.websocket_is_connected:
-            self.ui_interface.send_as_robot(log_string)
-=======
->>>>>>> Stashed changes
 
         attempts = 0
         while attempts < 5:
@@ -212,44 +206,62 @@ class DialogFlow:
         spoken_sentence = "Hello."
         rospy.loginfo(spoken_sentence)
         self.tts(spoken_sentence)
-        if self.websocket_is_connected:
-            self.ui_interface.send_as_robot(spoken_sentence)
-        self.current_state = DialogState.ASK_FOR_REQUEST
+        self.send_robot_sentence_to_GUI(spoken_sentence)
+        self.current_state = DialogState.ASK_FOR_COMMAND
 
     def state_ask_for_command(self):
         spoken_sentence = "What would you like me to do?"
         rospy.loginfo(spoken_sentence)
         self.tts(spoken_sentence)
-        if self.websocket_is_connected:
-            self.ui_interface.send_as_robot(spoken_sentence)
-        self.current_state = DialogState.WAIT_FOR_REQUEST
+        self.send_robot_sentence_to_GUI(spoken_sentence)
+        self.current_state = DialogState.WAIT_FOR_COMMAND
 
     def state_wait_for_command(self):
         self.spin_until_new_sentence()
-        self.current_state = DialogState.VERIFY_REQUEST
+        self.current_state = DialogState.VERIFY_COMMAND
 
     def state_verify_command(self):
-        rospy.loginfo(f"Got sentence: {self.last_received_sentence}")
-        if self.websocket_is_connected:
-            self.ui_interface.send_as_user(self.last_received_sentence)
-        self.task = self.command_builder.get_task(self.last_received_sentence)
+        self.send_human_sentence_to_GUI(self.last_received_sentence)
+        entities = self.ner.get_entities(self.last_received_sentence)
+        is_teach = any([x[0] == EntityType.TEACH for x in entities]) # TODO make states for teaching
+        if not is_teach:
+            self.base_task = self.command_builder.get_task(self.last_received_sentence)
 
-        log_string = f"Ok, just to be sure. You want me to {self.task.name} the {self.build_object_sentence(self.task.objects_to_execute_on[0])}"
-        rospy.loginfo(log_string)
-        self.tts(log_string)
-        if self.websocket_is_connected:
-            self.ui_interface.send_as_robot(log_string)
+            log_string = f"Ok, just to be sure. You want me to execute the task {self.base_task.name}?"
+            rospy.loginfo(log_string)
+            self.tts(log_string)
+            self.send_robot_sentence_to_GUI(log_string)
+            self.current_state = DialogState.WAIT_FOR_VERIFICATION
 
     def state_wait_for_verification(self):
+        self.spin_until_new_sentence()
+        self.send_human_sentence_to_GUI(self.last_received_sentence)
+        entities = self.ner.get_entities(self.last_received_sentence)
+        affirmation = any([x[0] == EntityType.AFFIRMATION for x in entities])
+        denial = any([x[0] == EntityType.DENIAL for x in entities])
+        if affirmation:
+            self.current_state = DialogState.EXTRACT_TASK
+        elif denial:
+            log_string = "Ok, what would you then like me to do?"
+            rospy.loginfo(log_string)
+            self.tts(log_string)
+            self.send_robot_sentence_to_GUI(log_string)
+            self.current_state = DialogState.WAIT_FOR_COMMAND
+        else:
+            log_string = f"Sorry, I did not catch that. Did you want me to execute the task {self.base_task.name}?"
+            rospy.loginfo(log_string)
+            self.tts(log_string)
+            self.send_robot_sentence_to_GUI(log_string)
+            self.current_state = DialogState.WAIT_FOR_VERIFICATION
 
     def state_extract_task(self):
-        if not isinstance(task, (PickUpTask, FindTask, PlaceTask)):
-            sentence = "Only default skills are supported at the moment, I "
-            rospy.loginfo(sentence)
-            self.tts(sentence)
-            if self.websocket_is_connected:
-                self.ui_interface.send_as_robot(sentence)
-            return
+        task_grounding_return = self.task_grounding.get_specific_task_from_task(self.base_task)
+        if task_grounding_return.is_success:
+            self.current_state = DialogState.PERFORM_TASK
+            self.tasks_to_perform = task_grounding_return.task_info
+        else:
+            if task_grounding_return.error.error_code == TaskErrorType.UNKNOWN:
+
 
     def state_check_for_missing_clarification(self):
 
@@ -258,6 +270,10 @@ class DialogFlow:
     def state_process_clarification(self):
 
     def state_perform_task(self):
+        log_string = f"I will now execute the task {self.base_task.name}."
+        rospy.loginfo(log_string)
+        self.tts(log_string)
+        self.send_robot_sentence_to_GUI(log_string)
 
     def state_ask_further_instructions(self):
         spoken_sentence = "I have now performed the task you requested. Is there anything else you want me to do?"
@@ -284,6 +300,15 @@ class DialogFlow:
                     got_new_sentence = True
                     break
             rospy.sleep(rospy.Duration.from_sec(0.1))
+
+    def send_human_sentence_to_GUI(self, sentence):
+        rospy.loginfo(f"Got sentence: {self.last_received_sentence}")
+        if self.websocket_is_connected:
+            self.ui_interface.send_as_user(sentence)
+
+    def send_robot_sentence_to_GUI(self, sentence):
+        if self.websocket_is_connected:
+            self.ui_interface.send_as_robot(sentence)
 
     def speech_to_text_callback(self, data):
         rospy.logdebug(f"Got STT: {data}")

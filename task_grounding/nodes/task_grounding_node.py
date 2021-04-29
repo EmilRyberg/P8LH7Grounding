@@ -3,7 +3,7 @@ import rospy
 from std_msgs.msg import String
 from little_helper_interfaces.msg import ObjectEntity, ObjectInfo, OuterObjectEntity, ROSGroundingReturn
 from task_grounding.srv import ROSTaskGrounding, ROSTaskGroundingResponse, ROSTaskGroundingRequest
-from task_grounding.task_grounding import TaskGrounding, TaskGroundingReturn, ErrorType
+from task_grounding.task_grounding import TaskGrounding, TaskGroundingReturn, TaskErrorType
 
 
 def create_ros_return(non_ros_return):

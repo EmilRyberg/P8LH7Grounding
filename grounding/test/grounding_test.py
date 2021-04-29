@@ -1,4 +1,4 @@
-from grounding_lib.grounding import Grounding, GroundingReturn, ErrorType
+from grounding_lib.grounding import Grounding, GroundingReturn, GroundingErrorType
 from grounding_lib.spatial import SpatialRelation, StatusEnum
 from database_handler.database_handler import DatabaseHandler
 import numpy as np
@@ -45,7 +45,7 @@ class FindObjectIsolatedTest(unittest.TestCase):
         object_entity.name = object_name
         object_entity.spatial_descriptions = object_spatial_desc
         returned = self.grounding.find_object(object_entity)
-        self.assertEqual(returned.error_code, ErrorType.CANT_FIND)
+        self.assertEqual(returned.error_code, GroundingErrorType.CANT_FIND)
 
     def test_bestMatch(self):
         indexes = [1, 2, 3, 4, 5]
@@ -74,7 +74,7 @@ class FindObjectIsolatedTest(unittest.TestCase):
         object_entity.name = object_name
         object_entity.spatial_descriptions = object_spatial_desc
         returned = self.grounding.find_object(object_entity)
-        self.assertEqual(returned.error_code, ErrorType.UNKNOWN)  # Should return false if the object is unknown
+        self.assertEqual(returned.error_code, GroundingErrorType.UNKNOWN)  # Should return false if the object is unknown
 
     def test_spatialPart(self):
         entities = [
@@ -161,7 +161,7 @@ class LearnObjectIsolatedTest(unittest.TestCase):
         object_entity.name = object_name
         object_entity.spatial_descriptions = object_spatial_desc
         self.returned = self.grounding.learn_new_object(object_entity)
-        self.assertEqual(self.returned.error_code, ErrorType.ALREADY_KNOWN)
+        self.assertEqual(self.returned.error_code, GroundingErrorType.ALREADY_KNOWN)
 
 
 class UpdateFeaturesIsolatedTest(unittest.TestCase):
@@ -208,7 +208,7 @@ class UpdateFeaturesIsolatedTest(unittest.TestCase):
         object_entity.name = object_name
         object_entity.spatial_descriptions = object_spatial_desc
         self.returned = self.grounding.update_features(object_entity)
-        self.assertEqual(self.returned.error_code, ErrorType.UNKNOWN)
+        self.assertEqual(self.returned.error_code, GroundingErrorType.UNKNOWN)
 
 
 class SpatialModuleOneOfEach(unittest.TestCase):
@@ -621,7 +621,7 @@ class FindObjectIntegrationTest(unittest.TestCase):
         object_entity.name = object_name
         object_entity.spatial_descriptions = object_spatial_desc
         self.returned = self.grounding.find_object(object_entity)
-        self.assertEqual(self.returned.error_code, ErrorType.CANT_FIND)
+        self.assertEqual(self.returned.error_code, GroundingErrorType.CANT_FIND)
 
     def test_bestMatch(self):
         indexes = [1, 2, 3, 4, 5]
@@ -648,7 +648,7 @@ class FindObjectIntegrationTest(unittest.TestCase):
         object_entity = ObjectEntity()
         object_entity.name = object_name
         self.returned = self.grounding.find_object(object_entity)
-        self.assertEqual(self.returned.error_code, ErrorType.UNKNOWN)
+        self.assertEqual(self.returned.error_code, GroundingErrorType.UNKNOWN)
 
 
 class LearnObjectIntegrationTest(unittest.TestCase):
@@ -673,7 +673,7 @@ class LearnObjectIntegrationTest(unittest.TestCase):
         object_entity.name = object_name
         object_entity.spatial_descriptions = object_spatial_desc
         self.returned = self.grounding.learn_new_object(object_entity)
-        self.assertEqual(self.returned.error_code, ErrorType.ALREADY_KNOWN)
+        self.assertEqual(self.returned.error_code, GroundingErrorType.ALREADY_KNOWN)
 
     def test_newObject(self):
         object_info = ObjectInfoWithFeatures()
@@ -732,6 +732,6 @@ class UpdateFeaturesIntegrationTest(unittest.TestCase):
         object_entity.name = object_name
         object_entity.spatial_descriptions = object_spatial_desc
         self.returned = self.grounding.update_features(object_entity)
-        self.assertEqual(self.returned.error_code, ErrorType.UNKNOWN)
+        self.assertEqual(self.returned.error_code, GroundingErrorType.UNKNOWN)
 
 ################################# INTEGRATION TESTS ----- END ##########################################################

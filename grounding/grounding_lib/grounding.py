@@ -6,7 +6,7 @@ from scripts.vision_controller import VisionController as FakeVisionController
 from enum import Enum
 
 
-class ErrorType(Enum):
+class GroundingErrorType(Enum):
     UNKNOWN = "unknown object"
     CANT_FIND = "cant find object"
     ALREADY_KNOWN = "known object"
@@ -38,7 +38,7 @@ class Grounding:
         db_features = self.db.get_feature(name)
         if db_features is None:
             self.return_object.is_success = False
-            self.return_object.error_code = ErrorType.UNKNOWN
+            self.return_object.error_code = GroundingErrorType.UNKNOWN
             return self.return_object
 
         object_infos_with_features = self.vision.get_masks_with_features()  # list of
@@ -53,7 +53,7 @@ class Grounding:
 
         if not found_object:
             self.return_object.is_success = False
-            self.return_object.error_code = ErrorType.CANT_FIND
+            self.return_object.error_code = GroundingErrorType.CANT_FIND
             return self.return_object
 
         if len(indexes_below_threshold) > 1:
@@ -61,11 +61,11 @@ class Grounding:
                 self.return_object.object_info, status = self.find_object_with_spatial_desc(object_entity, object_infos_with_features)
                 if status == StatusEnum.ERROR_TWO_REF:
                     self.return_object.is_success = False
-                    self.return_object.error_code = ErrorType.TWO_REF
+                    self.return_object.error_code = GroundingErrorType.TWO_REF
                     return self.return_object
                 elif status == StatusEnum.ERROR_CANT_FIND:
                     self.return_object.is_success = False
-                    self.return_object.error_code = ErrorType.CANT_FIND
+                    self.return_object.error_code = GroundingErrorType.CANT_FIND
                     return self.return_object
                 elif self.return_object.object_info:
                     self.return_object.is_success = True
@@ -132,7 +132,7 @@ class Grounding:
                 return self.return_object
         else:
             self.return_object.is_success = False
-            self.return_object.error_code = ErrorType.ALREADY_KNOWN
+            self.return_object.error_code = GroundingErrorType.ALREADY_KNOWN
             return self.return_object
 
     def update_features(self, object_entity):
@@ -140,7 +140,7 @@ class Grounding:
         db_features = self.db.get_feature(entity)
         if db_features is None:
             self.return_object.is_success = False
-            self.return_object.error_code = ErrorType.UNKNOWN
+            self.return_object.error_code = GroundingErrorType.UNKNOWN
             return self.return_object
         else:
             features = self.vision.get_masks_with_features()
