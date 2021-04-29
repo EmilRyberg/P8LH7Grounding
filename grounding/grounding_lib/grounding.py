@@ -17,7 +17,7 @@ class GroundingReturn:
     def __init__(self):
         self.is_success = False
         self.error_code = None
-        self.object_info = None
+        self.object_infos = None
 
 
 class Grounding:
@@ -58,8 +58,8 @@ class Grounding:
 
         if len(indexes_below_threshold) > 1:
             if spatial_desc:
-                self.return_object.object_info, status = self.find_object_with_spatial_desc(object_entity, object_infos_with_features)
-                if status == StatusEnum.ERROR_TWO_REF:
+                object_infos, status = self.find_object_with_spatial_desc(object_entity, object_infos_with_features)
+                if status == StatusEnum.NO_VALID_OBJECTS:
                     self.return_object.is_success = False
                     self.return_object.error_code = ErrorType.TWO_REF
                     return self.return_object
@@ -67,14 +67,15 @@ class Grounding:
                     self.return_object.is_success = False
                     self.return_object.error_code = ErrorType.CANT_FIND
                     return self.return_object
-                elif self.return_object.object_info:
+                elif object_infos is not None and len(object_infos) > 0:
+                    self.return_object.object_infos = object_infos
                     self.return_object.is_success = True
                     return self.return_object
 
         # This part of the code will be executed if there is only 1 of the requested objects in the scene or
         # if the user does not care about what part is picked up.
         best_match_index = self.find_best_match(indexes_below_threshold, distances)
-        self.return_object.object_info = object_infos_with_features[best_match_index]
+        self.return_object.object_infos = [object_infos_with_features[best_match_index]]
         self.return_object.is_success = True
         return self.return_object
 
@@ -95,10 +96,10 @@ class Grounding:
                     features_below_threshold.append(obj_info)
                     objects.append((inner_idx, name, bbox))
 
-        target_index, status = self.spatial.locate_specific_object(object_entity, objects)
+        target_indices, status = self.spatial.locate_specific_object(object_entity, objects)
         if status == StatusEnum.SUCCESS:
-            object_info = object_info_with_features[target_index]
-            return object_info, status
+            object_infos = [object_info_with_features[i] for i in target_indices]
+            return object_infos, status
 
         return None, status
 
@@ -116,7 +117,10 @@ class Grounding:
                 is_below_threshold = self.is_same_object(db_features, feature, threshold=0.8) # TODO update threshold
                 if is_below_threshold:
                     objects.append((inner_idx, name, bbox))
-        return self.spatial.get_location(object_entity.spatial_descriptions, objects)
+        coordinates, status = self.spatial.get_location(object_entity.spatial_descriptions, objects)
+        if status != StatusEnum.SUCCESS:
+            return None, None
+        return coordinates
 
     def learn_new_object(self, object_entity):
         entity_name = object_entity.name

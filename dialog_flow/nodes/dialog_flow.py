@@ -113,15 +113,15 @@ class DialogFlow:
             return
         else:
             if self.websocket_is_connected:
-                self.ui_interface.send_images(np_rgb, grounding_return.object_info.object_img_cutout_cropped)
+                self.ui_interface.send_images(np_rgb, grounding_return.object_infos.object_img_cutout_cropped)
 
         success = True
         if isinstance(task, PickUpTask):
-            success = self.robot.pick_up(grounding_return.object_info, np_rgb, np_depth)
+            success = self.robot.pick_up(grounding_return.object_infos, np_rgb, np_depth)
             self.carrying_object = True
 
         elif isinstance(task, FindTask):
-            success = self.robot.point_at(grounding_return.object_info, np_rgb, np_depth)
+            success = self.robot.point_at(grounding_return.object_infos, np_rgb, np_depth)
 
         elif isinstance(task, PlaceTask):
             if not self.carrying_object:
@@ -133,7 +133,7 @@ class DialogFlow:
                 self.carrying_object = False
 
         elif isinstance(task, MoveTask):
-            success = self.robot.pick_up(grounding_return.object_info, np_rgb, np_depth)
+            success = self.robot.pick_up(grounding_return.object_infos, np_rgb, np_depth)
             if success:
                 position = [200, -250, 100]
                 success = self.robot.place(position)
