@@ -75,6 +75,7 @@ class TaskGrounding:
             sub_tasks = self.db.get_sub_tasks(task_id)
             if sub_tasks is None:
                 error = TaskGroundingError()
+                error.error_task = task_name
                 error.error_code = TaskErrorType.NO_SUBTASKS
                 return None, error
             tasks = self.handle_custom_task(sub_tasks)
@@ -139,6 +140,7 @@ class TaskGrounding:
 
     def missing_entities_error(self, task):
         error = TaskGroundingError()
+        error.error_task = task
         error.error_code = TaskErrorType.NO_OBJECT
         return error
 
