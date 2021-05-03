@@ -38,12 +38,14 @@ class DialogState(Enum):
 
 class DependencyContainer:
     def __init__(self, ner: NER, command_builder: CommandBuilder,
-                 grounding: Grounding, tts, speech_to_text_subscriber,
+                 grounding: Grounding, speak, speech_to_text_subscriber,
+                 send_human_sentence_to_gui,
                  camera: ROSCamera, ui_interface: UIInterface, task_grounding: TaskGrounding):
         self.ner = ner
         self.command_builder = command_builder
         self.grounding = grounding
-        self.tts = tts
+        self.speak = speak
+        self.send_human_sentence_to_gui = send_human_sentence_to_gui
         self.speech_to_text_subscriber = speech_to_text_subscriber
         self.camera = camera
         self.ui_interface = ui_interface
@@ -56,6 +58,8 @@ class StateMachine:
             "last_received_sentence" : "",
             "last_received_sentence_timestamp" : None,
             "websocket_is_connected" : False,
+            "task_grounding_return": TaskGroundingReturn,
+            "base_task": Task,
 
         }
         self.container = container
@@ -123,14 +127,12 @@ class AskForCommandState(State):
         if isinstance(self.previous_state.previous_state, GreetState):
             spoken_sentence = "What would you like me to do?"
             rospy.loginfo(spoken_sentence)
-            self.tts(spoken_sentence)
-            send_robot_sentence_to_GUI(spoken_sentence, self.state_dict["websocket_is_connected"])
+            self.container.speak(spoken_sentence)
             return self.wait_for_command_state
         elif isinstance(self.previous_state, PerformTaskState):
             spoken_sentence = "I have now performed the task you requested. Is there anything else you want me to do?"
             rospy.loginfo(spoken_sentence)
-            self.tts(spoken_sentence)
-            send_robot_sentence_to_GUI(spoken_sentence, self.state_dict["websocket_is_connected"])
+            self.container.speak(spoken_sentence)
             self.current_state = DialogState.WAIT_FURTHER_INSTRUCTION
 
 
@@ -139,16 +141,15 @@ class VerifyCommandState(State):
         super().__init__(state_dict, container, previous_state)
 
     def execute(self):
-        send_human_sentence_to_GUI(self.state_dict["last_received_sentence"], self.state_dict["websocket_is_connected"])
-        entities = self.ner.get_entities(self.state_dict["last_received_sentence"])
+        self.container.send_human_sentence_to_gui(self.state_dict["last_received_sentence"])
+        entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
         is_teach = any([x[0] == EntityType.TEACH for x in entities]) # TODO make states for teaching
         if not is_teach:
-            self.base_task = self.command_builder.get_task(self.state_dict["last_received_sentence"])
+            self.base_task = self.container.command_builder.get_task(self.state_dict["last_received_sentence"])
 
             log_string = f"Ok, just to be sure. You want me to execute the task {self.base_task.name}?"
             rospy.loginfo(log_string)
-            self.tts(log_string)
-            send_robot_sentence_to_GUI(log_string, self.state_dict["websocket_is_connected"])
+            self.container.speak(log_string)
             self.current_state = DialogState.WAIT_FOR_VERIFICATION
 
 class WaitForResponseState(State):
@@ -168,8 +169,8 @@ class WaitForResponseState(State):
                     got_new_sentence = True
                     break
             rospy.sleep(rospy.Duration.from_sec(0.1))
-        send_human_sentence_to_GUI(self.state_dict["last_received_sentence"], self.state_dict["websocket_is_connected"])
-        entities = self.ner.get_entities(self.state_dict["last_received_sentence"])
+        self.container.send_human_sentence_to_gui(self.state_dict["last_received_sentence"])
+        entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
         if isinstance(self.previous_state, GreetState) or isinstance(self.previous_state, AskForCommandState):
 
         if isinstance(self.previous_state, VerifyCommandState):
@@ -180,14 +181,12 @@ class WaitForResponseState(State):
             elif denial:
                 log_string = "Ok, what would you then like me to do?"
                 rospy.loginfo(log_string)
-                self.tts(log_string)
-                send_robot_sentence_to_GUI(log_string, self.state_dict["websocket_is_connected"])
+                self.container.speak(log_string)
                 self.current_state = DialogState.WAIT_FOR_COMMAND
             else:
-                log_string = f"Sorry, I did not catch that. Did you want me to execute the task {self.base_task.name}?"
+                log_string = f"Sorry, I did not catch that. Did you want me to execute the task {self.state_dict['base_task'].name}?"
                 rospy.loginfo(log_string)
-                self.tts(log_string)
-                send_robot_sentence_to_GUI(log_string, self.state_dict["websocket_is_connected"])
+                self.container.speak(log_string)
                 self.current_state = DialogState.WAIT_FOR_VERIFICATION
 
 class ExtractTaskState(State):
@@ -195,7 +194,7 @@ class ExtractTaskState(State):
         super().__init__(state_dict, container, previous_state)
 
     def execute(self):
-        self.task_grounding_return = self.task_grounding.get_specific_task_from_task(self.base_task)
+        self.task_grounding_return = self.container.task_grounding.get_specific_task_from_task(self.state_dict['base_task'])
         if self.task_grounding_return.is_success:
             self.current_state = DialogState.PERFORM_TASK
             self.tasks_to_perform = self.task_grounding_return.task_info
@@ -207,28 +206,23 @@ class ValidateTaskState(State):
         super().__init__(state_dict, container, previous_state)
 
     def execute(self):
-        error = self.task_grounding_return.error
+        error = self.state_dict['task_grounding_return'].error
         if error.error_code == TaskErrorType.UNKNOWN:
             log_string = f"Sorry, I do not know the task {error.error_task}"
             rospy.loginfo(log_string)
-            self.container.tts(log_string)
-            send_robot_sentence_to_GUI(log_string, self.state_dict["websocket_is_connected"])
+            self.container.speak(log_string)
         elif error.error_code == TaskErrorType.NO_OBJECT:
             log_string = f"Sorry, I don't know which object to perform the task {error.error_task.task_type.value}" # TODO ask Emil if this will work
             rospy.loginfo(log_string)
-            self.container.tts(log_string)
-            send_robot_sentence_to_GUI(log_string, self.state_dict["websocket_is_connected"])
+            self.container.speak(log_string)
         elif error.error_code == TaskErrorType.NO_SUBTASKS:
             log_string = f"Sorry, I don't know the sub tasks for the task {error.error_task}"
             rospy.loginfo(log_string)
-            self.container.tts(log_string)
-            send_robot_sentence_to_GUI(log_string, self.state_dict["websocket_is_connected"])
+            self.container.speak(log_string)
         elif error.error_code == TaskErrorType.NO_SPATIAL:
             log_string = f"Sorry, I am missing a spatial description of where to perform the task task {error.error_task}"
             rospy.loginfo(log_string)
-            self.container.tts(log_string)
-            send_robot_sentence_to_GUI(log_string, self.state_dict["websocket_is_connected"])
-        self.current_state == DialogState.ASK_FOR_CLARIFICATION
+            self.container.speak(log_string)
 
 class AskForClarificationState(State):
     def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
@@ -253,31 +247,27 @@ class PerformTaskState(State):
         super().__init__(state_dict, container, previous_state)
 
     def execute(self):
-        log_string = f"I will now execute the task {self.base_task.name}."
+        log_string = f"I will now execute the task {self.state_dict['base_task'].name}."
         rospy.loginfo(log_string)
-        self.tts(log_string)
-        send_robot_sentence_to_GUI(log_string, self.state_dict["websocket_is_connected"])
+        self.container.speak(log_string)
 
-        for task in self.task_grounding_return.task_info:
+        for task in self.state_dict['task_grounding_return'].task_info:
             # To make sure robot is out of view, might be unecesarry
             # while not self.robot.is_out_of_view():
             self.robot.move_out_of_view()
 
-            np_rgb = self.camera.get_image()
-            np_depth = self.camera.get_depth()
+            np_rgb = self.container.camera.get_image()
+            np_depth = self.container.camera.get_depth()
 
             grounding_return = self.grounding.find_object(task.objects_to_execute_on[0])
             if not grounding_return.is_success:
                 # TODO: Handle unknown object here
                 sentence = "I could not find the object you were looking for. Restarting."
-                self.tts(sentence)
-                rospy.loginfo(sentence)
-                if self.websocket_is_connected:
-                    self.ui_interface.send_as_robot(sentence)
+                self.speak(sentence)
                 return
             else:
-                if self.websocket_is_connected:
-                    self.ui_interface.send_images(np_rgb, grounding_return.object_info.object_img_cutout_cropped)
+                if self.state_dict["websocket_is_connected"]:
+                    self.container.ui_interface.send_images(np_rgb, grounding_return.object_info.object_img_cutout_cropped)
 
             if task.task_type == TaskType.PICK:
                 success = self.robot.pick_up(grounding_return.object_info, np_rgb, np_depth)
@@ -288,7 +278,7 @@ class PerformTaskState(State):
 
             elif task.task_type==TaskType.PLACE:
                 if not self.carrying_object:
-                    self.ui_interface.send_as_robot("The place task could not be accomplished as no object is carried.")
+                    self.container.ui_interface.send_as_robot("The place task could not be accomplished as no object is carried.")
                     success = 0
                 else:
                     position = [200, -250, 100]
@@ -298,14 +288,10 @@ class PerformTaskState(State):
             if success:
                 self.tts("Done!")
                 rospy.loginfo("Done!")
-                if self.websocket_is_connected:
-                    self.ui_interface.send_as_robot(f"Done!")
+                if self.state_dict["websocket_is_connected"]:
+                    self.container.ui_interface.send_as_robot(f"Done!")
             else:
-                self.tts("The task failed. I might have done something wrong. I'm sorry master.")
-                rospy.loginfo("Finished program, with failure")
-                if self.websocket_is_connected:
-                    self.ui_interface.send_as_robot(
-                        f"The {self.base_task.name} task failed. I might have done something wrong. I'm sorry master.")
+                self.speak("The task failed. I might have done something wrong. I'm sorry master.")
 
 class FindObjects(State):
     def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
@@ -335,15 +321,6 @@ class StartTeachState(State):
 
     def execute(self):
         self.container.tts()
-
-def send_human_sentence_to_GUI(sentence, websocket_is_connected):
-    rospy.loginfo(f"Got sentence: {sentence}")
-    if websocket_is_connected:
-        ui_interface.send_as_user(sentence)
-
-def send_robot_sentence_to_GUI(sentence, websocket_is_connected):
-    if websocket_is_connected:
-        ui_interface.send_as_robot(sentence)
 
 class DialogFlow:
     def __init__(self, ner_model_path, ner_tag_path, feature_weights_path, db_path, background_image_file, websocket_uri):
@@ -375,10 +352,19 @@ class DialogFlow:
         self.task_grounding_return = None
         self.current_state = DialogState.INITIALISE
 
+    def send_human_sentence_to_GUI(self, sentence):
+        rospy.loginfo(f"Got sentence: {sentence}")
+        if self.websocket_is_connected:
+            self.ui_interface.send_as_user(sentence)
 
+    def send_robot_sentence_to_GUI(self, sentence):
+        if self.websocket_is_connected:
+            self.ui_interface.send_as_robot(sentence)
 
-    def controller(self):
-
+    def speak(self, sentence):
+        self.tts(sentence)
+        rospy.loginfo(sentence)
+        self.send_robot_sentence_to_GUI(sentence)
 
     def speech_to_text_callback(self, data):
         rospy.logdebug(f"Got STT: {data}")
