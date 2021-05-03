@@ -11,6 +11,8 @@ class TaskErrorType(Enum):
     NO_OBJECT = "no object specified when required"
     NO_SUBTASKS = "no specified subtasks"
     NO_SPATIAL = "no spatial specified"
+    ALREADY_USED_WORD = "word already used in other task"
+    ALREADY_KNOWN_TASK = "I already know this task"
 
 
 class TaskGroundingError:
@@ -97,8 +99,15 @@ class TaskGrounding:
         return tasks
 
     def teach_new_task(self, task_name, sub_tasks, words):
-        self.db.add_task(task_name, words)
+        task_exists = self.db.get_task_id(task_name)
         return_object = TaskGroundingReturn()
+        if task_exists:
+            error = TaskGroundingError()
+            error.error_task = task_name
+            error.error_code = TaskErrorType.ALREADY_KNOWN_TASK
+            return_object.error = error
+            return return_object
+        error_words = self.db.add_task(task_name, words)
         for task in sub_tasks:
             (sub_task_id, _) = self.db.get_task(task.name)
             if sub_task_id is None:
@@ -107,6 +116,12 @@ class TaskGrounding:
                 return return_object
             self.db.add_sub_task(task_name, sub_task_id)
         return_object.is_success = True
+        if error_words:
+            return_object.is_success = False
+            error = TaskGroundingError()
+            error.error_task = error_words
+            error.error_code = TaskErrorType.ALREADY_USED_WORD
+            return_object.error = error
         return return_object
 
     def add_word_to_task(self, task_word, word_to_add):
