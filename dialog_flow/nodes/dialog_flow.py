@@ -18,6 +18,7 @@ from ui_interface_lib.ui_interface import UIInterface
 from typing import Type, Callable, Any, NewType
 import random
 
+
 class DialogState(Enum):
     INITIALISE = 0
     WAIT_FOR_GREETING = 1
@@ -36,9 +37,10 @@ class DialogState(Enum):
     WAIT_FURTHER_INSTRUCTION = 14
     PROCESS_FURTHER_INSTRUCTION = 15
 
+
 class DependencyContainer:
     def __init__(self, ner: NER, command_builder: CommandBuilder,
-                 grounding: Grounding, speak, speech_to_text_subscriber,
+                 grounding: Grounding, speak,
                  send_human_sentence_to_gui,
                  camera: ROSCamera, ui_interface: UIInterface, task_grounding: TaskGrounding):
         self.ner = ner
@@ -46,7 +48,6 @@ class DependencyContainer:
         self.grounding = grounding
         self.speak = speak
         self.send_human_sentence_to_gui = send_human_sentence_to_gui
-        self.speech_to_text_subscriber = speech_to_text_subscriber
         self.camera = camera
         self.ui_interface = ui_interface
         self.task_grounding = task_grounding
@@ -55,16 +56,21 @@ class DependencyContainer:
 class StateMachine:
     def __init__(self, container: DependencyContainer):
         self.state_dict = {
-            "last_received_sentence" : "",
-            "last_received_sentence_timestamp" : None,
-            "websocket_is_connected" : False,
-            "task_grounding_return": TaskGroundingReturn,
+            "last_received_sentence": "",
+            "last_received_sentence_timestamp": None,
+            "websocket_is_connected": False,
+            "task_grounding_return": None,
             "base_task": Task,
             "wait_response_called_from": None
-
         }
+
         self.container = container
         self.current_state = DefaultState(self.state_dict, self.container)
+        self.state_stack = []
+
+    def got_new_speech_to_text(self, message, timestamp):
+        self.state_dict["last_received_sentence"] = message
+        self.state_dict["last_received_sentence_timestamp"] = timestamp
 
     def run(self):
         while True:
@@ -154,7 +160,25 @@ class VerifyCommandState(State):
             self.state_dict["wait_response_called_from"] = self
             return self.wait_for_response
 
+
 class WaitForResponseState(State):
+    def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
+        super().__init__(state_dict, container, previous_state)
+
+    def execute(self):
+        got_new_sentence = False
+        init_time_stamp = rospy.get_rostime()
+        while not got_new_sentence:
+            if self.state_dict["last_received_sentence_timestamp"] is not None:
+                time_difference = self.state_dict["last_received_sentence_timestamp"] - init_time_stamp
+                if time_difference >= rospy.Duration.from_sec(0):
+                    got_new_sentence = True
+                    break
+            rospy.sleep(rospy.Duration.from_sec(0.1))
+        return self.previous_state
+
+
+class WaitForResponseStateOld(State):
     def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
         super().__init__(state_dict, container, previous_state)
         self.previous_state = previous_state
@@ -319,12 +343,35 @@ class ClarifyObjects(State):
         else:
             return self.previous_state
 
+
 class StartTeachState(State):
     def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
         super().__init__(state_dict, container, previous_state)
+        self.wait_for_state = WaitForResponseState(state_dict, container, self)
+        self.is_first_call = True
 
     def execute(self):
-        self.container.tts()
+        if not self.is_first_call:
+            # got response
+        else:
+            self.container.speak("What is the name of the task you want to teach me?")
+            self.is_first_call = False
+        return self.wait_for_state
+
+class AskForTeachWordsState(State):
+    def __init__(self, state_dict, container: DependencyContainer, previous_state=None, last_state_failed=False):
+        super().__init__(state_dict, container, previous_state)
+        self.wait_for_state = WaitForResponseState(state_dict, container, self)
+        self.last_state_failed = last_state_failed
+
+    def execute(self):
+        if self.last_state_failed:
+            pass
+        self.container.speak("Which other words do you want to associate with this task?")
+        return self.wait_for_state
+
+
+
 
 class DialogFlow:
     def __init__(self, ner_model_path, ner_tag_path, feature_weights_path, db_path, background_image_file, websocket_uri):
@@ -355,6 +402,9 @@ class DialogFlow:
         self.tasks_to_perform = None
         self.task_grounding_return = None
         self.current_state = DialogState.INITIALISE
+        self.container = DependencyContainer(self.ner, self.command_builder, self.grounding, self.speak,
+                                             self.send_human_sentence_to_GUI, self.camera, self.ui_interface, self.task_grounding)
+        self.state_machine = StateMachine(self.container)
 
     def send_human_sentence_to_GUI(self, sentence):
         rospy.loginfo(f"Got sentence: {sentence}")
@@ -374,6 +424,7 @@ class DialogFlow:
         rospy.logdebug(f"Got STT: {data}")
         self.last_received_sentence_timestamp = data.timestamp
         self.last_received_sentence = data.data
+        self.state_machine.got_new_speech_to_text(self.last_received_sentence, self.last_received_sentence_timestamp)
 
     def learn_control(self, name, image):
         self.tts("I will try and learn the new object")
