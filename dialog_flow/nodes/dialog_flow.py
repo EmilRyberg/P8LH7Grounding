@@ -60,6 +60,7 @@ class StateMachine:
             "websocket_is_connected" : False,
             "task_grounding_return": TaskGroundingReturn,
             "base_task": Task,
+            "wait_response_called_from": None
 
         }
         self.container = container
@@ -112,15 +113,13 @@ class GreetState(State):
     def execute(self):
         spoken_sentence = "Hello."
         rospy.loginfo(spoken_sentence)
-        self.tts(spoken_sentence)
-        send_robot_sentence_to_GUI(spoken_sentence, self.state_dict["websocket_is_connected"])
+        self.container.speak(spoken_sentence)
         return self.wait_for_command_state
 
 
 class AskForCommandState(State):
     def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
         super().__init__(state_dict, container, previous_state)
-        self.previous_state = previous_state
         self.wait_for_command_state = WaitForResponseState(state_dict, container, self)
 
     def execute(self):
@@ -128,35 +127,40 @@ class AskForCommandState(State):
             spoken_sentence = "What would you like me to do?"
             rospy.loginfo(spoken_sentence)
             self.container.speak(spoken_sentence)
+            self.state_dict["wait_response_called_from"] = self
             return self.wait_for_command_state
         elif isinstance(self.previous_state, PerformTaskState):
             spoken_sentence = "I have now performed the task you requested. Is there anything else you want me to do?"
             rospy.loginfo(spoken_sentence)
             self.container.speak(spoken_sentence)
-            self.current_state = DialogState.WAIT_FURTHER_INSTRUCTION
+            self.state_dict["wait_response_called_from"] = self
+            return self.wait_for_command_state
 
 
 class VerifyCommandState(State):
     def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
         super().__init__(state_dict, container, previous_state)
+        self.wait_for_response = WaitForResponseState(state_dict, container, self)
 
     def execute(self):
         self.container.send_human_sentence_to_gui(self.state_dict["last_received_sentence"])
         entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
         is_teach = any([x[0] == EntityType.TEACH for x in entities]) # TODO make states for teaching
         if not is_teach:
-            self.base_task = self.container.command_builder.get_task(self.state_dict["last_received_sentence"])
-
-            log_string = f"Ok, just to be sure. You want me to execute the task {self.base_task.name}?"
+            self.state_dict["base_task"] = self.container.command_builder.get_task(self.state_dict["last_received_sentence"])
+            log_string = f"Ok, just to be sure. You want me to execute the task {self.state_dict['base_task'].name}?"
             rospy.loginfo(log_string)
             self.container.speak(log_string)
-            self.current_state = DialogState.WAIT_FOR_VERIFICATION
+            self.state_dict["wait_response_called_from"] = self
+            return self.wait_for_response
 
 class WaitForResponseState(State):
     def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
         super().__init__(state_dict, container, previous_state)
         self.previous_state = previous_state
         self.ask_for_command = AskForCommandState(state_dict, container, self)
+        self.verify_command = VerifyCommandState(state_dict, container, self)
+        self.extract_task = ExtractTaskState(state_dict, container, self)
 
     def execute(self):
         start_timestamp = rospy.get_rostime()
@@ -172,22 +176,22 @@ class WaitForResponseState(State):
         self.container.send_human_sentence_to_gui(self.state_dict["last_received_sentence"])
         entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
         if isinstance(self.previous_state, GreetState) or isinstance(self.previous_state, AskForCommandState):
-
-        if isinstance(self.previous_state, VerifyCommandState):
+            return self.verify_command
+        elif isinstance(self.previous_state, VerifyCommandState):
             affirmation = any([x[0] == EntityType.AFFIRMATION for x in entities])
             denial = any([x[0] == EntityType.DENIAL for x in entities])
             if affirmation:
-                self.current_state = DialogState.EXTRACT_TASK
+                return self.extract_task
             elif denial:
                 log_string = "Ok, what would you then like me to do?"
                 rospy.loginfo(log_string)
                 self.container.speak(log_string)
-                self.current_state = DialogState.WAIT_FOR_COMMAND
+                return self
             else:
                 log_string = f"Sorry, I did not catch that. Did you want me to execute the task {self.state_dict['base_task'].name}?"
                 rospy.loginfo(log_string)
                 self.container.speak(log_string)
-                self.current_state = DialogState.WAIT_FOR_VERIFICATION
+                return self
 
 class ExtractTaskState(State):
     def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
