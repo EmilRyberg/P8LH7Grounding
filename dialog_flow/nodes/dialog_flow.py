@@ -74,7 +74,7 @@ class StateMachine:
         self.state_dict["last_received_sentence_timestamp"] = timestamp
 
     def run(self):
-        while True:
+        while self.current_state is not None:
             new_state = self.current_state.execute()
             if new_state:
                 self.current_state = new_state
@@ -511,17 +511,54 @@ class AskForClarificationTeachState(State):
         else:
             entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
             if len([x for x in entities if x[0] == EntityType.AFFIRMATION]) > 0:
-                # TODO: Next step
-                pass
+                self.state_dict["new_task_sequence"].extend(self.tasks)
+
             elif len([x for x in entities if x[0] == EntityType.DENIAL]) > 0:
                 self.container.speak("I heard you said no. Let's try again.")
                 ask_for_task_sequence_state = AskForTaskSequenceState(self.state_dict, self.container, self.task_name,
                                                                       self.task_words, self, "dummy error")
                 return ask_for_task_sequence_state
             else:
-                #Neither affirmation or denial
-                pass
+                self.container.speak("I did not get whether you said yes or no.")
+                self.is_first_run = True
+                return self
 
+
+class AskIfMoreStepsState(State):
+    def __init__(self, state_dict, container: DependencyContainer, task_name, task_words, previous_state=None):
+        super().__init__(state_dict, container, previous_state)
+        self.task_name = task_name
+        self.task_words = task_words
+        self.is_first_run = True
+        self.wait_for_response_state = WaitForResponseState(state_dict, container, self)
+
+    def execute(self):
+        if self.is_first_run:
+            self.container.speak("Is there more steps you want to add to this task?")
+            self.is_first_run = False
+            return self.wait_for_response_state
+        else:
+            entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
+            if len([x for x in entities if x[0] == EntityType.AFFIRMATION]) > 0:
+                ask_for_task_sequence_state = AskForTaskSequenceState(self.state_dict, self.container, self.task_name,
+                                                                      self.task_words, self)
+                return ask_for_task_sequence_state
+            elif len([x for x in entities if x[0] == EntityType.DENIAL]) > 0:
+                task_return = self.container.task_grounding.teach_new_task(self.task_name, self.state_dict["new_task_sequence"], self.task_words)
+                self.state_dict["new_task_sequence"] = []
+                if task_return.is_success:
+                    self.container.speak(f"I have now learned the task {self.task_name} and associated the words {', '.join(self.task_words)} with it.")
+                    ask_for_command_state = AskForCommandState(self.state_dict, self.container, self)
+                    return ask_for_command_state
+                else:
+                    rospy.logerror(f"Something went wrong when teaching task: {task_return.error}")
+                    self.container.speak("Something went wrong.") # TODO: Handle different errors
+                    ask_for_command_state = AskForCommandState(self.state_dict, self.container, self)
+                    return ask_for_command_state
+            else:
+                self.container.speak("I did not get whether you said yes or no.")
+                self.is_first_run = True
+                return self
 
 
 class DialogFlow:
