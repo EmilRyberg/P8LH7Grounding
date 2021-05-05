@@ -8,7 +8,7 @@ from ner_lib.ner import NER, EntityType
 from little_helper_interfaces.msg import StringWithTimestamp
 from vision_lib.ros_camera_interface import ROSCamera
 from robot_control.robot_control import RobotController
-from grounding_lib.grounding import Grounding
+from grounding_lib.grounding import Grounding, GroundingErrorType
 from vision_lib.vision_controller import VisionController
 from grounding_lib.spatial import SpatialRelation
 from database_handler.database_handler import DatabaseHandler
@@ -42,7 +42,8 @@ class DependencyContainer:
     def __init__(self, ner: NER, command_builder: CommandBuilder,
                  grounding: Grounding, speak,
                  send_human_sentence_to_gui,
-                 camera: ROSCamera, ui_interface: UIInterface, task_grounding: TaskGrounding):
+                 camera: ROSCamera, ui_interface: UIInterface, task_grounding: TaskGrounding,
+                 robot: RobotController):
         self.ner = ner
         self.command_builder = command_builder
         self.grounding = grounding
@@ -51,6 +52,7 @@ class DependencyContainer:
         self.camera = camera
         self.ui_interface = ui_interface
         self.task_grounding = task_grounding
+        self.robot = robot
 
 
 class StateMachine:
@@ -62,7 +64,9 @@ class StateMachine:
             "task_grounding_return": None,
             "base_task": Task,
             "wait_response_called_from": None,
-            "tasks_to_perform": None
+            "tasks_to_perform": None,
+            "carrying_object": False,
+            "grounding_error": None,
         }
 
         self.container = container
@@ -124,7 +128,6 @@ class GreetState(State):
         if self.is_first_call:
             self.is_first_call = False
             spoken_sentence = "Hello."
-            rospy.loginfo(spoken_sentence)
             self.container.speak(spoken_sentence)
             return self.wait_for_command_state
         else:
@@ -142,6 +145,7 @@ class AskForCommandState(State):
         super().__init__(state_dict, container, previous_state)
         self.wait_for_command_state = WaitForResponseState(state_dict, container, self)
         self.verify_command_state = VerifyCommandState(state_dict, container, self)
+        self.wait_for_greet_state = WaitForGreetingState(state_dict, container, self)
         self.is_first_call = True
 
     def execute(self):
@@ -149,17 +153,14 @@ class AskForCommandState(State):
             self.is_first_call = False
             if isinstance(self.previous_state, GreetState):
                 spoken_sentence = "What would you like me to do?"
-                rospy.loginfo(spoken_sentence)
                 self.container.speak(spoken_sentence)
                 return self.wait_for_command_state
             elif isinstance(self.previous_state, PerformTaskState):
-                spoken_sentence = "I have now performed the task you requested. Is there anything else you want me to do?"
-                rospy.loginfo(spoken_sentence)
+                spoken_sentence = "Is there anything else you want me to do?"
                 self.container.speak(spoken_sentence)
                 return self.wait_for_command_state
             elif isinstance(self.previous_state, VerifyCommandState):
                 log_string = "Ok, what would you then like me to do?"
-                rospy.loginfo(log_string)
                 self.container.speak(log_string)
                 return self.wait_for_command_state
         else: # Got a response
@@ -169,11 +170,19 @@ class AskForCommandState(State):
                 has_task =  any([x[0] == EntityType.TASK for x in entities])
                 if not is_teach and has_task:
                     return self.verify_command_state
-            else:
-                spoken_sentence = "Sorry I did not get that, what can I do for you?"
-                rospy.loginfo(spoken_sentence)
-                self.container.speak(spoken_sentence)
-                return self.wait_for_command_state
+                elif not is_teach: # Assumes that the user responded to whether the robot should do a task
+                    affirmation = any([x[0] == EntityType.AFFIRMATION for x in entities])
+                    denial = any([x[0] == EntityType.DENIAL for x in entities])
+                    if affirmation:
+                        self.container.speak("Okay, what would you like me to do?")
+                        return self.wait_for_command_state
+                    else:
+                        self.container.speak("Okay, goodbye for now master skywalker")
+                        return self.wait_for_greet_state
+
+            spoken_sentence = "Sorry I did not get that, what can I do for you?"
+            self.container.speak(spoken_sentence)
+            return self.wait_for_command_state
 
 
 class VerifyCommandState(State):
@@ -193,7 +202,6 @@ class VerifyCommandState(State):
             if not is_teach:
                 self.state_dict["base_task"] = self.container.command_builder.get_task(self.state_dict["last_received_sentence"])
                 log_string = f"Ok, just to be sure. You want me to execute the task {self.state_dict['base_task'].name}?"
-                rospy.loginfo(log_string)
                 self.container.speak(log_string)
                 return self.wait_for_response
         else: # Got response
@@ -205,7 +213,6 @@ class VerifyCommandState(State):
                 return self.ask_for_command
             else:
                 log_string = f"Sorry, I did not catch that. Did you want me to execute the task {self.state_dict['base_task'].name}?"
-                rospy.loginfo(log_string)
                 self.container.speak(log_string)
                 return self.wait_for_response
 
@@ -253,19 +260,15 @@ class ValidateTaskState(State):
         error = self.state_dict['task_grounding_return'].error
         if error.error_code == TaskErrorType.UNKNOWN:
             log_string = f"Sorry, I do not know the task {error.error_task}"
-            rospy.loginfo(log_string)
             self.container.speak(log_string)
         elif error.error_code == TaskErrorType.NO_OBJECT:
             log_string = f"Sorry, I don't know which object to perform the task {error.error_task.task_type.value}"
-            rospy.loginfo(log_string)
             self.container.speak(log_string)
         elif error.error_code == TaskErrorType.NO_SUBTASKS:
             log_string = f"Sorry, I don't know the sub tasks for the task {error.error_task}"
-            rospy.loginfo(log_string)
             self.container.speak(log_string)
         elif error.error_code == TaskErrorType.NO_SPATIAL:
             log_string = f"Sorry, I am missing a spatial description of where to perform the task task {error.error_task}"
-            rospy.loginfo(log_string)
             self.container.speak(log_string)
         return self.ask_for_clarification_state
 
@@ -283,21 +286,17 @@ class AskForClarificationState(State):
             self.is_first_run = False
             if self.error.error_code == TaskErrorType.UNKNOWN:
                 log_string = f"Do you want to teach me the task {self.error.error_task}?"
-                rospy.loginfo(log_string)
                 self.container.speak(log_string)
             elif self.error.error_code == TaskErrorType.NO_OBJECT:
                 # TODO make logic for adding object to the task instead of having to re-do the task.
                 log_string = f"Please repeat what you want me to do, and remember to specify the object I need to perform the task on."
-                rospy.loginfo(log_string)
                 self.container.speak(log_string)
             elif self.error.error_code == TaskErrorType.NO_SUBTASKS:
                 log_string = f"Do you want to teach me how to perform the task {self.error.error_task}?"
-                rospy.loginfo(log_string)
                 self.container.speak(log_string)
             elif self.error.error_code == TaskErrorType.NO_SPATIAL:
                 # TODO make logic for adding object to the task instead of having to re-do the task.
                 log_string = f"Please repeat what you want me to do, and remember to specify the spatial description."
-                rospy.loginfo(log_string)
                 self.container.speak(log_string)
             return self.wait_for_response_state
         else: # Got response
@@ -314,75 +313,124 @@ class AskForClarificationState(State):
 class PerformTaskState(State):
     def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
         super().__init__(state_dict, container, previous_state)
+        self.clarify_objects_state = ClarifyObjects(state_dict, container, self)
+        self.wait_for_greet_state = WaitForGreetingState(state_dict, container, self) # TODO Should we reset the state dict here?
+        self.ask_for_new_command_state = AskForCommandState(state_dict, container, self)
 
     def execute(self):
         log_string = f"I will now execute the task {self.state_dict['base_task'].name}."
-        rospy.loginfo(log_string)
         self.container.speak(log_string)
 
-        for task in self.state_dict['task_grounding_return'].task_info:
-            # To make sure robot is out of view, might be unecesarry
-            # while not self.robot.is_out_of_view():
-            self.robot.move_out_of_view()
+        if self.state_dict["task_grounding_return"].task_info:
+            task = self.state_dict['task_grounding_return'].task_info[0]
+            self.container.robot.move_out_of_view()
 
             np_rgb = self.container.camera.get_image()
             np_depth = self.container.camera.get_depth()
 
-            grounding_return = self.grounding.find_object(task.objects_to_execute_on[0])
+            grounding_return = self.container.grounding.find_object(task.objects_to_execute_on[0])
             if not grounding_return.is_success:
-                # TODO: Handle unknown object here
-                sentence = "I could not find the object you were looking for. Restarting."
-                self.speak(sentence)
-                return
+                self.state_dict["grounding_error"] = grounding_return.error_code
+                return self.clarify_objects_state
             else:
                 if self.state_dict["websocket_is_connected"]:
-                    self.container.ui_interface.send_images(np_rgb, grounding_return.object_info.object_img_cutout_cropped)
-
+                    self.container.ui_interface.send_images(np_rgb, grounding_return.object_info[0].object_img_cutout_cropped)
+            success = False
             if task.task_type == TaskType.PICK:
-                success = self.robot.pick_up(grounding_return.object_info, np_rgb, np_depth)
-                self.carrying_object = True
+                success = self.container.robot.pick_up(grounding_return.object_info[0], np_rgb, np_depth)
+                self.state_dict["carrying_object"] = True
 
             elif task.task_type== TaskType.FIND:
-                success = self.robot.point_at(grounding_return.object_info, np_rgb, np_depth)
+                success = self.container.robot.point_at(grounding_return.object_info[0], np_rgb, np_depth)
 
             elif task.task_type==TaskType.PLACE:
-                if not self.carrying_object:
-                    self.container.ui_interface.send_as_robot("The place task could not be accomplished as no object is carried.")
-                    success = 0
+                if not self.state_dict["carrying_object"]:
+                    self.container.speak("The place task could not be accomplished as no object is carried.")
+                    success = False
                 else:
-                    position = [200, -250, 100]
-                    success = self.robot.place(position)
-                    self.carrying_object = False
+                    x,y = self.container.grounding.get_location(task.objects_to_execute_on[0])
+                    position = [x, y, 50]
+                    success = self.container.robot.place(position)
+                    self.state_dict["carrying_object"] = False
 
             if success:
-                self.tts("Done!")
-                rospy.loginfo("Done!")
-                if self.state_dict["websocket_is_connected"]:
-                    self.container.ui_interface.send_as_robot(f"Done!")
+                del self.state_dict['task_grounding_return'].task_info[0] # Removing the task from the list, we just completed
+                return self
             else:
-                self.speak("The task failed. I might have done something wrong. I'm sorry master.")
-
-class FindObjects(State):
-    def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
-        super().__init__(state_dict, container, previous_state)
-
-    def execute(self):
-        got_greeting = False
-        if got_greeting:
-            return self.greet
+                self.container.speak(f"I failed to perform the task: {task.task_type.value} on the object: {task.objects_to_execute_on[0].name}. I might have done something wrong. I'm sorry master. I will restart my program.")
+                return self.wait_for_greet_state
         else:
-            return self.previous_state
+            # All tasks have been carried out
+            self.container.speak("I have performed the task you requested!")
+            return self.ask_for_new_command_state
+
 
 class ClarifyObjects(State):
     def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
         super().__init__(state_dict, container, previous_state)
+        self.wait_for_greet_state = WaitForGreetingState(state_dict, container, self)
+        self.wait_response_state = WaitForResponseState(state_dict, container, self)
+        self.perform_task_state = PerformTaskState(state_dict, container, self)
+        self.is_first_run = True
+        self.clean_clarify_objects = ClarifyObjects(state_dict, container, self)
+        self.error = self.state_dict["grounding_error"]
+        self.asked_for_restart = False
 
     def execute(self):
-        got_greeting = False
-        if got_greeting:
-            return self.greet
+
+        if self.is_first_run:
+            self.is_first_run = False
+            if self.error == GroundingErrorType.UNKNOWN:
+                self.container.speak(f"Sorry master, I don't know the object: {self.state_dict['task_grounding_return'].task_info[0].objects_to_execute_on[0].name}."
+                                     f" Please make sure I know it") # TODO add support for teaching objects.
+                return self.wait_for_greet_state
+            elif self.error == GroundingErrorType.CANT_FIND:
+                self.container.speak(f"Sorry master, I could not find the object: {self.state_dict['task_grounding_return'].task_info[0].objects_to_execute_on[0].name}."
+                                     f" Please make sure it is on the table. If it is, I think I need to get my feature database updated.")
+                self.container.speak("Is the object clearly visible on the table now?")
+                return self.wait_response_state
+            elif self.error == GroundingErrorType.ALREADY_KNOWN:
+                pass # TODO use this when adding support for teaching objects.
+            else:
+                self.container.speak("Got unknown error from visual grounding. Please fix my code master.")
+                return self.wait_for_greet_state
         else:
-            return self.previous_state
+            # Got response
+            entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
+            denial = any([x[0] == EntityType.DENIAL for x in entities])
+            if denial and not self.asked_for_restart:
+                self.container.speak("Okay, since you said the object is not visible I can't perform my task. I will now restart.")
+                return self.wait_for_greet_state
+            elif self.error == GroundingErrorType.CANT_FIND and not self.asked_for_restart:
+                self.container.speak("I will check if I can find the object now.")
+                task = self.state_dict['task_grounding_return'].task_info[0]
+                self.container.robot.move_out_of_view()
+                grounding_return = self.container.grounding.find_object(task.objects_to_execute_on[0])
+                if grounding_return.is_success:
+                    self.container.speak("I could find the object now. I will resume my task.")
+                    return self.perform_task_state
+                elif grounding_return.error_code == GroundingErrorType.CANT_FIND:
+                    self.container.speak(
+                        f"Sorry master, I could still not find the object: {self.state_dict['task_grounding_return'].task_info[0].objects_to_execute_on[0].name}."
+                        f" I think I need to get my features updated. I will now restart.") # TODO add support for updating features.
+                    return self.wait_for_greet_state
+                else:
+                    self.state_dict["grounding_error"] = grounding_return.error_code
+                    return self.clean_clarify_objects
+            elif self.asked_for_restart:
+                entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
+                affirmation = any([x[0] == EntityType.AFFIRMATION for x in entities])
+                denial = any([x[0] == EntityType.DENIAL for x in entities])
+                if affirmation:
+                    self.container.speak("Okay master. I'm sorry I failed you. I will now restart.")
+                    return self.wait_for_greet_state
+                else:
+                    self.container.speak("Okay master. I will try to find the objects again from scratch.")
+                    return self.perform_task_state
+            else:
+                self.container.speak("Sorry master, it seems like I'm having troubles. Should I restart my program?")
+                self.asked_for_restart = True
+                return self.wait_response_state
 
 
 class StartTeachState(State):
@@ -444,7 +492,7 @@ class DialogFlow:
         self.task_grounding_return = None
         self.current_state = DialogState.INITIALISE
         self.container = DependencyContainer(self.ner, self.command_builder, self.grounding, self.speak,
-                                             self.send_human_sentence_to_GUI, self.camera, self.ui_interface, self.task_grounding)
+                                             self.send_human_sentence_to_GUI, self.camera, self.ui_interface, self.task_grounding, self.robot)
         self.state_machine = StateMachine(self.container)
 
     def send_human_sentence_to_GUI(self, sentence):
