@@ -14,7 +14,7 @@ class VisionController:
             rospy.init_node("vision_test", anonymous=True)
         background_img = cv.imread(background_image_file)
         self.find_objects = FindObjects(background_img=background_img)
-        self.feature_extractor = FeatureExtractor(weights_dir=weights_path, on_gpu=False)
+        self.feature_extractor = FeatureExtractor(weights_dir=weights_path, on_gpu=True)
         self.camera = ROSCamera()
 
     def get_masks_with_features(self, debug=False):
@@ -37,7 +37,14 @@ class VisionController:
             cv.waitKey(0)
         return objects_with_features
 
+    def get_rgb(self):
+        return self.camera.get_image()
+
+    def get_depth(self):
+        return self.camera.get_depth()
+
 
 if __name__ == "__main__":
     vc = VisionController("background.png", "../../dialog_flow/nodes/feature_extraction.pth", init_node=True)
-    vc.get_masks_with_features(debug=True)
+    masks_with_features = vc.get_masks_with_features(debug=True)
+    obj = masks_with_features[0]

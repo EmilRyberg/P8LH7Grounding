@@ -94,3 +94,5 @@ Note: You will probably get a lot of warnings when running the code, in the form
 1. `roslaunch dialog_flow hri_backbone_launch.launch azure_key:=[api key to Azure]`
 2. `rosrun bin_picking moveit_interface_node.py` - IMPORTANT: Needs to be python 2!
 3. `Run dialog_flow.py`
+
+If you want to visualize the robot in RViz: `roslaunch ur5_moveit_config moveit_rviz.launch config:=true`
