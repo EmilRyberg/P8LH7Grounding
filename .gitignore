@@ -167,6 +167,7 @@ feature_extractor/SpineNet/
 *.json
 *.txt
 !CMakeLists.txt
+!background.png
 
 *.tfevents.*
 
