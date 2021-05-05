@@ -1,41 +1,24 @@
 #!/usr/bin/env python3
 import argparse
-import rospy
 from enum import Enum
 from find_objects.find_objects import ObjectInfo
 from ner_lib.command_builder import CommandBuilder, SpatialType, Task, TaskType, ObjectEntity as ObjectEntityType
 from ner_lib.ner import NER, EntityType
-from little_helper_interfaces.msg import StringWithTimestamp
 from vision_lib.ros_camera_interface import ROSCamera
 from robot_control.robot_control import RobotController
 from grounding_lib.grounding import Grounding, GroundingErrorType
 from vision_lib.vision_controller import VisionController
 from grounding_lib.spatial import SpatialRelation
 from database_handler.database_handler import DatabaseHandler
-from text_to_speech.srv import TextToSpeech
 from task_grounding.task_grounding import TaskGrounding, TaskGroundingError, TaskErrorType, TaskGroundingReturn
 from ui_interface_lib.ui_interface import UIInterface
 from typing import Type, Callable, Any, NewType, List
 import random
+#import rospy
+#from little_helper_interfaces.msg import StringWithTimestamp
+#from text_to_speech.srv import TextToSpeech
 
 
-class DialogState(Enum):
-    INITIALISE = 0
-    WAIT_FOR_GREETING = 1
-    GREET = 2
-    ASK_FOR_COMMAND = 3
-    WAIT_FOR_COMMAND = 4
-    VERIFY_COMMAND = 5
-    WAIT_FOR_VERIFICATION = 6
-    EXTRACT_TASK = 7
-    CHECK_FOR_MISSING_CLARIFICATION = 8
-    ASK_FOR_CLARIFICATION = 9
-    WAIT_FOR_CLARIFICATION = 10
-    PROCESS_CLARIFICATION = 11
-    PERFORM_TASK = 12
-    ASK_FOR_FURTHER_INSTRUCTION = 13
-    WAIT_FURTHER_INSTRUCTION = 14
-    PROCESS_FURTHER_INSTRUCTION = 15
 
 
 class DependencyContainer:
