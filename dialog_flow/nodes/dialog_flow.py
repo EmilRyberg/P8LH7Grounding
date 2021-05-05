@@ -15,7 +15,7 @@ from database_handler.database_handler import DatabaseHandler
 from text_to_speech.srv import TextToSpeech
 from task_grounding.task_grounding import TaskGrounding, TaskGroundingError, TaskErrorType, TaskGroundingReturn
 from ui_interface_lib.ui_interface import UIInterface
-from typing import Type, Callable, Any, NewType
+from typing import Type, Callable, Any, NewType, List
 import random
 
 
@@ -78,7 +78,7 @@ class StateMachine:
         self.state_dict["last_received_sentence_timestamp"] = timestamp
 
     def run(self):
-        while True:
+        while self.current_state is not None:
             new_state = self.current_state.execute()
             if new_state:
                 self.current_state = new_state
@@ -436,30 +436,177 @@ class ClarifyObjects(State):
 class StartTeachState(State):
     def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
         super().__init__(state_dict, container, previous_state)
+        self.verify_task_name_state = VerifyTaskNameState(state_dict, container, self)
+
+    def execute(self):
+        self.container.speak("What is the name of the task you want to teach me?")
+        return self.verify_task_name_state
+
+
+class VerifyTaskNameState(State):
+    def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
+        super().__init__(state_dict, container, previous_state)
         self.wait_for_state = WaitForResponseState(state_dict, container, self)
         self.is_first_call = True
 
     def execute(self):
-        if not self.is_first_call:
-            # got response
-        else:
-            self.container.speak("What is the name of the task you want to teach me?")
+        if self.is_first_call:
             self.is_first_call = False
-        return self.wait_for_state
+            return self.wait_for_state
+        else:
+            task_name = self.state_dict["last_received_sentence"]  # assumed whole sentence is task name
+            ask_for_task_words_state = AskForTaskWordsState(self.state_dict, self.container, task_name, self)
+            return ask_for_task_words_state
 
-class AskForTeachWordsState(State):
-    def __init__(self, state_dict, container: DependencyContainer, previous_state=None, last_state_failed=False):
+
+class AskForTaskWordsState(State):
+    def __init__(self, state_dict, container: DependencyContainer, task_name, previous_state=None):
         super().__init__(state_dict, container, previous_state)
         self.wait_for_state = WaitForResponseState(state_dict, container, self)
-        self.last_state_failed = last_state_failed
+        self.task_name = task_name
+        self.is_first_call = True
 
     def execute(self):
-        if self.last_state_failed:
-            pass
-        self.container.speak("Which other words do you want to associate with this task?")
-        return self.wait_for_state
+        if self.is_first_call:
+            self.is_first_call = False
+            self.container.speak("Which other words do you want to associate with this task?")
+            return self.wait_for_state
+        else:
+            entites = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
+            task_words = [x[1] for x in entites if x[0] == EntityType.TASK]
+            self.container.speak(f"I recognised the following words: {', '.join(task_words) if len(task_words) > 0 else 'none'}")
+            task_sequence_state = AskForTaskSequenceState(self.state_dict, self.container, self.task_name, task_words, self)
+            return task_sequence_state
 
 
+class AskForTaskSequenceState(State):
+    def __init__(self, state_dict, container: DependencyContainer, task_name, task_words, previous_state=None, future_error=None):
+        super().__init__(state_dict, container, previous_state)
+        self.task_name = task_name
+        self.wait_for_response_state = WaitForResponseState(state_dict, container, self)
+        self.task_words = task_words
+        self.is_first_call = True
+        self.future_error = future_error
+
+    def execute(self):
+        if self.is_first_call:
+            self.is_first_call = False
+            if self.future_error is not None:
+                self.container.speak("Something went wrong, you might have specified a task that does not exist")
+            else:
+                self.container.speak("Tell me how I should carry out this task")
+            return self.wait_for_response_state
+        else:
+            if "new_task_sequence" not in self.state_dict.keys() or self.state_dict["new_task_sequence"] is None:
+                self.state_dict["new_task_sequence"] = []
+
+            extract_task_state = ExtractTeachTaskState(self.state_dict, self.container, self.task_name, self.task_words, self)
+            return extract_task_state
+
+
+class ExtractTeachTaskState(State):
+    def __init__(self, state_dict, container: DependencyContainer, task_name, task_words, previous_state=None):
+        super().__init__(state_dict, container, previous_state)
+        self.task_name = task_name
+        self.task_words = task_words
+
+    def execute(self):
+        sentence = self.state_dict["last_received_sentence"]
+        task = self.container.command_builder.get_task(sentence)
+        validate_task_state = ValidateTeachTaskState(self.state_dict, self.container, self.task_name, self.task_words, task, self)
+        return validate_task_state
+
+
+class ValidateTeachTaskState(State):
+    def __init__(self, state_dict, container: DependencyContainer, task_name, task_words, task: Task, previous_state=None):
+        super().__init__(state_dict, container, previous_state)
+        self.task_name = task_name
+        self.task_words = task_words
+        self.task = task
+
+    def execute(self):
+        task_return_info = self.container.task_grounding.get_specific_task_from_task(self.task)
+        if task_return_info.is_success:
+            tasks = task_return_info.task_info
+            ask_for_clarification_state = AskForClarificationTeachState(self.state_dict, self.container,
+                                                                        self.task_name, self.task_words, tasks, self)
+            return ask_for_clarification_state
+        else:
+            ask_for_task_sequence_state = AskForTaskSequenceState(self.state_dict, self.container, self.task_name,
+                                                                  self.task_words, self, task_return_info.error)
+            return ask_for_task_sequence_state
+
+
+class AskForClarificationTeachState(State):
+    def __init__(self, state_dict, container: DependencyContainer, task_name, task_words, tasks: List[Task], previous_state=None):
+        super().__init__(state_dict, container, previous_state)
+        self.task_name = task_name
+        self.task_words = task_words
+        self.tasks = tasks
+        self.is_first_run = True
+        self.wait_for_response_state = WaitForResponseState(state_dict, container, self)
+
+    def execute(self):
+        if self.is_first_run:
+            human_task_text = None
+            for task in self.tasks:
+                if human_task_text is None:
+                    human_task_text = task.task_type.value
+                else:
+                    human_task_text += f"then {task.task_type.value}"
+            self.container.speak(f"I have constructed the task sequence you told me to perform {human_task_text}. Is this correct?")
+            return self.wait_for_response_state
+        else:
+            entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
+            if len([x for x in entities if x[0] == EntityType.AFFIRMATION]) > 0:
+                self.state_dict["new_task_sequence"].extend(self.tasks)
+
+            elif len([x for x in entities if x[0] == EntityType.DENIAL]) > 0:
+                self.container.speak("I heard you said no. Let's try again.")
+                ask_for_task_sequence_state = AskForTaskSequenceState(self.state_dict, self.container, self.task_name,
+                                                                      self.task_words, self, "dummy error")
+                return ask_for_task_sequence_state
+            else:
+                self.container.speak("I did not get whether you said yes or no.")
+                self.is_first_run = True
+                return self
+
+
+class AskIfMoreStepsState(State):
+    def __init__(self, state_dict, container: DependencyContainer, task_name, task_words, previous_state=None):
+        super().__init__(state_dict, container, previous_state)
+        self.task_name = task_name
+        self.task_words = task_words
+        self.is_first_run = True
+        self.wait_for_response_state = WaitForResponseState(state_dict, container, self)
+
+    def execute(self):
+        if self.is_first_run:
+            self.container.speak("Is there more steps you want to add to this task?")
+            self.is_first_run = False
+            return self.wait_for_response_state
+        else:
+            entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
+            if len([x for x in entities if x[0] == EntityType.AFFIRMATION]) > 0:
+                ask_for_task_sequence_state = AskForTaskSequenceState(self.state_dict, self.container, self.task_name,
+                                                                      self.task_words, self)
+                return ask_for_task_sequence_state
+            elif len([x for x in entities if x[0] == EntityType.DENIAL]) > 0:
+                task_return = self.container.task_grounding.teach_new_task(self.task_name, self.state_dict["new_task_sequence"], self.task_words)
+                self.state_dict["new_task_sequence"] = []
+                if task_return.is_success:
+                    self.container.speak(f"I have now learned the task {self.task_name} and associated the words {', '.join(self.task_words)} with it.")
+                    ask_for_command_state = AskForCommandState(self.state_dict, self.container, self)
+                    return ask_for_command_state
+                else:
+                    rospy.logerror(f"Something went wrong when teaching task: {task_return.error}")
+                    self.container.speak("Something went wrong.") # TODO: Handle different errors
+                    ask_for_command_state = AskForCommandState(self.state_dict, self.container, self)
+                    return ask_for_command_state
+            else:
+                self.container.speak("I did not get whether you said yes or no.")
+                self.is_first_run = True
+                return self
 
 
 class DialogFlow:

@@ -79,3 +79,9 @@ class RobotController:
 
     def is_out_of_view(self):
         return not self.is_home
+
+
+if __name__ == "__main__":
+    rospy.init_node("controller", anonymous=True)
+    controller = RobotController()
+    controller.move_out_of_view()

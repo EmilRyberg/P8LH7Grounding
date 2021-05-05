@@ -2,6 +2,7 @@ import rospy
 from find_objects.find_objects import FindObjects, ObjectInfo
 from feature_extractor.feature_extractor_module import FeatureExtractor
 from vision_lib.ros_camera_interface import ROSCamera
+from vision_lib.object_info_with_features import ObjectInfoWithFeatures
 from typing import List
 from PIL import Image
 import cv2 as cv
@@ -13,7 +14,7 @@ class VisionController:
             rospy.init_node("vision_test", anonymous=True)
         background_img = cv.imread(background_image_file)
         self.find_objects = FindObjects(background_img=background_img)
-        self.feature_extractor = FeatureExtractor(weights_dir=weights_path)
+        self.feature_extractor = FeatureExtractor(weights_dir=weights_path, on_gpu=False)
         self.camera = ROSCamera()
 
     def get_masks_with_features(self, debug=False):
@@ -30,12 +31,13 @@ class VisionController:
             objects_with_features.append(object_with_features)
         if debug:
             cv.imshow("Image", image)
-            for i, obj in enumerate(objects):
-                cv.imshow(f"obj-{i+1}", obj.object_img_cutout_cropped)
+            for i, (obj_info_with_features) in enumerate(objects_with_features):
+                cv.imshow(f"obj-{i+1}", obj_info_with_features.object_img_cutout_cropped)
+                print(f"obj-{i+1} features: {','.join([str(x) for x in obj_info_with_features.features])}")
             cv.waitKey(0)
         return objects_with_features
 
 
 if __name__ == "__main__":
-    vc = VisionController("background.png", "triplet-epoch-9-loss-0.16331.pth", init_node=True)
+    vc = VisionController("background.png", "../../dialog_flow/nodes/feature_extraction.pth", init_node=True)
     vc.get_masks_with_features(debug=True)
