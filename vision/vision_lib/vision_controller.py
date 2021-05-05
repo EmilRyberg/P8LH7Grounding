@@ -1,5 +1,5 @@
 import rospy
-from find_objects.find_objects import FindObjects, ObjectInfo
+from find_objects_lib.find_objects import FindObjects, ObjectInfo
 from feature_extractor.feature_extractor_module import FeatureExtractor
 from vision_lib.ros_camera_interface import ROSCamera
 from vision_lib.object_info_with_features import ObjectInfoWithFeatures

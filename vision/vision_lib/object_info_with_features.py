@@ -1,4 +1,4 @@
-from find_objects.find_objects import FindObjects, ObjectInfo
+from find_objects_lib.find_objects import FindObjects, ObjectInfo
 
 class ObjectInfoWithFeatures(ObjectInfo):
     def __init__(self, object_info: ObjectInfo = None, features = None):
