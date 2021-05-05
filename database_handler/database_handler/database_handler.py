@@ -105,11 +105,11 @@ class DatabaseHandler:
         already_known = []
         for word in words:
             word_exists = self.conn.execute("SELECT * FROM TASK_WORDS WHERE WORD=?;", (word, ))
-            if word_exists:
+            if word_exists.fetchone():
                 already_known.append(word)
             else:
                 self.add_word_to_task(task_id, word)
-        return already_known
+        return task_id, already_known
 
 
     def add_word_to_task(self, task_id, word):

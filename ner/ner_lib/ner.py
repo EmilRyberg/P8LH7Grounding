@@ -10,7 +10,7 @@ class EntityType(Enum):
     LOCATION = "location"
     TASK = "task"
     DENIAL = "denial"
-    AFFIRMATION = "affirmation"
+    AFFIRMATION = "confirmation"
     TEACH = "teach"
 
 
@@ -46,10 +46,13 @@ class NER:
                     current_entity_word = ""
                 continue
             if tag_name[0] == "B":
-                if current_entity_word != "":
+                if current_entity_word != "" and current_entity != entity_name:
                     entities.append((EntityType(current_entity), current_entity_word))
-                current_entity = entity_name
-                current_entity_word = word
+                if current_entity == entity_name:
+                    current_entity_word += f"{word}"
+                else:
+                    current_entity_word = word
+                    current_entity = entity_name
             elif tag_name[0] == "I":
                 current_entity_word += f" {word}"
         return entities

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import rospy
 import argparse
 from enum import Enum
 from find_objects.find_objects import ObjectInfo
@@ -14,9 +15,8 @@ from task_grounding.task_grounding import TaskGrounding, TaskGroundingError, Tas
 from ui_interface_lib.ui_interface import UIInterface
 from typing import Type, Callable, Any, NewType, List
 import random
-#import rospy
-#from little_helper_interfaces.msg import StringWithTimestamp
-#from text_to_speech.srv import TextToSpeech
+from little_helper_interfaces.msg import StringWithTimestamp
+from text_to_speech.srv import TextToSpeech
 
 
 
@@ -53,12 +53,13 @@ class StateMachine:
         }
 
         self.container = container
-        self.current_state = DefaultState(self.state_dict, self.container)
+        self.current_state = StartTeachState(self.state_dict, self.container)
         self.state_stack = []
 
     def got_new_speech_to_text(self, message, timestamp):
-        self.state_dict["last_received_sentence"] = message
-        self.state_dict["last_received_sentence_timestamp"] = timestamp
+        if message is not None or message.strip() != "":
+            self.state_dict["last_received_sentence"] = message
+            self.state_dict["last_received_sentence_timestamp"] = timestamp
 
     def run(self):
         while self.current_state is not None:
@@ -495,6 +496,9 @@ class ExtractTeachTaskState(State):
 
     def execute(self):
         sentence = self.state_dict["last_received_sentence"]
+        if sentence is None or sentence.strip() == "":
+            ask_for_task_sequence_state = AskForTaskSequenceState(self.state_dict, self.container, self.task_name, self.task_words, self, future_error="fail")
+            return ask_for_task_sequence_state
         task = self.container.command_builder.get_task(sentence)
         validate_task_state = ValidateTeachTaskState(self.state_dict, self.container, self.task_name, self.task_words, task, self)
         return validate_task_state
@@ -532,6 +536,7 @@ class AskForClarificationTeachState(State):
     def execute(self):
         if self.is_first_run:
             human_task_text = None
+            self.is_first_run = False
             for task in self.tasks:
                 if human_task_text is None:
                     human_task_text = task.task_type.value
@@ -543,7 +548,8 @@ class AskForClarificationTeachState(State):
             entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
             if len([x for x in entities if x[0] == EntityType.AFFIRMATION]) > 0:
                 self.state_dict["new_task_sequence"].extend(self.tasks)
-
+                ask_if_more_steps_state = AskIfMoreStepsState(self.state_dict, self.container, self.task_name, self.task_words, self)
+                return ask_if_more_steps_state
             elif len([x for x in entities if x[0] == EntityType.DENIAL]) > 0:
                 self.container.speak("I heard you said no. Let's try again.")
                 ask_for_task_sequence_state = AskForTaskSequenceState(self.state_dict, self.container, self.task_name,
@@ -582,7 +588,7 @@ class AskIfMoreStepsState(State):
                     ask_for_command_state = AskForCommandState(self.state_dict, self.container, self)
                     return ask_for_command_state
                 else:
-                    rospy.logerror(f"Something went wrong when teaching task: {task_return.error}")
+                    rospy.logerr(f"Something went wrong when teaching task: {task_return.error.error_code}")
                     self.container.speak("Something went wrong.") # TODO: Handle different errors
                     ask_for_command_state = AskForCommandState(self.state_dict, self.container, self)
                     return ask_for_command_state
@@ -620,10 +626,13 @@ class DialogFlow:
         self.base_task = None
         self.tasks_to_perform = None
         self.task_grounding_return = None
-        self.current_state = DialogState.INITIALISE
+        #self.current_state = DialogState.INITIALISE
         self.container = DependencyContainer(self.ner, self.command_builder, self.grounding, self.speak,
                                              self.send_human_sentence_to_GUI, self.camera, self.ui_interface, self.task_grounding, self.robot)
         self.state_machine = StateMachine(self.container)
+
+    def start(self):
+        self.state_machine.run()
 
     def send_human_sentence_to_GUI(self, sentence):
         rospy.loginfo(f"Got sentence: {sentence}")
@@ -643,6 +652,7 @@ class DialogFlow:
         rospy.logdebug(f"Got STT: {data}")
         self.last_received_sentence_timestamp = data.timestamp
         self.last_received_sentence = data.data
+        self.send_human_sentence_to_GUI(data.data)
         self.state_machine.got_new_speech_to_text(self.last_received_sentence, self.last_received_sentence_timestamp)
 
     def learn_control(self, name, image):
@@ -707,8 +717,7 @@ if __name__ == '__main__':
         dialog = DialogFlow(ner_model_path=args.ner_model_path, ner_tag_path=args.tags_path,
                             feature_weights_path=args.feature_model, db_path=args.grounding_database,
                             background_image_file=args.background_image, websocket_uri=args.websocket_uri)
-        while True:
-            dialog.controller()
+        dialog.start()
     except rospy.ROSInterruptException:
         pass
 
