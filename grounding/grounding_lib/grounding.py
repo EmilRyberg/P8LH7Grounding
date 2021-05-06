@@ -17,7 +17,7 @@ class GroundingReturn:
     def __init__(self):
         self.is_success = False
         self.error_code = None
-        self.object_info = None
+        self.object_info = []
 
 
 class Grounding:

@@ -345,14 +345,14 @@ class PerformTaskState(State):
                 success = self.container.robot.point_at(grounding_return.object_info[0], np_rgb, np_depth)
 
             elif task.task_type == TaskType.PLACE:
-                #if not self.state_dict["carrying_object"]:
-                #    self.container.speak("The place task could not be accomplished as no object is carried.")
-                #    success = False
-                #else:
-                x,y = self.container.grounding.get_location(task.objects_to_execute_on[0])
-                position = [x, y, 50]
-                success = self.container.robot.place(position, np_rgb)
-                self.state_dict["carrying_object"] = False
+                if not self.state_dict["carrying_object"]:
+                    self.container.speak("The place task could not be accomplished as no object is carried.")
+                    success = False
+                else:
+                    x,y = self.container.grounding.get_location(task.objects_to_execute_on[0])
+                    position = [x, y, 50]
+                    success = self.container.robot.place(position, np_rgb)
+                    self.state_dict["carrying_object"] = False
 
             if success:
                 del self.state_dict['task_grounding_return'].task_info[0] # Removing the task from the list, we just completed
