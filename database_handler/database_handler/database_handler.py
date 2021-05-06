@@ -99,14 +99,18 @@ class DatabaseHandler:
         self.conn.commit()
 
     def add_task(self, task_name, words):
-        try:
-            self.conn.execute("INSERT INTO TASK_INFO (TASK_NAME) VALUES (?);", (task_name, ))
-            self.conn.commit()
-            task_id = self.get_task_id(task_name)
-            for word in words:
+        self.conn.execute("INSERT INTO TASK_INFO (TASK_NAME) VALUES (?);", (task_name, ))
+        self.conn.commit()
+        task_id = self.get_task_id(task_name)
+        already_known = []
+        for word in words:
+            word_exists = self.conn.execute("SELECT * FROM TASK_WORDS WHERE WORD=?;", (word, ))
+            if word_exists.fetchone():
+                already_known.append(word)
+            else:
                 self.add_word_to_task(task_id, word)
-        except:
-            raise Exception("Unable to add task:", task_name)
+        return task_id, already_known
+
 
     def add_word_to_task(self, task_id, word):
         try:
@@ -143,15 +147,16 @@ class DatabaseHandler:
         result = self.conn.execute('''
             SELECT SLR.NAME, SL.X, SL.Y, SL.Z FROM STATIC_LOCATION_RELATIONS AS SLR INNER JOIN STATIC_LOCATIONS AS SL ON SL.ID = SLR.STATIC_LOCATION_ID WHERE SLR.NAME = ?;
         ''', (name,))
-        if result is None or len(list(result)) == 0:
+        data = result.fetchall()
+        if data is None or len(list(data)) == 0:
             return None, None, None
-        row = list(result)[0]
+        row = list(data)[0]
         return row[1], row[2], row[3]
 
 
 if __name__ == "__main__":
     db = DatabaseHandler("../../dialog_flow/nodes/grounding.db")
-    #db.add_task("Move blue", ["blue1", "blue2"])
+    already_known = db.add_task("Move black", ["get", "put"])
     # task = Task("pick up")
     # object_entity = ObjectEntity("blue cover")
     # spatial_description = SpatialDescription(spatial_type=SpatialType.NEXT_TO)
@@ -159,7 +164,7 @@ if __name__ == "__main__":
     # object_entity.spatial_descriptions.append(spatial_description)
     # task.objects_to_execute_on.append(object_entity)
     # db.add_sub_task(5, 1, task)
-    tasks = db.get_sub_tasks(5)
-    print(tasks)
+    # tasks = db.get_sub_tasks(5)
+    print(already_known)
     #test = db.get_sub_tasks(6)
     #db.conn.close()

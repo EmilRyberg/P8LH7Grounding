@@ -6,7 +6,7 @@ from scripts.vision_controller import VisionController as FakeVisionController
 from enum import Enum
 
 
-class ErrorType(Enum):
+class GroundingErrorType(Enum):
     UNKNOWN = "unknown object"
     CANT_FIND = "cant find object"
     ALREADY_KNOWN = "known object"
@@ -17,7 +17,7 @@ class GroundingReturn:
     def __init__(self):
         self.is_success = False
         self.error_code = None
-        self.object_infos = None
+        self.object_infos = []
 
 
 class Grounding:
@@ -38,7 +38,7 @@ class Grounding:
         db_features = self.db.get_feature(name)
         if db_features is None:
             self.return_object.is_success = False
-            self.return_object.error_code = ErrorType.UNKNOWN
+            self.return_object.error_code = GroundingErrorType.UNKNOWN
             return self.return_object
 
         object_infos_with_features = self.vision.get_masks_with_features()  # list of
@@ -53,7 +53,7 @@ class Grounding:
 
         if not found_object:
             self.return_object.is_success = False
-            self.return_object.error_code = ErrorType.CANT_FIND
+            self.return_object.error_code = GroundingErrorType.CANT_FIND
             return self.return_object
 
         if len(indexes_below_threshold) > 1:
@@ -61,11 +61,11 @@ class Grounding:
                 object_infos, status = self.find_object_with_spatial_desc(object_entity, object_infos_with_features)
                 if status == StatusEnum.NO_VALID_OBJECTS:
                     self.return_object.is_success = False
-                    self.return_object.error_code = ErrorType.TWO_REF
+                    self.return_object.error_code = GroundingErrorType.TWO_REF
                     return self.return_object
                 elif status == StatusEnum.ERROR_CANT_FIND:
                     self.return_object.is_success = False
-                    self.return_object.error_code = ErrorType.CANT_FIND
+                    self.return_object.error_code = GroundingErrorType.CANT_FIND
                     return self.return_object
                 elif object_infos is not None and len(object_infos) > 0:
                     self.return_object.object_infos = object_infos
@@ -120,7 +120,7 @@ class Grounding:
         coordinates, status = self.spatial.get_location(object_entity.spatial_descriptions, objects)
         if status != StatusEnum.SUCCESS:
             return None, None
-        return coordinates
+        return coordinates, status
 
     def learn_new_object(self, object_entity):
         entity_name = object_entity.name
@@ -136,7 +136,7 @@ class Grounding:
                 return self.return_object
         else:
             self.return_object.is_success = False
-            self.return_object.error_code = ErrorType.ALREADY_KNOWN
+            self.return_object.error_code = GroundingErrorType.ALREADY_KNOWN
             return self.return_object
 
     def update_features(self, object_entity):
@@ -144,7 +144,7 @@ class Grounding:
         db_features = self.db.get_feature(entity)
         if db_features is None:
             self.return_object.is_success = False
-            self.return_object.error_code = ErrorType.UNKNOWN
+            self.return_object.error_code = GroundingErrorType.UNKNOWN
             return self.return_object
         else:
             features = self.vision.get_masks_with_features()
@@ -155,7 +155,7 @@ class Grounding:
     def embedding_distance(self, features_1, features_2):
         return np.linalg.norm(features_1 - features_2)
 
-    def is_same_object(self, features_1, features_2, threshold=1.0):
+    def is_same_object(self, features_1, features_2, threshold=0.8):
         return self.embedding_distance(features_1, features_2) < threshold
 
     def find_best_match(self, indexes_below_threshold, distances) -> Optional[tuple]:

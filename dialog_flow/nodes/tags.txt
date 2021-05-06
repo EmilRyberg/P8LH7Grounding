@@ -1,8 +1,12 @@
 O
-B-take
-I-take
-B-find
-I-find
+B-task
+I-task
+B-confirmation
+I-confirmation
+B-denial
+I-denial
+B-teach
+I-teach
 B-colour
 I-colour
 B-location

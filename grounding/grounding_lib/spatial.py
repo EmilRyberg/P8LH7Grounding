@@ -136,10 +136,12 @@ class SpatialRelation:
                         return None, None
                     (last_id, _, previous_bbox) = matching_objects[correct_bbox_index]
                     previous_spatial_description = instance
-                else:
+                elif len(matching_objects) == 1:
                     (last_id, name, bbox) = matching_objects[0]
                     previous_spatial_description = instance
                     previous_bbox = bbox
+                else:
+                    return None, None
                 objects.remove((last_id, object_name, previous_bbox))
             else:
                 x, y, z = self.database_handler.get_location_by_name(instance.object_entity.name.lower())
@@ -163,11 +165,11 @@ class SpatialRelation:
         if status != StatusEnum.SUCCESS:
             return None, status
         else:
-            object_infos = [objects[i] for i in best_object_indices]
+            object_infos = [x for x in objects if x[0] in best_object_indices]
             coordinates = []
             for idx, name, bbox in object_infos:
                 center_x, center_y, _ = self.get_center_and_size(bbox)
-                coordinates.append((center_x, center_y))
+                coordinates.append((round(center_x), round(center_y)))
             return coordinates, StatusEnum.SUCCESS
 
     def find_best_match(self, objects, spatial_description, last_bbox, distance_threshold=300):

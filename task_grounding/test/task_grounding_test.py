@@ -1,4 +1,4 @@
-from task_grounding.task_grounding import TaskGrounding, TaskGroundingReturn, ErrorType
+from task_grounding.task_grounding import TaskGrounding, TaskGroundingReturn, TaskErrorType
 from database_handler.database_handler import DatabaseHandler
 import unittest
 from unittest.mock import Mock
@@ -65,7 +65,7 @@ class SimpleSkillTest(unittest.TestCase):
         returned = self.task_grounding.get_specific_task_from_task(task)
 
         self.assertFalse(returned.is_success)
-        self.assertEqual(ErrorType.UNKNOWN, returned.error.error_code)
+        self.assertEqual(TaskErrorType.UNKNOWN, returned.error.error_code)
 
     def test_get_specific_task_from_task__task_has_no_object__returns_error_code_no_object(self):
         self.db_mock.get_task = Mock(return_value=(1, "pick up"))
@@ -74,7 +74,7 @@ class SimpleSkillTest(unittest.TestCase):
         returned = self.task_grounding.get_specific_task_from_task(task)
 
         self.assertFalse(returned.is_success)
-        self.assertEqual(ErrorType.NO_OBJECT, returned.error.error_code)
+        self.assertEqual(TaskErrorType.NO_OBJECT, returned.error.error_code)
 
 
 class AdvancedTaskTest(unittest.TestCase):
@@ -122,7 +122,7 @@ class AdvancedTaskTest(unittest.TestCase):
 
         returned = self.task_grounding.get_specific_task_from_task(task)
         self.assertFalse(returned.is_success)
-        self.assertEqual(ErrorType.NO_SUBTASKS, returned.error.error_code)
+        self.assertEqual(TaskErrorType.NO_SUBTASKS, returned.error.error_code)
 
 
 class TeachSystemTest(unittest.TestCase):
@@ -148,7 +148,7 @@ class TeachSystemTest(unittest.TestCase):
         returned = self.task_grounding.teach_new_task("nice task name", [Task("take"), Task("move"), Task("put")], "nice task keyword")
 
         self.assertFalse(returned.is_success)
-        self.assertEqual(ErrorType.UNKNOWN, returned.error.error_code)
+        self.assertEqual(TaskErrorType.UNKNOWN, returned.error.error_code)
 
     def test_add_sub_task__valid_input__returns_success(self):
         self.db_mock.get_task = Mock()
@@ -195,12 +195,12 @@ class SimpleSkillIntegration(unittest.TestCase):
     def test_UnknownObject(self):
         self.returned = self.task_grounding.get_specific_task_from_task("asdasd")
         self.assertFalse(self.returned.is_success)
-        self.assertEqual(self.returned.error_code, ErrorType.UNKNOWN)
+        self.assertEqual(self.returned.error_code, TaskErrorType.UNKNOWN)
 
     def test_NoObjectSpecified(self):
         self.returned = self.task_grounding.get_specific_task_from_task("take")
         self.assertFalse(self.returned.is_success)
-        self.assertEqual(self.returned.error_code, ErrorType.NO_OBJECT)
+        self.assertEqual(self.returned.error_code, TaskErrorType.NO_OBJECT)
 
 
 class AdvancedTaskIntegration(unittest.TestCase):
@@ -253,7 +253,7 @@ class TeachSystemIntegration(unittest.TestCase):
     def test_TeachTaskUnknownSubTask(self):
         returned = self.task_grounding.teach_new_task("test_task2", ["UNKNOWN TASK"], ["test1", "test2-1"])
         self.assertFalse(returned.is_success)
-        self.assertEqual(returned.error_code, ErrorType.UNKNOWN)
+        self.assertEqual(returned.error_code, TaskErrorType.UNKNOWN)
         self.clean_test_db("test_task2")
 
     def test_AddWordsToTask(self):

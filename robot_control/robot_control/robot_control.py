@@ -31,13 +31,16 @@ class RobotController:
 
         return result.success
 
-    def place(self, position):
+    def place(self, position, rgb):
         rospy.loginfo("Waiting for server")
         self.client.wait_for_server()
 
         goal = PickObjectGoal()
         goal.command = "place_object"
-        goal.position = position
+        goal.place_image_x = round(position[0])
+        goal.place_image_y = round(position[1])
+        goal.place_world_z = position[2]
+        goal.reference_img = self.bridge.cv2_to_imgmsg(rgb)
 
         rospy.loginfo("sending goal")
         self.client.send_goal(goal)
@@ -79,3 +82,9 @@ class RobotController:
 
     def is_out_of_view(self):
         return not self.is_home
+
+
+if __name__ == "__main__":
+    rospy.init_node("controller", anonymous=True)
+    controller = RobotController()
+    controller.move_out_of_view()

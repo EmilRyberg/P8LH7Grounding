@@ -148,8 +148,8 @@ class Task:
 
 
 class CommandBuilder:
-    def __init__(self, model_path, tag_path, ner=None):
-        self.ner = ner if ner is not None else NER(model_path, tag_path)
+    def __init__(self, ner):
+        self.ner = ner
 
     def get_task(self, sentence):
         entities = self.ner.get_entities(sentence)

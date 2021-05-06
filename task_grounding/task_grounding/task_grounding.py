@@ -6,11 +6,13 @@ import numpy as np
 from enum import Enum
 
 
-class ErrorType(Enum):
+class TaskErrorType(Enum):
     UNKNOWN = "unknown word"
     NO_OBJECT = "no object specified when required"
     NO_SUBTASKS = "no specified subtasks"
     NO_SPATIAL = "no spatial specified"
+    ALREADY_USED_WORD = "word already used in other task"
+    ALREADY_KNOWN_TASK = "I already know this task"
 
 
 class TaskGroundingError:
@@ -32,7 +34,8 @@ class TaskGrounding:
         self.return_object = TaskGroundingReturn()
 
     def get_specific_task_from_task(self, task: Task):
-        (task_id, task_name) = self.db.get_task(task.name)
+        task_name_lower = task.name.lower().replace(".", "")
+        (task_id, task_name) = self.db.get_task(task_name_lower)
         return_object = TaskGroundingReturn()
         tasks, error = self.task_switch(task_id, task_name, task)
         if error:
@@ -75,7 +78,8 @@ class TaskGrounding:
             sub_tasks = self.db.get_sub_tasks(task_id)
             if sub_tasks is None:
                 error = TaskGroundingError()
-                error.error_code = ErrorType.NO_SUBTASKS
+                error.error_task = task_name
+                error.error_code = TaskErrorType.NO_SUBTASKS
                 return None, error
             tasks = self.handle_custom_task(sub_tasks)
         return tasks, None
@@ -96,16 +100,32 @@ class TaskGrounding:
         return tasks
 
     def teach_new_task(self, task_name, sub_tasks, words):
-        self.db.add_task(task_name, words)
+        task_name_lower = task_name.lower().replace(".", "")
+        task_exists = self.db.get_task_id(task_name_lower)
         return_object = TaskGroundingReturn()
+        if task_exists:
+            error = TaskGroundingError()
+            error.error_task = task_name_lower
+            error.error_code = TaskErrorType.ALREADY_KNOWN_TASK
+            return_object.error = error
+            return return_object
+        words_lower = [x.lower().replace(".", "") for x in words]
+        task_id, error_words = self.db.add_task(task_name_lower, words_lower)
         for task in sub_tasks:
-            (sub_task_id, _) = self.db.get_task(task.name)
+            sub_task_name_lower = task.name.lower().replace(".", "")
+            (sub_task_id, _) = self.db.get_task(sub_task_name_lower)
             if sub_task_id is None:
-                error = self.unknown_task_error(task)
+                error = self.unknown_task_error(sub_task_name_lower)
                 return_object.error = error
                 return return_object
-            self.db.add_sub_task(task_name, sub_task_id)
+            self.db.add_sub_task(task_id, sub_task_id, task)
         return_object.is_success = True
+        if error_words:
+            return_object.is_success = False
+            error = TaskGroundingError()
+            error.error_task = error_words
+            error.error_code = TaskErrorType.ALREADY_USED_WORD
+            return_object.error = error
         return return_object
 
     def add_word_to_task(self, task_word, word_to_add):
@@ -121,7 +141,7 @@ class TaskGrounding:
         return return_object
 
     def add_sub_task(self, task_word, sub_task_words):
-        (_, task_name) = self.db.get_task(task_word)
+        (task_id, task_name) = self.db.get_task(task_word)
         return_object = TaskGroundingReturn()
         if task_name is None:
             error = self.unknown_task_error(task_word)
@@ -133,18 +153,19 @@ class TaskGrounding:
                 error = self.unknown_task_error(task)
                 return_object.error = error
                 return return_object
-            self.db.add_sub_task(task_name, sub_task_id)
+            self.db.add_sub_task(task_id, sub_task_id, task)
         return_object.is_success = True
         return return_object
 
     def missing_entities_error(self, task):
         error = TaskGroundingError()
-        error.error_code = ErrorType.NO_OBJECT
+        error.error_task = task
+        error.error_code = TaskErrorType.NO_OBJECT
         return error
 
     def unknown_task_error(self, task_word):
         error = TaskGroundingError()
-        error.error_code = ErrorType.UNKNOWN
+        error.error_code = TaskErrorType.UNKNOWN
         error.error_task = task_word
         return error
 
