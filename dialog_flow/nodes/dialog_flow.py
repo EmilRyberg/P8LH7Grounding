@@ -7,7 +7,7 @@ from ner_lib.command_builder import CommandBuilder, SpatialType, Task, TaskType,
 from ner_lib.ner import NER, EntityType
 from vision_lib.ros_camera_interface import ROSCamera
 from robot_control.robot_control import RobotController
-from grounding_lib.grounding import Grounding, GroundingErrorType
+from grounding_lib.grounding import Grounding, GroundingErrorType, GroundingReturn
 from vision_lib.vision_controller import VisionController
 from grounding_lib.spatial import SpatialRelation
 from database_handler.database_handler import DatabaseHandler
@@ -155,13 +155,16 @@ class AskForCommandState(State):
                 if not is_teach and has_task:
                     verify_command_state = VerifyCommandState(self.state_dict, self.container, self)
                     return verify_command_state
+                elif is_teach:
+                    start_teach_state = StartTeachState(self.state_dict, self.container, self)
+                    return start_teach_state
                 elif not is_teach: # Assumes that the user responded to whether the robot should do a task
                     affirmation = any([x[0] == EntityType.AFFIRMATION for x in entities])
                     denial = any([x[0] == EntityType.DENIAL for x in entities])
                     if affirmation:
                         self.container.speak("Okay, what would you like me to do?")
                         return self.wait_for_command_state
-                    else:
+                    elif denial:
                         self.container.speak("Okay, goodbye for now master skywalker")
                         wait_for_greet_state = WaitForGreetingState(self.state_dict, self.container, self)
                         return wait_for_greet_state
@@ -181,12 +184,16 @@ class VerifyCommandState(State):
         entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
         if self.is_first_call:
             self.is_first_call = False
-            is_teach = any([x[0] == EntityType.TEACH for x in entities]) # TODO make states for teaching
+            self.container.send_human_sentence_to_gui(self.state_dict["last_received_sentence"])
+            is_teach = any([x[0] == EntityType.TEACH for x in entities])
             if not is_teach:
                 self.state_dict["base_task"] = self.container.command_builder.get_task(self.state_dict["last_received_sentence"])
                 log_string = f"Ok, just to be sure. You want me to execute the task {self.state_dict['base_task'].name}?"
                 self.container.speak(log_string)
                 return self.wait_for_response
+            else:
+                start_teach_state = StartTeachState(self.state_dict, self.container, self)
+                return start_teach_state
         else:  # Got response
             affirmation = any([x[0] == EntityType.AFFIRMATION for x in entities])
             denial = any([x[0] == EntityType.DENIAL for x in entities])
@@ -283,16 +290,25 @@ class AskForClarificationState(State):
                 self.container.speak(log_string)
             return self.wait_for_response_state
         else: # Got response
-            start_teach = StartTeachState(self.state_dict, self.container, self)
-            extract_task = ExtractTaskState(self.state_dict, self.container, self)
-            if self.error.error_code == TaskErrorType.UNKNOWN:
-                return start_teach
-            elif self.error.error_code == TaskErrorType.NO_OBJECT:
-                return extract_task
-            elif self.error.error_code == TaskErrorType.NO_SUBTASKS:
-                return start_teach
-            elif self.error.error_code == TaskErrorType.NO_SPATIAL:
-                return extract_task
+            start_teach_state = StartTeachState(self.state_dict, self.container, self)
+            extract_task_state = ExtractTaskState(self.state_dict, self.container, self)
+            wait_for_greet_state = WaitForGreetingState(self.state_dict, self.container, self)
+            entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
+            if self.error.error_code == TaskErrorType.UNKNOWN or self.error.error_code == TaskErrorType.NO_SUBTASKS:
+                affirmation = any([x[0] == EntityType.AFFIRMATION for x in entities])
+                if affirmation:
+                    return start_teach_state
+                else:
+                    self.container.speak("Sorry master, when I don't know a task I can't perform it. I will restart my program")
+                    return wait_for_greet_state
+            elif self.error.error_code == TaskErrorType.NO_OBJECT or self.error.error_code == TaskErrorType.NO_SPATIAL:
+                has_task = any([x[0] == EntityType.TASK for x in entities])
+                if has_task:
+                    return extract_task_state
+                else:
+                    self.container.speak("Sorry master, seems like you didn't specify a task again. I will restart my program.")
+                    return wait_for_greet_state
+
 
 
 class PerformTaskState(State):
@@ -407,7 +423,6 @@ class ClarifyObjects(State):
             elif self.asked_for_restart:
                 entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
                 affirmation = any([x[0] == EntityType.AFFIRMATION for x in entities])
-                denial = any([x[0] == EntityType.DENIAL for x in entities])
                 if affirmation:
                     self.container.speak("Okay master. I'm sorry I failed you. I will now restart.")
                     return wait_for_greet_state
