@@ -34,18 +34,18 @@
 
   <link name="box_link">
     <visual>
-      <origin xyz="0.4 0.4 -0.5" rpy="0 0 0"/>
+      <origin xyz="0 0 -0.5" rpy="0 0 0"/>
       <geometry>
-        <box size="1 1 1" />
+        <box size="3 3 1" />
       </geometry>
       <material name="box_yellow">
         <color rgba="1 1 0 1"/>
       </material>
     </visual>
     <collision>
-      <origin xyz="0.4 0.4 -0.5" rpy="0 0 0"/>
+      <origin xyz="0 0 -0.5" rpy="0 0 0"/>
       <geometry>
-        <box size="1 1 1" />
+        <box size="3 3 1" />
       </geometry>
     </collision>
   </link>

@@ -120,7 +120,7 @@ class Grounding:
         coordinates, status = self.spatial.get_location(object_entity.spatial_descriptions, objects)
         if status != StatusEnum.SUCCESS:
             return None, None
-        return coordinates
+        return coordinates, status
 
     def learn_new_object(self, object_entity):
         entity_name = object_entity.name

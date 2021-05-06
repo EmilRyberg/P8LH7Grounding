@@ -165,11 +165,11 @@ class SpatialRelation:
         if status != StatusEnum.SUCCESS:
             return None, status
         else:
-            object_infos = [objects[i] for i in best_object_indices]
+            object_infos = [x for x in objects if x[0] in best_object_indices]
             coordinates = []
             for idx, name, bbox in object_infos:
                 center_x, center_y, _ = self.get_center_and_size(bbox)
-                coordinates.append((center_x, center_y))
+                coordinates.append((round(center_x), round(center_y)))
             return coordinates, StatusEnum.SUCCESS
 
     def find_best_match(self, objects, spatial_description, last_bbox, distance_threshold=300):

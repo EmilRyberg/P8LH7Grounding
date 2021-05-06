@@ -151,7 +151,7 @@ class AskForCommandState(State):
             if self.state_dict["last_received_sentence"] is not None:
                 entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
                 is_teach = any([x[0] == EntityType.TEACH for x in entities])
-                has_task =  any([x[0] == EntityType.TASK for x in entities])
+                has_task = any([x[0] == EntityType.TASK for x in entities])
                 if not is_teach and has_task:
                     verify_command_state = VerifyCommandState(self.state_dict, self.container, self)
                     return verify_command_state
@@ -184,7 +184,6 @@ class VerifyCommandState(State):
         entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
         if self.is_first_call:
             self.is_first_call = False
-            self.container.send_human_sentence_to_gui(self.state_dict["last_received_sentence"])
             is_teach = any([x[0] == EntityType.TEACH for x in entities])
             if not is_teach:
                 self.state_dict["base_task"] = self.container.command_builder.get_task(self.state_dict["last_received_sentence"])
@@ -223,7 +222,7 @@ class WaitForResponseState(State):
                     got_new_sentence = True
                     break
             rospy.sleep(rospy.Duration.from_sec(0.1))
-            if rospy.get_rostime() - init_time_stamp >= rospy.Duration.from_sec(3):
+            if rospy.get_rostime() - init_time_stamp >= rospy.Duration.from_sec(5):
                 self.state_dict["last_received_sentence"] = None
                 got_new_sentence = True
         return self.previous_state
@@ -335,24 +334,24 @@ class PerformTaskState(State):
                     return clarify_objects_state
                 else:
                     if self.state_dict["websocket_is_connected"]:
-                        self.container.ui_interface.send_images(np_rgb, grounding_return.object_info[0].object_img_cutout_cropped)
+                        self.container.ui_interface.send_images(np_rgb, grounding_return.object_infos[0].object_img_cutout_cropped)
             success = False
             if task.task_type == TaskType.PICK:
-                success = self.container.robot.pick_up(grounding_return.object_info[0], np_rgb, np_depth)
+                success = self.container.robot.pick_up(grounding_return.object_infos[0], np_rgb, np_depth)
                 self.state_dict["carrying_object"] = True
 
             elif task.task_type == TaskType.FIND:
-                success = self.container.robot.point_at(grounding_return.object_info[0], np_rgb, np_depth)
+                success = self.container.robot.point_at(grounding_return.object_infos[0], np_rgb, np_depth)
 
             elif task.task_type == TaskType.PLACE:
-                if not self.state_dict["carrying_object"]:
-                    self.container.speak("The place task could not be accomplished as no object is carried.")
-                    success = False
-                else:
-                    x,y = self.container.grounding.get_location(task.objects_to_execute_on[0])
-                    position = [x, y, 50]
-                    success = self.container.robot.place(position, np_rgb)
-                    self.state_dict["carrying_object"] = False
+                # if not self.state_dict["carrying_object"]:
+                #     self.container.speak("The place task could not be accomplished as no object is carried.")
+                #     success = False
+                # else:
+                positions, error = self.container.grounding.get_location(task.objects_to_execute_on[0])
+                position = [positions[0][0], positions[0][1], 50]
+                success = self.container.robot.place(position, np_rgb)
+                self.state_dict["carrying_object"] = False
 
             if success:
                 del self.state_dict['task_grounding_return'].task_info[0] # Removing the task from the list, we just completed
