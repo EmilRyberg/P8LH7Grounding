@@ -2,7 +2,7 @@
 <launch>
   <arg name="azure_key" default="" doc="The API key for Azure Cloud" />
   <include file="$(find ur_e_webots)/launch/ur5e_joint_limited.launch" />
-  <include file="$(find ur5_e_moveit_config)/launch/ur5_e_moveit_planning_execution.launch" />
+  <include file="$(find custom_moveit_config)/launch/ur5_e_moveit_planning_execution.launch" />
 <!--   <node pkg="bin_picking" type="moveit_interface_node.py" name="moveit_interface_node" /> -->
   <node pkg="bin_picking" type="picking_node.py" name="picking_node" />
   <node pkg="speech_to_text" type="speech_to_text_node.py" name="speech_to_text_node" args="-k $(arg azure_key)" />
