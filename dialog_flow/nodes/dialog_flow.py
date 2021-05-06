@@ -39,11 +39,11 @@ class DependencyContainer:
 
 
 class StateMachine:
-    def __init__(self, container: DependencyContainer):
+    def __init__(self, container: DependencyContainer, web_socket_is_connected):
         self.state_dict = {
             "last_received_sentence": "",
             "last_received_sentence_timestamp": None,
-            "websocket_is_connected": False,
+            "websocket_is_connected": web_socket_is_connected,
             "task_grounding_return": None,
             "base_task": Task,
             "wait_response_called_from": None,
@@ -125,6 +125,7 @@ class GreetState(State):
                     return teach_state
             ask_for_command_state = AskForCommandState(self.state_dict, self.container, self)
             return ask_for_command_state
+
 
 class AskForCommandState(State):
     def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
@@ -263,6 +264,7 @@ class ValidateTaskState(State):
         ask_for_clarification_state = AskForClarificationState(self.state_dict, self.container, self)
         return ask_for_clarification_state
 
+
 class AskForClarificationState(State):
     def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
         super().__init__(state_dict, container, previous_state)
@@ -315,10 +317,9 @@ class PerformTaskState(State):
         super().__init__(state_dict, container, previous_state)
 
     def execute(self):
-        log_string = f"I will now execute the task {self.state_dict['base_task'].name}."
-        self.container.speak(log_string)
-
         if self.state_dict["task_grounding_return"].task_info:
+            log_string = f"I will now execute the task {self.state_dict['base_task'].name}."
+            self.container.speak(log_string)
             task = self.state_dict['task_grounding_return'].task_info[0]
             self.container.robot.move_out_of_view()
 
@@ -349,7 +350,7 @@ class PerformTaskState(State):
                     success = False
                 else:
                     positions, error = self.container.grounding.get_location(task.objects_to_execute_on[0])
-                    position = [positions[0][0], positions[0][1], 50]
+                    position = [round(positions[0][0]), round(positions[0][1]), 50]
                     success = self.container.robot.place(position, np_rgb)
                     self.state_dict["carrying_object"] = False
 
@@ -618,7 +619,6 @@ class AskIfMoreStepsState(State):
 class DialogFlow:
     def __init__(self, ner_model_path, ner_tag_path, feature_weights_path, db_path, background_image_file, websocket_uri):
         rospy.init_node('dialog_controller')
-        self.first_convo_flag = True
         self.database_handler = DatabaseHandler(db_path=db_path)
         self.grounding = Grounding(db=self.database_handler,
                                    vision_controller=VisionController(background_image_file=background_image_file,
@@ -639,14 +639,9 @@ class DialogFlow:
         self.speech_to_text_subscriber = rospy.Subscriber("speech_to_text", StringWithTimestamp, callback=self.speech_to_text_callback, queue_size=1)
         self.ui_interface = UIInterface(websocket_uri)
         self.websocket_is_connected = self.ui_interface.connect()
-        self.carrying_object = False
-        self.base_task = None
-        self.tasks_to_perform = None
-        self.task_grounding_return = None
-        #self.current_state = DialogState.INITIALISE
         self.container = DependencyContainer(self.ner, self.command_builder, self.grounding, self.speak,
                                              self.send_human_sentence_to_GUI, self.camera, self.ui_interface, self.task_grounding, self.robot)
-        self.state_machine = StateMachine(self.container)
+        self.state_machine = StateMachine(self.container, self.websocket_is_connected)
 
     def start(self):
         self.state_machine.run()

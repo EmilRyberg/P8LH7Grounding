@@ -37,8 +37,8 @@ class RobotController:
 
         goal = PickObjectGoal()
         goal.command = "place_object"
-        goal.place_image_x = position[0]
-        goal.place_image_y = position[1]
+        goal.place_image_x = round(position[0])
+        goal.place_image_y = round(position[1])
         goal.place_world_z = position[2]
         goal.reference_img = self.bridge.cv2_to_imgmsg(rgb)
 
