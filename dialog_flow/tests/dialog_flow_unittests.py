@@ -144,7 +144,7 @@ class AskForCommandStateTest(unittest.TestCase):
         self.container.ner.get_entities = Mock(return_value=entities)
         ask_for_command_state.state_dict["last_received_sentence"] = "Dummy sentence"
         return_state = ask_for_command_state.execute()
-        self.assertTrue(isinstance(return_state, dialog_flow.VerifyCommandState))
+        self.assertTrue(isinstance(return_state, dialog_flow.StartTeachState))
 
     def test_ask_for_command__affirmation__returns_wait_response_state(self):
         entities = [
@@ -307,28 +307,6 @@ class VerifyCommandStateTest(unittest.TestCase):
         return_state = verify_command_state.execute()
         self.assertTrue(isinstance(return_state, dialog_flow.WaitForResponseState))
 
-class WaitResponseStateTest(unittest.TestCase):
-    def setUp(self):
-        self.state_dict = {
-            "last_received_sentence": None,
-            "last_received_sentence_timestamp": None,
-            "websocket_is_connected": False,
-            "task_grounding_return": None,
-            "base_task": Task,
-            "wait_response_called_from": None,
-            "tasks_to_perform": None,
-            "carrying_object": False,
-            "grounding_error": None,
-        }
-        self.container = Mock()
-
-    def test_wait_response__no_sentence__returns_previous_state(self):
-        greet_state = dialog_flow.VerifyCommandState(self.state_dict, self.container)
-        wait_response_state = dialog_flow.WaitForResponseState(self.state_dict, self.container, greet_state)
-        self.container.speak = Mock()
-        wait_response_state.state_dict["last_received_sentence"] = "Dummy sentence"
-        return_state = wait_response_state.execute()
-        self.assertTrue(isinstance(return_state, dialog_flow.GreetState))
 
 class ExtractTaskStateTest(unittest.TestCase):
     def setUp(self):
@@ -381,11 +359,13 @@ class ValidateTaskStateTest(unittest.TestCase):
         self.container = Mock()
 
     def test_validate_task__any_error__returns_ask_for_clarification_state(self):
+        task_grounding_return = TaskGroundingReturn()
         error = TaskGroundingError()
         error.error_code = TaskErrorType.UNKNOWN
         error.error_task = "Dummy Task"
+        task_grounding_return.error = error
         validate_task_state = dialog_flow.ValidateTaskState(self.state_dict, self.container)
-        validate_task_state.state_dict['task_grounding_return'].error = error
+        validate_task_state.state_dict['task_grounding_return'] = task_grounding_return
         self.container.speak = Mock()
         return_state = validate_task_state.execute()
         self.assertTrue(isinstance(return_state, dialog_flow.AskForClarificationState))
@@ -396,7 +376,7 @@ class AskForClarificationStateTest(unittest.TestCase):
             "last_received_sentence": None,
             "last_received_sentence_timestamp": None,
             "websocket_is_connected": False,
-            "task_grounding_return": None,
+            "task_grounding_return": TaskGroundingReturn(),
             "base_task": Task,
             "wait_response_called_from": None,
             "tasks_to_perform": None,
@@ -410,7 +390,7 @@ class AskForClarificationStateTest(unittest.TestCase):
         error.error_code = TaskErrorType.UNKNOWN
         error.error_task = "Dummy Task"
         clarify_state = dialog_flow.AskForClarificationState(self.state_dict, self.container)
-        clarify_state.state_dict['task_grounding_return'].error = error
+        clarify_state.error = error
         self.container.speak = Mock()
         return_state = clarify_state.execute()
         self.assertTrue(isinstance(return_state, dialog_flow.WaitForResponseState))
@@ -431,7 +411,7 @@ class AskForClarificationStateTest(unittest.TestCase):
         error.error_task = "Dummy Task"
         clarify_state = dialog_flow.AskForClarificationState(self.state_dict, self.container)
         clarify_state.is_first_run = False
-        clarify_state.state_dict['task_grounding_return'].error = error
+        clarify_state.error = error
         self.container.speak = Mock()
         return_state = clarify_state.execute()
         self.assertTrue(isinstance(return_state, dialog_flow.StartTeachState))
@@ -452,7 +432,7 @@ class AskForClarificationStateTest(unittest.TestCase):
         error.error_task = "Dummy Task"
         clarify_state = dialog_flow.AskForClarificationState(self.state_dict, self.container)
         clarify_state.is_first_run = False
-        clarify_state.state_dict['task_grounding_return'].error = error
+        clarify_state.error = error
         self.container.speak = Mock()
         return_state = clarify_state.execute()
         self.assertTrue(isinstance(return_state, dialog_flow.WaitForGreetingState))
@@ -469,11 +449,11 @@ class AskForClarificationStateTest(unittest.TestCase):
         ]
         self.container.ner.get_entities = Mock(return_value=entities)
         error = TaskGroundingError()
-        error.error_code = TaskErrorType.UNKNOWN
+        error.error_code = TaskErrorType.NO_OBJECT
         error.error_task = "Dummy Task"
         clarify_state = dialog_flow.AskForClarificationState(self.state_dict, self.container)
         clarify_state.is_first_run = False
-        clarify_state.state_dict['task_grounding_return'].error = error
+        clarify_state.error = error
         self.container.speak = Mock()
         return_state = clarify_state.execute()
         self.assertTrue(isinstance(return_state, dialog_flow.ExtractTaskState))
@@ -494,7 +474,7 @@ class AskForClarificationStateTest(unittest.TestCase):
         error.error_task = "Dummy Task"
         clarify_state = dialog_flow.AskForClarificationState(self.state_dict, self.container)
         clarify_state.is_first_run = False
-        clarify_state.state_dict['task_grounding_return'].error = error
+        clarify_state.error = error
         self.container.speak = Mock()
         return_state = clarify_state.execute()
         self.assertTrue(isinstance(return_state, dialog_flow.WaitForGreetingState))
@@ -524,6 +504,7 @@ class PerformTaskStateTest(unittest.TestCase):
         self.container.grounding.find_object = Mock(return_value=grounding_return)
         perform_task_state = dialog_flow.PerformTaskState(self.state_dict, self.container)
         base_task = Task(name="Dummy name")
+        base_task.objects_to_execute_on.append("dummy")
         task_grounding_return = TaskGroundingReturn()
         task_grounding_return.task_info.append(base_task)
         perform_task_state.state_dict["base_task"] = base_task
@@ -533,7 +514,7 @@ class PerformTaskStateTest(unittest.TestCase):
 
     def test_perform_task__fails_to_perform_task__returns_wait_for_greet_state(self):
         grounding_return = GroundingReturn()
-        grounding_return.is_success = False
+        grounding_return.is_success = True
         self.container.speak = Mock()
         self.container.robot.move_out_of_view = Mock()
         self.container.camera.get_image = Mock()
@@ -541,6 +522,8 @@ class PerformTaskStateTest(unittest.TestCase):
         self.container.grounding.find_object = Mock(return_value=grounding_return)
         perform_task_state = dialog_flow.PerformTaskState(self.state_dict, self.container)
         base_task = Task(name="Dummy name")
+        dummy_object = ObjectEntity(name="dummy")
+        base_task.objects_to_execute_on.append(dummy_object)
         task_grounding_return = TaskGroundingReturn()
         task_grounding_return.task_info.append(base_task)
         perform_task_state.state_dict["base_task"] = base_task
@@ -548,9 +531,10 @@ class PerformTaskStateTest(unittest.TestCase):
         return_state = perform_task_state.execute()
         self.assertTrue(isinstance(return_state, dialog_flow.WaitForGreetingState))
 
-    def test_perform_task__succeeds_to_perform_task__returns_ask_for_command_state(self):
+    def test_perform_task__succeeds_to_perform_task__returns_perform_task_state(self):
         grounding_return = GroundingReturn()
-        grounding_return.is_success = False
+        grounding_return.is_success = True
+        grounding_return.object_info.append("dummy")
         self.container.speak = Mock()
         self.container.robot.move_out_of_view = Mock()
         self.container.camera.get_image = Mock()
@@ -559,13 +543,15 @@ class PerformTaskStateTest(unittest.TestCase):
         self.container.robot.pick_up = Mock(return_value=True)
         perform_task_state = dialog_flow.PerformTaskState(self.state_dict, self.container)
         base_task = Task(name="Dummy name")
+        dummy_object = ObjectEntity(name="dummy")
+        base_task.objects_to_execute_on.append(dummy_object)
         base_task.task_type = TaskType.PICK
         task_grounding_return = TaskGroundingReturn()
         task_grounding_return.task_info.append(base_task)
         perform_task_state.state_dict["base_task"] = base_task
         perform_task_state.state_dict["task_grounding_return"] = task_grounding_return
         return_state = perform_task_state.execute()
-        self.assertTrue(isinstance(return_state, dialog_flow.AskForCommandState))
+        self.assertTrue(isinstance(return_state, dialog_flow.PerformTaskState))
 
 class ClarifyObjectStateTest(unittest.TestCase):
     def setUp(self):
@@ -586,6 +572,14 @@ class ClarifyObjectStateTest(unittest.TestCase):
         clarify_objects_state = dialog_flow.ClarifyObjects(self.state_dict, self.container)
         clarify_objects_state.error = GroundingErrorType.UNKNOWN
         self.container.speak = Mock()
+        base_task = Task(name="Dummy name")
+        dummy_object = ObjectEntity(name="dummy")
+        base_task.objects_to_execute_on.append(dummy_object)
+        base_task.task_type = TaskType.PICK
+        task_grounding_return = TaskGroundingReturn()
+        task_grounding_return.task_info.append(base_task)
+        clarify_objects_state.state_dict["base_task"] = base_task
+        clarify_objects_state.state_dict["task_grounding_return"] = task_grounding_return
         return_state = clarify_objects_state.execute()
         self.assertTrue(isinstance(return_state, dialog_flow.WaitForGreetingState))
 
@@ -593,6 +587,14 @@ class ClarifyObjectStateTest(unittest.TestCase):
         clarify_objects_state = dialog_flow.ClarifyObjects(self.state_dict, self.container)
         clarify_objects_state.error = GroundingErrorType.CANT_FIND
         self.container.speak = Mock()
+        base_task = Task(name="Dummy name")
+        dummy_object = ObjectEntity(name="dummy")
+        base_task.objects_to_execute_on.append(dummy_object)
+        base_task.task_type = TaskType.PICK
+        task_grounding_return = TaskGroundingReturn()
+        task_grounding_return.task_info.append(base_task)
+        clarify_objects_state.state_dict["base_task"] = base_task
+        clarify_objects_state.state_dict["task_grounding_return"] = task_grounding_return
         return_state = clarify_objects_state.execute()
         self.assertTrue(isinstance(return_state, dialog_flow.WaitForResponseState))
 
@@ -626,13 +628,16 @@ class ClarifyObjectStateTest(unittest.TestCase):
         ]
         grounding_return = GroundingReturn()
         grounding_return.is_success = False
-        base_task = Task(name="Dummy name")
-        base_task.task_type = TaskType.PICK
-        task_grounding_return = TaskGroundingReturn()
-        task_grounding_return.task_info.append(base_task)
+        grounding_return.error_code = GroundingErrorType.CANT_FIND
         self.container.ner.get_entities = Mock(return_value=entities)
         self.container.grounding.find_object = Mock(return_value=grounding_return)
         clarify_objects_state = dialog_flow.ClarifyObjects(self.state_dict, self.container)
+        base_task = Task(name="Dummy name")
+        dummy_object = ObjectEntity(name="dummy")
+        base_task.objects_to_execute_on.append(dummy_object)
+        base_task.task_type = TaskType.PICK
+        task_grounding_return = TaskGroundingReturn()
+        task_grounding_return.task_info.append(base_task)
         clarify_objects_state.state_dict["base_task"] = base_task
         clarify_objects_state.state_dict["task_grounding_return"] = task_grounding_return
         clarify_objects_state.error = GroundingErrorType.CANT_FIND
@@ -653,13 +658,15 @@ class ClarifyObjectStateTest(unittest.TestCase):
         ]
         grounding_return = GroundingReturn()
         grounding_return.is_success = True
-        base_task = Task(name="Dummy name")
-        base_task.task_type = TaskType.PICK
-        task_grounding_return = TaskGroundingReturn()
-        task_grounding_return.task_info.append(base_task)
         self.container.ner.get_entities = Mock(return_value=entities)
         self.container.grounding.find_object = Mock(return_value=grounding_return)
         clarify_objects_state = dialog_flow.ClarifyObjects(self.state_dict, self.container)
+        base_task = Task(name="Dummy name")
+        dummy_object = ObjectEntity(name="dummy")
+        base_task.objects_to_execute_on.append(dummy_object)
+        base_task.task_type = TaskType.PICK
+        task_grounding_return = TaskGroundingReturn()
+        task_grounding_return.task_info.append(base_task)
         clarify_objects_state.state_dict["base_task"] = base_task
         clarify_objects_state.state_dict["task_grounding_return"] = task_grounding_return
         clarify_objects_state.error = GroundingErrorType.CANT_FIND
@@ -681,13 +688,15 @@ class ClarifyObjectStateTest(unittest.TestCase):
         grounding_return = GroundingReturn()
         grounding_return.is_success = False
         grounding_return.error_code = GroundingErrorType.ALREADY_KNOWN
-        base_task = Task(name="Dummy name")
-        base_task.task_type = TaskType.PICK
-        task_grounding_return = TaskGroundingReturn()
-        task_grounding_return.task_info.append(base_task)
         self.container.ner.get_entities = Mock(return_value=entities)
         self.container.grounding.find_object = Mock(return_value=grounding_return)
         clarify_objects_state = dialog_flow.ClarifyObjects(self.state_dict, self.container)
+        base_task = Task(name="Dummy name")
+        dummy_object = ObjectEntity(name="dummy")
+        base_task.objects_to_execute_on.append(dummy_object)
+        base_task.task_type = TaskType.PICK
+        task_grounding_return = TaskGroundingReturn()
+        task_grounding_return.task_info.append(base_task)
         clarify_objects_state.state_dict["base_task"] = base_task
         clarify_objects_state.state_dict["task_grounding_return"] = task_grounding_return
         clarify_objects_state.error = GroundingErrorType.CANT_FIND
