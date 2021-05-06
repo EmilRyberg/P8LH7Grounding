@@ -74,7 +74,7 @@ class Grounding:
         # This part of the code will be executed if there is only 1 of the requested objects in the scene or
         # if the user does not care about what part is picked up.
         best_match_index = self.find_best_match(indexes_below_threshold, distances)
-        self.return_object.object_info = object_infos_with_features[best_match_index]
+        self.return_object.object_info = [object_infos_with_features[best_match_index]]
         self.return_object.is_success = True
         return self.return_object
 
@@ -151,7 +151,7 @@ class Grounding:
     def embedding_distance(self, features_1, features_2):
         return np.linalg.norm(features_1 - features_2)
 
-    def is_same_object(self, features_1, features_2, threshold=1.0):
+    def is_same_object(self, features_1, features_2, threshold=0.8):
         return self.embedding_distance(features_1, features_2) < threshold
 
     def find_best_match(self, indexes_below_threshold, distances) -> Optional[tuple]:

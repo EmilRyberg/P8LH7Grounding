@@ -31,13 +31,16 @@ class RobotController:
 
         return result.success
 
-    def place(self, position):
+    def place(self, position, rgb):
         rospy.loginfo("Waiting for server")
         self.client.wait_for_server()
 
         goal = PickObjectGoal()
         goal.command = "place_object"
-        goal.position = position
+        goal.place_image_x = position[0]
+        goal.place_image_y = position[1]
+        goal.place_world_z = position[2]
+        goal.reference_img = self.bridge.cv2_to_imgmsg(rgb)
 
         rospy.loginfo("sending goal")
         self.client.send_goal(goal)

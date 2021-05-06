@@ -93,10 +93,12 @@ class SpatialRelation:
                     correct_bbox_index = self.find_best_match(matching_objects, last_spatial_description, last_bbox)
                     (last_id, _, last_bbox) = matching_objects[correct_bbox_index]
                     last_spatial_description = instance
-                else:
+                elif len(matching_objects) == 1:
                     (last_id, name, bbox) = matching_objects[0]
                     last_spatial_description = instance
                     last_bbox = bbox
+                else:
+                    return None, None, None
                 local_objects.remove((last_id, object_name, last_bbox))
             else:
                 x, y, z = self.database_handler.get_location_by_name(instance.object_entity.name.lower())
@@ -122,7 +124,7 @@ class SpatialRelation:
         else:
             idx, name, bbox = objects[best_object_index]
             center_x, center_y, _ = self.get_center_and_size(bbox)
-            return center_x, center_y
+            return round(center_x), round(center_y)
 
 
     def find_best_match(self, objects, spatial_description, last_bbox):

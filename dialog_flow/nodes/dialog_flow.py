@@ -53,7 +53,7 @@ class StateMachine:
         }
 
         self.container = container
-        self.current_state = StartTeachState(self.state_dict, self.container)
+        self.current_state = DefaultState(self.state_dict, self.container)
         self.state_stack = []
 
     def got_new_speech_to_text(self, message, timestamp):
@@ -114,7 +114,6 @@ class GreetState(State):
             return self.wait_for_command_state
         else:
             if self.state_dict["last_received_sentence"] is not None:
-                self.container.send_human_sentence_to_gui(self.state_dict["last_received_sentence"])
                 entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
                 is_teach = any([x[0] == EntityType.TEACH for x in entities])
                 has_task = any([x[0] == EntityType.TASK for x in entities])
@@ -182,7 +181,6 @@ class VerifyCommandState(State):
         entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
         if self.is_first_call:
             self.is_first_call = False
-            self.container.send_human_sentence_to_gui(self.state_dict["last_received_sentence"])
             is_teach = any([x[0] == EntityType.TEACH for x in entities]) # TODO make states for teaching
             if not is_teach:
                 self.state_dict["base_task"] = self.container.command_builder.get_task(self.state_dict["last_received_sentence"])
@@ -312,31 +310,33 @@ class PerformTaskState(State):
             np_rgb = self.container.camera.get_image()
             np_depth = self.container.camera.get_depth()
 
-            grounding_return = self.container.grounding.find_object(task.objects_to_execute_on[0])
-            if not grounding_return.is_success:
-                self.state_dict["grounding_error"] = grounding_return.error_code
-                clarify_objects_state = ClarifyObjects(self.state_dict, self.container, self)
-                return clarify_objects_state
-            else:
-                if self.state_dict["websocket_is_connected"]:
-                    self.container.ui_interface.send_images(np_rgb, grounding_return.object_info[0].object_img_cutout_cropped)
+            grounding_return = None
+            if task.task_type != TaskType.PLACE:
+                grounding_return = self.container.grounding.find_object(task.objects_to_execute_on[0])
+                if not grounding_return.is_success:
+                    self.state_dict["grounding_error"] = grounding_return.error_code
+                    clarify_objects_state = ClarifyObjects(self.state_dict, self.container, self)
+                    return clarify_objects_state
+                else:
+                    if self.state_dict["websocket_is_connected"]:
+                        self.container.ui_interface.send_images(np_rgb, grounding_return.object_info[0].object_img_cutout_cropped)
             success = False
             if task.task_type == TaskType.PICK:
                 success = self.container.robot.pick_up(grounding_return.object_info[0], np_rgb, np_depth)
                 self.state_dict["carrying_object"] = True
 
-            elif task.task_type== TaskType.FIND:
+            elif task.task_type == TaskType.FIND:
                 success = self.container.robot.point_at(grounding_return.object_info[0], np_rgb, np_depth)
 
-            elif task.task_type==TaskType.PLACE:
-                if not self.state_dict["carrying_object"]:
-                    self.container.speak("The place task could not be accomplished as no object is carried.")
-                    success = False
-                else:
-                    x,y = self.container.grounding.get_location(task.objects_to_execute_on[0])
-                    position = [x, y, 50]
-                    success = self.container.robot.place(position)
-                    self.state_dict["carrying_object"] = False
+            elif task.task_type == TaskType.PLACE:
+                #if not self.state_dict["carrying_object"]:
+                #    self.container.speak("The place task could not be accomplished as no object is carried.")
+                #    success = False
+                #else:
+                x,y = self.container.grounding.get_location(task.objects_to_execute_on[0])
+                position = [x, y, 50]
+                success = self.container.robot.place(position, np_rgb)
+                self.state_dict["carrying_object"] = False
 
             if success:
                 del self.state_dict['task_grounding_return'].task_info[0] # Removing the task from the list, we just completed
@@ -658,17 +658,9 @@ class DialogFlow:
         self.send_human_sentence_to_GUI(data.data)
         self.state_machine.got_new_speech_to_text(self.last_received_sentence, self.last_received_sentence_timestamp)
 
-    def learn_control(self, name, image):
-        self.tts("I will try and learn the new object")
-        self.grounding.learn_new_object(name, image) # placeholder
-
     def pick_control(self, object_info, rgb, depth):
         self.tts(f"Okay, I will try to pick up the {object_info.name}") # might need to rework if we take the name out of objectinfo
         self.robot.pick_up(object_info, rgb, depth) # placeholder
-
-    def find_control(self, object_info, rgb):
-        self.tts(f"Okay, I will try to find the {object_info.name}")
-        self.robot.find(object_info, rgb) # placeholder
 
     def build_object_sentence(self, main_object: ObjectEntityType):
         sentence = main_object.name
