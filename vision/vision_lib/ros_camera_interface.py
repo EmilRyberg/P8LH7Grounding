@@ -31,12 +31,18 @@ class ROSCamera:
         self.client.wait_for_result()
         result = self.client.get_result()
         np_img = self.bridge.imgmsg_to_cv2(result.depth, desired_encoding="passthrough")
+        np_img = cv2.rotate(np_img, cv2.ROTATE_90_CLOCKWISE)
+        np_img = cv2.flip(np_img, 1)
         return np_img
 
 
 if __name__ == "__main__":
     camera = ROSCamera(True)
     img = camera.get_image()
+    depth = camera.get_depth()
+    depth = depth*120
+    depth = depth.astype(np.uint8)
+    cv2.imshow("d", depth)
     cv2.imshow("rgb", img)
     cv2.imwrite("background.png", img)
     #depth = camera.get_depth()

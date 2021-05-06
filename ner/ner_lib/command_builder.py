@@ -18,7 +18,6 @@ class TaskType(Enum):
     PICK = "pick"
     FIND = "find"
     MOVE = "move"
-    OTHER = "other"
     NOT_SET = "not_set"
 
 WORD_TO_SPATIAL_TYPE_MAPPING = { # Maybe add this to database

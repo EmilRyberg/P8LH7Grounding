@@ -7,7 +7,7 @@ from grounding_lib.grounding_lib import Grounding, GroundingReturn, GroundingErr
 
 
 def create_ros_return(non_ros_return):
-    object_info = non_ros_return.object_info
+    object_info = non_ros_return.object_infos
     ros_info = ObjectInfo(mask=object_info.mask, cropped_rbg=object_info.cropped_rgb, bbox=object_info.bbox)
     ros_return = ROSGroundingReturn(is_success=non_ros_return.is_success, error_code=non_ros_return.error_code.value,
                                     object_info=ros_info)

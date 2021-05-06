@@ -534,7 +534,7 @@ class PerformTaskStateTest(unittest.TestCase):
     def test_perform_task__succeeds_to_perform_task__returns_perform_task_state(self):
         grounding_return = GroundingReturn()
         grounding_return.is_success = True
-        grounding_return.object_info.append("dummy")
+        grounding_return.object_infos.append("dummy")
         self.container.speak = Mock()
         self.container.robot.move_out_of_view = Mock()
         self.container.camera.get_image = Mock()
