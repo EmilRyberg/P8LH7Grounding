@@ -26,9 +26,11 @@ class UIInterface:
         self.loop.run_until_complete(self.websocket.send(f"usr||{message}"))
 
     def send_images(self, image_full, image_cutout):
-        _, buffer_full = cv2.imencode(".png", image_full)
-        _, buffer_cutout = cv2.imencode(".png", image_cutout)
-        self.loop.run_until_complete(self.websocket.send(f"imgs||{base64.b64encode(buffer_cutout)}||{base64.b64encode(buffer_full)}"))
+        image_full_resized = cv2.resize(image_full, (960, 540))
+        _, buffer_full = cv2.imencode(".jpg", image_full_resized, (cv2.IMWRITE_JPEG_QUALITY, 80))
+        _, buffer_cutout = cv2.imencode(".jpg", image_cutout)
+        self.loop.run_until_complete(self.websocket.send(f"img1||{base64.b64encode(buffer_cutout).decode()}"))
+        self.loop.run_until_complete(self.websocket.send(f"img2||{base64.b64encode(buffer_full).decode()}"))
 
     def __del__(self):
         if self.is_connected:
