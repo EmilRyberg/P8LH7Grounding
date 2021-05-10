@@ -362,7 +362,7 @@ class ValidateTaskStateTest(unittest.TestCase):
         task_grounding_return = TaskGroundingReturn()
         error = TaskGroundingError()
         error.error_code = TaskErrorType.UNKNOWN
-        error.error_task = "Dummy Task"
+        error.error_task_word = "Dummy Task"
         task_grounding_return.error = error
         validate_task_state = dialog_flow.ValidateTaskState(self.state_dict, self.container)
         validate_task_state.state_dict['task_grounding_return'] = task_grounding_return
@@ -388,7 +388,7 @@ class AskForClarificationStateTest(unittest.TestCase):
     def test_clarify_task__first_run__returns_wait_response_state(self):
         error = TaskGroundingError()
         error.error_code = TaskErrorType.UNKNOWN
-        error.error_task = "Dummy Task"
+        error.error_task_word = "Dummy Task"
         clarify_state = dialog_flow.AskForClarificationState(self.state_dict, self.container)
         clarify_state.error = error
         self.container.speak = Mock()
@@ -408,7 +408,7 @@ class AskForClarificationStateTest(unittest.TestCase):
         self.container.ner.get_entities = Mock(return_value=entities)
         error = TaskGroundingError()
         error.error_code = TaskErrorType.UNKNOWN
-        error.error_task = "Dummy Task"
+        error.error_task_word = "Dummy Task"
         clarify_state = dialog_flow.AskForClarificationState(self.state_dict, self.container)
         clarify_state.is_first_run = False
         clarify_state.error = error
@@ -429,7 +429,7 @@ class AskForClarificationStateTest(unittest.TestCase):
         self.container.ner.get_entities = Mock(return_value=entities)
         error = TaskGroundingError()
         error.error_code = TaskErrorType.UNKNOWN
-        error.error_task = "Dummy Task"
+        error.error_task_word = "Dummy Task"
         clarify_state = dialog_flow.AskForClarificationState(self.state_dict, self.container)
         clarify_state.is_first_run = False
         clarify_state.error = error
@@ -450,7 +450,7 @@ class AskForClarificationStateTest(unittest.TestCase):
         self.container.ner.get_entities = Mock(return_value=entities)
         error = TaskGroundingError()
         error.error_code = TaskErrorType.NO_OBJECT
-        error.error_task = "Dummy Task"
+        error.error_task_word = "Dummy Task"
         clarify_state = dialog_flow.AskForClarificationState(self.state_dict, self.container)
         clarify_state.is_first_run = False
         clarify_state.error = error
@@ -471,7 +471,7 @@ class AskForClarificationStateTest(unittest.TestCase):
         self.container.ner.get_entities = Mock(return_value=entities)
         error = TaskGroundingError()
         error.error_code = TaskErrorType.UNKNOWN
-        error.error_task = "Dummy Task"
+        error.error_task_word = "Dummy Task"
         clarify_state = dialog_flow.AskForClarificationState(self.state_dict, self.container)
         clarify_state.is_first_run = False
         clarify_state.error = error
