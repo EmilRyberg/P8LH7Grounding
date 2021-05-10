@@ -25,20 +25,52 @@
     <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
   </joint>
 
+  <xacro:property name="box_size" value="3 3 1" />
+  <xacro:property name="box_translation" value="0 0 -0.5" />
+
   <link name="box_link">
     <visual>
-      <origin xyz="0 0 -0.5" rpy="0 0 0"/>
+      <origin xyz="${box_translation}" rpy="0 0 0"/>
       <geometry>
-        <box size="3 3 1" />
+        <box size="${box_size}" />
       </geometry>
       <material name="box_yellow">
         <color rgba="1 1 0 1"/>
       </material>
     </visual>
     <collision>
-      <origin xyz="0 0 -0.5" rpy="0 0 0"/>
+      <origin xyz="${box_translation}" rpy="0 0 0"/>
       <geometry>
-        <box size="3 3 1" />
+        <box size="${box_size}" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="ee_cylinder_joint" type="fixed">
+    <parent link="tool0" />
+    <child link="ee_cylinder_link" />
+    <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+  </joint>
+
+  <xacro:property name="cylinder_radius" value="0.06" />
+  <xacro:property name="cylinder_length" value="0.18" />
+  <xacro:property name="cylinder_translation" value="0 0 ${cylinder_length/2}" />
+  <xacro:property name="cylinder_rotation" value="0 0 ${pi/2}" />
+
+  <link name="ee_cylinder_link">
+    <visual>
+      <origin xyz="${cylinder_translation}" rpy="${cylinder_rotation}"/>
+      <geometry>
+        <cylinder radius="${cylinder_radius}" length="${cylinder_length}" />
+      </geometry>
+      <material name="cylinder_color">
+        <color rgba="0 0 0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="${cylinder_translation}" rpy="${cylinder_rotation}"/>
+      <geometry>
+        <cylinder radius="${cylinder_radius}" length="${cylinder_length}" />
       </geometry>
     </collision>
   </link>
