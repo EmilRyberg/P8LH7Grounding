@@ -17,7 +17,7 @@ class TaskErrorType(Enum):
 
 class TaskGroundingError:
     def __init__(self):
-        self.error_task_word = None
+        self.error_task_name = None
         self.error_code = None
 
 
@@ -78,7 +78,7 @@ class TaskGrounding:
             sub_tasks = self.db.get_sub_tasks(task_id)
             if sub_tasks is None:
                 error = TaskGroundingError()
-                error.error_task_word = task_name
+                error.error_task_name = task_name
                 error.error_code = TaskErrorType.NO_SUBTASKS
                 return None, error
             tasks = self.handle_custom_task(sub_tasks)
@@ -105,7 +105,7 @@ class TaskGrounding:
         return_object = TaskGroundingReturn()
         if task_exists:
             error = TaskGroundingError()
-            error.error_task_word = task_name_lower
+            error.error_task_name = task_name_lower
             error.error_code = TaskErrorType.ALREADY_KNOWN_TASK
             return_object.error = error
             return return_object
@@ -123,7 +123,7 @@ class TaskGrounding:
         if error_words:
             return_object.is_success = False
             error = TaskGroundingError()
-            error.error_task_word = ", ".join(error_words)
+            error.error_task_name = ", ".join(error_words)
             error.error_code = TaskErrorType.ALREADY_USED_WORD
             return_object.error = error
         return return_object
@@ -159,14 +159,14 @@ class TaskGrounding:
 
     def missing_entities_error(self, task_word):
         error = TaskGroundingError()
-        error.error_task_word = task_word
+        error.error_task_name = task_word
         error.error_code = TaskErrorType.NO_OBJECT
         return error
 
     def unknown_task_error(self, task_word):
         error = TaskGroundingError()
         error.error_code = TaskErrorType.UNKNOWN
-        error.error_task_word = task_word
+        error.error_task_name = task_word
         return error
 
 
