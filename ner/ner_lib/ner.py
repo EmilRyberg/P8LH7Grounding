@@ -12,6 +12,7 @@ class EntityType(Enum):
     DENIAL = "denial"
     AFFIRMATION = "confirmation"
     TEACH = "teach"
+    GREETING = "greeting"
 
 
 class NER:

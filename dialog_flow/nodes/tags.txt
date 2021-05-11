@@ -13,3 +13,5 @@ B-location
 I-location
 B-object
 I-object
+B-greeting
+I-greeting

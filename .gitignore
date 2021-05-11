@@ -172,3 +172,5 @@ feature_extractor/SpineNet/
 *.tfevents.*
 
 *.zip
+
+*.old

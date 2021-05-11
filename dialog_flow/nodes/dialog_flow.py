@@ -214,7 +214,7 @@ class VerifyCommandState(State):
             is_teach = any([x[0] == EntityType.TEACH for x in entities])
             if not is_teach:
                 self.state_dict["base_task"] = self.container.command_builder.get_task(self.state_dict["last_received_sentence"])
-                log_string = f"Ok, just to be sure. You want me to execute the task {self.state_dict['base_task'].name} on {build_object_sentence(self.state_dict['base_task'].object_entity)}?"
+                log_string = f"Ok, just to be sure. You want me to execute the task {self.state_dict['base_task'].name}?"
                 self.container.speak(log_string)
                 return self.wait_for_response
             else:
@@ -345,41 +345,23 @@ class PerformTaskState(State):
 
     def execute(self):
         if self.state_dict["task_grounding_return"].task_info:
-            log_string = f"I will now execute the task {self.state_dict['base_task'].name}."
-            self.container.speak(log_string)
             task = self.state_dict['task_grounding_return'].task_info[0]
-            self.container.robot.move_out_of_view()
+            log_string = f"I will now execute the task {self.state_dict['base_task'].name} on {build_object_sentence(task.objects_to_execute_on[0])}."
+            self.container.speak(log_string)
 
-            np_rgb = self.container.camera.get_image()
-            np_depth = self.container.camera.get_depth()
-
-            grounding_return = None
-            if task.task_type != TaskType.PLACE:
-                grounding_return = self.container.grounding.find_object(task.objects_to_execute_on[0])
-                if not grounding_return.is_success:
-                    self.state_dict["grounding_error"] = grounding_return.error_code
-                    clarify_objects_state = ClarifyObjects(self.state_dict, self.container, self)
-                    return clarify_objects_state
-                else:
-                    if self.state_dict["websocket_is_connected"]:
-                        self.container.ui_interface.send_images(np_rgb, grounding_return.object_infos[0].object_img_cutout_cropped)
-            success = False
-            if task.task_type == TaskType.PICK:
-                success = self.container.robot.pick_up(grounding_return.object_infos[0], np_rgb, np_depth)
-                self.state_dict["carrying_object"] = True
-
-            elif task.task_type == TaskType.FIND:
-                success = self.container.robot.point_at(grounding_return.object_infos[0], np_rgb, np_depth)
-
-            elif task.task_type == TaskType.PLACE:
-                if not self.state_dict["carrying_object"]:
-                    self.container.speak("The place task could not be accomplished as no object is carried.")
-                    success = False
-                else:
-                    positions, error = self.container.grounding.get_location(task.objects_to_execute_on[0])
-                    position = [round(positions[0][0]), round(positions[0][1]), 50]
-                    success = self.container.robot.place(position, np_rgb)
-                    self.state_dict["carrying_object"] = False
+            success = self.perform_task(task)
+            if len(task.child_tasks) > 0:
+                for child_task in task.child_tasks:
+                    task_grounding_return = self.container.task_grounding.get_specific_task_from_task(child_task)
+                    if not task_grounding_return.is_success:
+                        self.container.speak("Something went wrong on a child task")
+                        success = False
+                        break
+                    else:
+                        for child_skill in task_grounding_return.task_info:
+                            success = self.perform_task(child_skill)
+                            if not success:
+                                break
 
             if success:
                 del self.state_dict['task_grounding_return'].task_info[0] # Removing the task from the list, we just completed
@@ -394,6 +376,41 @@ class PerformTaskState(State):
             self.container.speak("I have performed the task you requested!")
             ask_for_new_command_state = AskForCommandState(self.state_dict, self.container, self)
             return ask_for_new_command_state
+
+    def perform_task(self, task):
+        self.container.robot.move_out_of_view()
+        np_rgb = self.container.camera.get_image()
+        np_depth = self.container.camera.get_depth()
+
+        grounding_return = None
+        if task.task_type != TaskType.PLACE:
+            grounding_return = self.container.grounding.find_object(task.objects_to_execute_on[0])
+            if not grounding_return.is_success:
+                self.state_dict["grounding_error"] = grounding_return.error_code
+                clarify_objects_state = ClarifyObjects(self.state_dict, self.container, self)
+                return clarify_objects_state
+            else:
+                if self.state_dict["websocket_is_connected"]:
+                    self.container.ui_interface.send_images(np_rgb,
+                                                            grounding_return.object_infos[0].object_img_cutout_cropped)
+        success = False
+        if task.task_type == TaskType.PICK:
+            success = self.container.robot.pick_up(grounding_return.object_infos[0], np_rgb, np_depth)
+            self.state_dict["carrying_object"] = True
+
+        elif task.task_type == TaskType.FIND:
+            success = self.container.robot.point_at(grounding_return.object_infos[0], np_rgb, np_depth)
+
+        elif task.task_type == TaskType.PLACE:
+            if not self.state_dict["carrying_object"]:
+                self.container.speak("The place task could not be accomplished as no object is carried.")
+                success = False
+            else:
+                positions, error = self.container.grounding.get_location(task.objects_to_execute_on[0])
+                position = [round(positions[0][0]), round(positions[0][1]), 50]
+                success = self.container.robot.place(position, np_rgb)
+                self.state_dict["carrying_object"] = False
+        return success
 
 
 class ClarifyObjects(State):
@@ -483,7 +500,18 @@ class VerifyTaskNameState(State):
             self.is_first_call = False
             return self.wait_for_state
         else:
-            task_name = self.state_dict["last_received_sentence"]  # assumed whole sentence is task name
+            entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
+            task_words = [x[1] for x in entities if x[0] == EntityType.TASK]
+            if len(task_words) == 0:
+                self.container.speak("No task words found in what you said, please try again")
+                self.is_first_call = True
+                return self
+            elif len(task_words) > 1:
+                self.container.speak(f"I recognised multiple task words. The words i recognised are: {' and '.join(task_words)}. Please try again.")
+                self.is_first_call = True
+                return self
+            task_name = task_words[0]
+            self.container.speak(f"I recognised the word, {task_name}, which will be associated with the name of the task")
             ask_for_task_words_state = AskForTaskWordsState(self.state_dict, self.container, task_name, self)
             return ask_for_task_words_state
 
@@ -501,8 +529,8 @@ class AskForTaskWordsState(State):
             self.container.speak("Which other words do you want to associate with this task?")
             return self.wait_for_state
         else:
-            entites = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
-            task_words = [x[1] for x in entites if x[0] == EntityType.TASK]
+            entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
+            task_words = [x[1] for x in entities if x[0] == EntityType.TASK]
             if len(task_words) > 0:
                 self.container.speak(f"I recognised the following words: {', '.join(task_words)}")
             else:
@@ -660,8 +688,8 @@ class AskIfMoreStepsState(State):
 
 
 class DialogFlow:
-    def __init__(self, ner_model_path, ner_tag_path, feature_weights_path, db_path, background_image_file, websocket_uri):
-        rospy.init_node('dialog_controller')
+    def __init__(self, ner_model_path, ner_tag_path, feature_weights_path, db_path, background_image_file, websocket_uri, debug=False):
+        rospy.init_node('dialog_controller', log_level=(rospy.DEBUG if debug else rospy.INFO))
         self.database_handler = DatabaseHandler(db_path=db_path)
         self.grounding = Grounding(db=self.database_handler,
                                    vision_controller=VisionController(background_image_file=background_image_file,
@@ -728,7 +756,7 @@ if __name__ == '__main__':
     try:
         dialog = DialogFlow(ner_model_path=args.ner_model_path, ner_tag_path=args.tags_path,
                             feature_weights_path=args.feature_model, db_path=args.grounding_database,
-                            background_image_file=args.background_image, websocket_uri=args.websocket_uri)
+                            background_image_file=args.background_image, websocket_uri=args.websocket_uri, debug=True)
         dialog.start()
     except rospy.ROSInterruptException:
         pass
