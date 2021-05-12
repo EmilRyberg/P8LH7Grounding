@@ -90,6 +90,7 @@ class ObjectEntity:
                 spatial_description = SpatialDescription(spatial_type)
                 if is_building_own_name:
                     is_building_own_name = False
+                    is_object = True
                     self.build_name()
                     current_spatial_descriptor = 0
                 else:
@@ -162,5 +163,14 @@ class CommandBuilder:
                 else:
                     is_main_task = False
                     task = Task(word).build_task(entities[index + 1:])
+        return task
+
+    def add_entities_to_task(self, task: Task, sentence):
+        entities = self.ner.get_entities(sentence)
+        for index, (entity_type, word) in enumerate(entities):
+            if entity_type == EntityType.TASK:
+                task.child_tasks.append(Task(word).build_task(entities[index + 1:]))
+            else:
+                task.build_task(entities)
         return task
 

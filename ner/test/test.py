@@ -1,7 +1,7 @@
 import unittest
 from ner_lib.ner import NER, EntityType
 from unittest.mock import Mock
-from ner_lib.command_builder import CommandBuilder, SpatialType
+from ner_lib.command_builder import CommandBuilder, SpatialType, Task, TaskType
 
 
 class NERTestCase(unittest.TestCase):
@@ -23,7 +23,7 @@ class NERTestCase(unittest.TestCase):
 class CommandBuilderTestCase(unittest.TestCase):
     def setUp(self):
         self.ner_mock = Mock()
-        self.cmd_builder = CommandBuilder("", "", self.ner_mock)
+        self.cmd_builder = CommandBuilder(self.ner_mock)
 
     def test_get_task__entities_with_pick_up_task__returns_pick_up_task_and_locations(self):
         entities = [
@@ -227,10 +227,56 @@ class CommandBuilderTestCase(unittest.TestCase):
         self.assertEqual("white cover", task.objects_to_execute_on[0].spatial_descriptions[0].object_entity.name)
         self.assertEqual("top left corner", task.objects_to_execute_on[0].spatial_descriptions[1].object_entity.name)
 
+    def test_get_task_entities__no_main_object__returns_object_with_spatial_descriptions(self):
+        # example Place it in the top left corner
+        entities = [
+            (EntityType.TASK, "place"),
+            (EntityType.LOCATION, "top left corner"),
+            (EntityType.OBJECT, "table")
+        ]
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = self.cmd_builder.get_task("Dummy sentence")
+
+        self.assertEqual("", task.objects_to_execute_on[0].name)
+        self.assertEqual("top left corner", task.objects_to_execute_on[0].spatial_descriptions[0].object_entity.name)
+
+    def test_add_entities_to_task__objects_in_entity_list__adds_object_to_task(self):
+        entities = [
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover")
+        ]
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = Task("pick")
+        task.task_type = TaskType.PICK
+        self.cmd_builder.add_entities_to_task(task, "Dummy sentence")
+
+        self.assertEqual("blue cover", task.objects_to_execute_on[0].name)
+
+    def test_add_entities_to_task__sub_task_in_entity_list__adds_subtask_to_task(self):
+        entities = [
+            (EntityType.TASK, "place"),
+            (EntityType.COLOUR, "blue"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "next"),
+            (EntityType.COLOUR, "white"),
+            (EntityType.OBJECT, "cover"),
+            (EntityType.LOCATION, "top left corner"),
+            (EntityType.OBJECT, "table")
+        ]
+        self.ner_mock.get_entities = Mock(return_value=entities)
+        task = Task("pick")
+        task.task_type = TaskType.PICK
+        self.cmd_builder.add_entities_to_task(task, "Dummy sentence")
+
+        self.assertEqual("place", task.child_tasks[0].name)
+        self.assertEqual("white cover", task.child_tasks[0].objects_to_execute_on[0].spatial_descriptions[0].object_entity.name)
+        self.assertEqual("top left corner", task.child_tasks[0].objects_to_execute_on[0].spatial_descriptions[1].object_entity.name)
+
 
 class NERIntegrationTestCase(unittest.TestCase):
     def setUp(self):
-        self.cmd_builder = CommandBuilder("ner_model.bin", "tags.txt")
+        self.ner = NER("ner_model.bin", "tags.txt")
+        self.cmd_builder = CommandBuilder(self.ner)
 
     def test_get_task__sentence_with_pick_up_task__returns_pick_up_task_and_locations(self):
         task = self.cmd_builder.get_task("Please pick up the blue cover that is next to the black bottom cover which is above a bottom cover")

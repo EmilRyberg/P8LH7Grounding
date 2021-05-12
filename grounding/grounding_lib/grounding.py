@@ -29,7 +29,7 @@ class Grounding:
         self.object_info = None
 
     def find_object(self, object_entity):
-        name = object_entity.name
+        name = object_entity.name.lower()
         spatial_desc = object_entity.spatial_descriptions
         found_object = False
         indexes_below_threshold = []

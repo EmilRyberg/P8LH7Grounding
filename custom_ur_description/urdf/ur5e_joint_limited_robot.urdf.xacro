@@ -60,7 +60,7 @@
   </joint>
 
   <xacro:property name="cylinder_radius" value="0.06" />
-  <xacro:property name="cylinder_length" value="0.18" />
+  <xacro:property name="cylinder_length" value="0.191" />
   <xacro:property name="cylinder_translation" value="0 0 ${cylinder_length/2}" />
   <xacro:property name="cylinder_rotation" value="0 0 ${pi/2}" />
 

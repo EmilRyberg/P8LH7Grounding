@@ -3,7 +3,7 @@ import rospy
 import argparse
 from enum import Enum
 from find_objects_lib.find_objects import ObjectInfo
-from ner_lib.command_builder import CommandBuilder, SpatialType, Task, TaskType, ObjectEntity as ObjectEntityType
+from ner_lib.command_builder import CommandBuilder, SpatialType, Task, TaskType, ObjectEntity as ObjectEntityType, SpatialDescription
 from ner_lib.ner import NER, EntityType
 from vision_lib.ros_camera_interface import ROSCamera
 from robot_control.robot_control import RobotController
@@ -19,16 +19,40 @@ from little_helper_interfaces.msg import StringWithTimestamp
 from text_to_speech.srv import TextToSpeech
 
 
-def build_object_sentence(main_object: ObjectEntityType):
-    sentence = main_object.name
+def task_to_human_sentence(task: Task):
+    # example: pick up the blue cover which is next to the black cover, then place it in the top right corner
+    sentence = task.name
+    if not task.task_type == TaskType.PLACE:
+        #if task.task_type == TaskType.PICK:
+            # add "up"
+        #    sentence += " up"
+        sentence += f" the {build_object_sentence(task.objects_to_execute_on[0])}"
+    else:
+        sentence += f" it{build_object_sentence(task.objects_to_execute_on[0], skip_main_object=True)}"
+
+    if len(task.child_tasks) > 0:
+        for i, child_task in enumerate(task.child_tasks):
+            if i == len(task.child_tasks) - 1:
+                sentence += f", finally {task_to_human_sentence(child_task)}"
+            else:
+                sentence += f", then {task_to_human_sentence(child_task)}"
+
+    return sentence
+
+
+def build_object_sentence(main_object: ObjectEntityType, skip_main_object=False):
+    sentence = main_object.name if not skip_main_object else ""
     connection_variants = [
         "that is",
         "which is",
         "and it should be"
     ]
     for spatial_description in main_object.spatial_descriptions:
-        spatial_type_word = spatial_type_to_human_adjective(spatial_description.spatial_type)
-        sentence += f" {random.choice(connection_variants)} {spatial_type_word} the {spatial_description.object_entity.name}"
+        if spatial_description.spatial_type == SpatialType.OTHER:
+            sentence += f" in the {spatial_description.object_entity.name}"
+        else:
+            spatial_type_word = spatial_type_to_human_adjective(spatial_description.spatial_type)
+            sentence += f" {random.choice(connection_variants)} {spatial_type_word} the {spatial_description.object_entity.name}"
     return sentence
 
 
@@ -121,9 +145,21 @@ class WaitForGreetingState(State): # Not used right now
     def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
         super().__init__(state_dict, container, previous_state)
         self.greet = GreetState(state_dict, container, previous_state)
+        self.wait_for_response = WaitForResponseState(state_dict, container, self)
+        self.is_first_call = True
 
     def execute(self):
-        return self.greet
+        if self.is_first_call:
+            self.is_first_call = False
+            return self.wait_for_response
+        else:
+            entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
+            has_greeting = any([x[0] == EntityType.GREETING for x in entities])
+            if has_greeting:
+                return self.greet
+            else:
+                self.is_first_call = True
+                return self
 
 
 class GreetState(State):
@@ -307,14 +343,12 @@ class AskForClarificationState(State):
                 log_string = f"Do you want to teach me the task {self.error.error_task_name}?"
                 self.container.speak(log_string)
             elif self.error.error_code == TaskErrorType.NO_OBJECT:
-                # TODO make logic for adding object to the task instead of having to re-do the task.
-                log_string = f"Please repeat what you want me to do, and remember to specify the object I need to perform the task on."
+                log_string = f"Please specify the object I need to perform the task on."
                 self.container.speak(log_string)
             elif self.error.error_code == TaskErrorType.NO_SUBTASKS:
                 log_string = f"Do you want to teach me how to perform the task {self.error.error_task_name}?"
                 self.container.speak(log_string)
             elif self.error.error_code == TaskErrorType.NO_SPATIAL:
-                # TODO make logic for adding object to the task instead of having to re-do the task.
                 log_string = f"Please repeat what you want me to do, and remember to specify the spatial description."
                 self.container.speak(log_string)
             return self.wait_for_response_state
@@ -331,37 +365,53 @@ class AskForClarificationState(State):
                     self.container.speak("Sorry master, when I don't know a task I can't perform it. I will restart my program")
                     return wait_for_greet_state
             elif self.error.error_code == TaskErrorType.NO_OBJECT or self.error.error_code == TaskErrorType.NO_SPATIAL:
-                has_task = any([x[0] == EntityType.TASK for x in entities])
-                if has_task:
+                has_object = any([x[0] == EntityType.OBJECT for x in entities])
+                self.container.command_builder.add_entities_to_task(self.state_dict['base_task'], self.state_dict["last_received_sentence"])
+                if has_object:
                     return extract_task_state
                 else:
-                    self.container.speak("Sorry master, seems like you didn't specify a task again. I will restart my program.")
+                    self.container.speak("Sorry master, seems like you didn't specify an ojbect again. I will restart my program.")
                     return wait_for_greet_state
 
 
 class PerformTaskState(State):
     def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
         super().__init__(state_dict, container, previous_state)
+        self.has_started_performing_task = False
 
     def execute(self):
         if self.state_dict["task_grounding_return"].task_info:
             task = self.state_dict['task_grounding_return'].task_info[0]
-            log_string = f"I will now execute the task {self.state_dict['base_task'].name} on {build_object_sentence(task.objects_to_execute_on[0])}."
-            self.container.speak(log_string)
-
-            success = self.perform_task(task)
+            processed_child_tasks = []
+            child_task_error = False
             if len(task.child_tasks) > 0:
                 for child_task in task.child_tasks:
                     task_grounding_return = self.container.task_grounding.get_specific_task_from_task(child_task)
                     if not task_grounding_return.is_success:
-                        self.container.speak("Something went wrong on a child task")
-                        success = False
+                        self.container.speak("There is an invalid child task")
+                        child_task_error = True
                         break
                     else:
-                        for child_skill in task_grounding_return.task_info:
-                            success = self.perform_task(child_skill)
-                            if not success:
-                                break
+                        processed_child_tasks.extend(task_grounding_return.task_info)
+            if len(processed_child_tasks) > 0:
+                task.child_tasks = processed_child_tasks
+
+            if not self.has_started_performing_task:
+                log_string = f"I will now {task_to_human_sentence(task)}."
+                self.container.speak(log_string)
+                self.has_started_performing_task = True
+
+            success = False
+            if not child_task_error:
+                success = self.perform_task(task)
+                if not success:
+                    clarify_objects_state = ClarifyObjects(self.state_dict, self.container, self)
+                    return clarify_objects_state
+                if len(task.child_tasks) > 0:
+                    for child_task in task.child_tasks:
+                        success = self.perform_task(child_task)
+                        if not success:
+                            break
 
             if success:
                 del self.state_dict['task_grounding_return'].task_info[0] # Removing the task from the list, we just completed
@@ -387,8 +437,7 @@ class PerformTaskState(State):
             grounding_return = self.container.grounding.find_object(task.objects_to_execute_on[0])
             if not grounding_return.is_success:
                 self.state_dict["grounding_error"] = grounding_return.error_code
-                clarify_objects_state = ClarifyObjects(self.state_dict, self.container, self)
-                return clarify_objects_state
+                return False
             else:
                 if self.state_dict["websocket_is_connected"]:
                     self.container.ui_interface.send_images(np_rgb,
@@ -397,10 +446,8 @@ class PerformTaskState(State):
         if task.task_type == TaskType.PICK:
             success = self.container.robot.pick_up(grounding_return.object_infos[0], np_rgb, np_depth)
             self.state_dict["carrying_object"] = True
-
         elif task.task_type == TaskType.FIND:
             success = self.container.robot.point_at(grounding_return.object_infos[0], np_rgb, np_depth)
-
         elif task.task_type == TaskType.PLACE:
             if not self.state_dict["carrying_object"]:
                 self.container.speak("The place task could not be accomplished as no object is carried.")
@@ -598,7 +645,7 @@ class ValidateTeachTaskState(State):
             if error.error_code == TaskErrorType.UNKNOWN:
                 self.container.speak(f"Sorry, I do not know the task {error.error_task_name}")
             elif error.error_code == TaskErrorType.NO_OBJECT:
-                self.container.speak("Sorry, I don't know which object to perform the task {error.error_task_name.task_type.value}")
+                self.container.speak(f"Sorry, I don't know which object to perform the task {error.error_task_name}")
             elif error.error_code == TaskErrorType.NO_SUBTASKS:
                 self.container.speak(f"Sorry, I don't know the sub tasks for the task {error.error_task_name}")
             elif error.error_code == TaskErrorType.NO_SPATIAL:
@@ -623,9 +670,9 @@ class AskForClarificationTeachState(State):
             self.is_first_run = False
             for task in self.tasks:
                 if human_task_text is None:
-                    human_task_text = task.task_type.value
+                    human_task_text = task_to_human_sentence(task)
                 else:
-                    human_task_text += f"then {task.task_type.value}"
+                    human_task_text += f", then {task_to_human_sentence(task)}"
             self.container.speak(f"I have constructed the task sequence you told me to perform: {human_task_text}. Is this correct?")
             return self.wait_for_response_state
         else:
