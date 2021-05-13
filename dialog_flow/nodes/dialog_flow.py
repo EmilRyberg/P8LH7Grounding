@@ -645,11 +645,11 @@ class ValidateTeachTaskState(State):
             if error.error_code == TaskErrorType.UNKNOWN:
                 self.container.speak(f"Sorry, I do not know the task {error.error_task_name}")
             elif error.error_code == TaskErrorType.NO_OBJECT:
-                self.container.speak(f"Sorry, I don't know which object to perform the task {error.error_task_name}")
+                self.container.speak(f"Sorry, I don't know on which object to perform the task {error.error_task_name}")
             elif error.error_code == TaskErrorType.NO_SUBTASKS:
                 self.container.speak(f"Sorry, I don't know the sub tasks for the task {error.error_task_name}")
             elif error.error_code == TaskErrorType.NO_SPATIAL:
-                self.container.speak(f"Sorry, I am missing a spatial description of where to perform the task task {error.error_task_name}")
+                self.container.speak(f"Sorry, I am missing a spatial description of where to perform the task {error.error_task_name}")
             ask_for_task_sequence_state = AskForTaskSequenceState(self.state_dict, self.container, self.task_name,
                                                                   self.task_words, self)
             return ask_for_task_sequence_state
@@ -778,7 +778,7 @@ class DialogFlow:
         self.send_robot_sentence_to_GUI(sentence)
 
     def speech_to_text_callback(self, data):
-        rospy.logdebug(f"Got STT: {data}")
+        rospy.logdebug(f"Got STT:\n{data}")
         self.last_received_sentence_timestamp = data.timestamp
         self.last_received_sentence = data.data
         self.send_human_sentence_to_GUI(data.data)
