@@ -111,6 +111,23 @@ class DatabaseHandler:
                 self.add_word_to_task(task_id, word)
         return task_id, already_known
 
+    def object_exists(self, object_name):
+        already_known = False
+        object_exists = self.conn.execute("SELECT * FROM FEATURES WHERE NAME=?;", (object_name, ))
+        if object_exists.fetchone():
+            already_known = True
+        return already_known
+
+    def add_new_object(self, object_name, feature_vector):
+        already_known = False
+        object_exists = self.conn.execute("SELECT * FROM FEATURES WHERE NAME=?;", (object_name, ))
+        if object_exists.fetchone():
+            already_known = True
+        if not already_known:
+            self.conn.execute("INSERT INTO FEATURES (NAME,FEATURE_VECTOR) VALUES (?,?);", (object_name, feature_vector))
+            self.conn.commit()
+        object_id = self.get_feature(object_name)
+        return object_id, already_known
 
     def add_word_to_task(self, task_id, word):
         try:

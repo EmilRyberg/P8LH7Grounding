@@ -6,7 +6,6 @@ from find_objects_lib.find_objects import ObjectInfo
 from ner_lib.command_builder import CommandBuilder, SpatialType, Task, TaskType, ObjectEntity as ObjectEntityType, SpatialDescription
 from ner_lib.ner import NER, EntityType
 from vision_lib.ros_camera_interface import ROSCamera
-from robot_control.robot_control import RobotController
 from grounding_lib.grounding import Grounding, GroundingErrorType, GroundingReturn
 from vision_lib.vision_controller import VisionController
 from grounding_lib.spatial import SpatialRelation
@@ -79,8 +78,7 @@ class DependencyContainer:
     def __init__(self, ner: NER, command_builder: CommandBuilder,
                  grounding: Grounding, speak,
                  send_human_sentence_to_gui,
-                 camera: ROSCamera, ui_interface: UIInterface, task_grounding: TaskGrounding,
-                 robot: RobotController):
+                 camera: ROSCamera, ui_interface: UIInterface, task_grounding: TaskGrounding):
         self.ner = ner
         self.command_builder = command_builder
         self.grounding = grounding
@@ -89,7 +87,6 @@ class DependencyContainer:
         self.camera = camera
         self.ui_interface = ui_interface
         self.task_grounding = task_grounding
-        self.robot = robot
 
 
 class StateMachine:
@@ -734,6 +731,87 @@ class AskIfMoreStepsState(State):
                 return self
 
 
+class StartTeachObjectState(State):
+    def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
+        super().__init__(state_dict, container, previous_state)
+        self.verify_task_name_state = VerifyObjectNameState(state_dict, container, self)
+
+    def execute(self):
+        self.container.speak("What is the name of the new object you want to teach me?")
+        return self.verify_task_name_state
+
+
+class VerifyObjectNameState(State):
+    def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
+        super().__init__(state_dict, container, previous_state)
+        self.wait_for_state = WaitForResponseState(state_dict, container, self)
+        self.is_first_call = True
+
+    def execute(self):
+        if self.is_first_call:
+            self.is_first_call = False
+            return self.wait_for_state
+        else:
+            entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
+            object_words = [x[1] for x in entities if x[0] == EntityType.OBJECT]
+            print(object_words)
+            if len(object_words) == 0:
+                self.container.speak("No object words found in what you said, please try again")
+                self.is_first_call = True
+                return self
+            elif len(object_words) > 1:
+                self.container.speak(f"I recognised multiple object words. The words that I recognised are: {' and '.join(object_words)}. Please try again with exactly one of these words.")
+                self.is_first_call = True
+                return self
+            object_name = object_words[0]
+            object_exists = self.container.grounding.db.object_exists(object_name)
+            if object_exists:
+                self.container.speak(f"That object name, {object_name}, is already associated with an object. Please try a new one")
+                self.is_first_call = True
+                return self
+            self.container.speak(f"I recognised the word, {object_name}, which will be be the name of the new object")
+            ask_clear_table_state = AskClearTableState(self.state_dict, self.container, object_name, self)
+            return ask_clear_table_state
+
+
+class AskClearTableState(State):
+    def __init__(self, state_dict, container: DependencyContainer, object_name, previous_state=None):
+        super().__init__(state_dict, container, previous_state)
+        self.wait_for_state = WaitForResponseState(state_dict, container, self)
+        self.object_name = object_name
+        self.is_first_call = True
+
+    def execute(self):
+        if self.is_first_call:
+            self.is_first_call = False
+            self.container.speak(f"Is the table clear of all objects except from one {self.object_name}?")
+            return self.wait_for_state
+        else:
+            entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
+            affirmation = any([x[0] == EntityType.AFFIRMATION for x in entities])
+            denial = any([x[0] == EntityType.DENIAL for x in entities])
+            if denial:
+                self.container.speak(f"Okay, please clear the table of all objects except for one {self.object_name}")
+                return self.wait_for_state
+            elif affirmation:
+                self.container.speak(f"Okay, I will try to remember how this {self.object_name} looks for next time")
+                new_object_entity = ObjectEntityType(self.object_name)
+                response = self.container.grounding.learn_new_object(new_object_entity)
+                if response.is_success:
+                    self.container.speak(f"Object learned successfully. I should be able to start recognising {self.object_name}")
+                    '''TODO: No idea what a success should return here'''
+                    return self
+                else:
+                    if response.error_code == GroundingErrorType.ALREADY_KNOWN:
+                        self.container.speak(f"Object already in database. Please try the teach object again from beginning.")
+                        return StartTeachObjectState(self.state_dict,self.container)
+                    elif response.error_code == GroundingErrorType.MULTIPLE_REF:
+                        self.container.speak(f"Multiple objects detected. Have you cleared the table?")
+                        return self.wait_for_state
+            else:
+                self.container.speak(f"I didn't understand. Please clear the table of all objects except for one {self.object_name}, then reply 'Yes' If you have done so.")
+                return self.wait_for_state
+
 class DialogFlow:
     def __init__(self, ner_model_path, ner_tag_path, feature_weights_path, db_path, background_image_file, websocket_uri, debug=False):
         rospy.init_node('dialog_controller', log_level=(rospy.DEBUG if debug else rospy.INFO))
@@ -745,7 +823,7 @@ class DialogFlow:
         self.task_grounding = TaskGrounding(self.database_handler)
         self.sentence = ""
         self.object_info = ObjectInfo()
-        self.robot = RobotController()
+        '''self.robot = RobotController()'''
         self.camera = ROSCamera()
         self.ner = NER(ner_model_path, ner_tag_path)
         self.command_builder = CommandBuilder(self.ner)
