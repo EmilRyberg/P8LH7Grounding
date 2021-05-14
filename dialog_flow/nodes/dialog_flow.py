@@ -370,7 +370,7 @@ class AskForClarificationState(State):
                 if has_object:
                     return extract_task_state
                 else:
-                    self.container.speak("Sorry master, seems like you didn't specify an ojbect again. I will restart my program.")
+                    self.container.speak("Sorry master, seems like you didn't specify an object again. I will restart my program.")
                     return wait_for_greet_state
 
 
@@ -550,11 +550,11 @@ class VerifyTaskNameState(State):
             entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
             task_words = [x[1] for x in entities if x[0] == EntityType.TASK]
             if len(task_words) == 0:
-                self.container.speak("No task words found in what you said, please try again")
+                self.container.speak("No task names found in what you said, please try again")
                 self.is_first_call = True
                 return self
             elif len(task_words) > 1:
-                self.container.speak(f"I recognised multiple task words. The words i recognised are: {' and '.join(task_words)}. Please try again.")
+                self.container.speak(f"I recognised multiple task names. The words i recognised are: {' and '.join(task_words)}. Please try again")
                 self.is_first_call = True
                 return self
             task_name = task_words[0]
