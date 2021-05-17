@@ -7,7 +7,7 @@ setup(
     version='0.0.1',
     packages=["speech_to_text"],
     install_requires=['setuptools',
-                        'numpy'],
+                        'numpy', 'websockets', 'cv2'],
     maintainer='',
     description='TODO: Package description',
     license='TODO: License declaration',

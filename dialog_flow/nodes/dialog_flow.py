@@ -370,7 +370,7 @@ class AskForClarificationState(State):
                 if has_object:
                     return extract_task_state
                 else:
-                    self.container.speak("Sorry master, seems like you didn't specify an ojbect again. I will restart my program.")
+                    self.container.speak("Sorry master, seems like you didn't specify an object again. I will restart my program.")
                     return wait_for_greet_state
 
 
@@ -550,11 +550,11 @@ class VerifyTaskNameState(State):
             entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
             task_words = [x[1] for x in entities if x[0] == EntityType.TASK]
             if len(task_words) == 0:
-                self.container.speak("No task words found in what you said, please try again")
+                self.container.speak("No task names found in what you said, please try again")
                 self.is_first_call = True
                 return self
             elif len(task_words) > 1:
-                self.container.speak(f"I recognised multiple task words. The words i recognised are: {' and '.join(task_words)}. Please try again.")
+                self.container.speak(f"I recognised multiple task names. The words i recognised are: {' and '.join(task_words)}. Please try again")
                 self.is_first_call = True
                 return self
             task_name = task_words[0]
@@ -645,11 +645,11 @@ class ValidateTeachTaskState(State):
             if error.error_code == TaskErrorType.UNKNOWN:
                 self.container.speak(f"Sorry, I do not know the task {error.error_task_name}")
             elif error.error_code == TaskErrorType.NO_OBJECT:
-                self.container.speak(f"Sorry, I don't know which object to perform the task {error.error_task_name}")
+                self.container.speak(f"Sorry, I don't know on which object to perform the task {error.error_task_name}")
             elif error.error_code == TaskErrorType.NO_SUBTASKS:
                 self.container.speak(f"Sorry, I don't know the sub tasks for the task {error.error_task_name}")
             elif error.error_code == TaskErrorType.NO_SPATIAL:
-                self.container.speak(f"Sorry, I am missing a spatial description of where to perform the task task {error.error_task_name}")
+                self.container.speak(f"Sorry, I am missing a spatial description of where to perform the task {error.error_task_name}")
             ask_for_task_sequence_state = AskForTaskSequenceState(self.state_dict, self.container, self.task_name,
                                                                   self.task_words, self)
             return ask_for_task_sequence_state
@@ -859,7 +859,7 @@ class DialogFlow:
         self.send_robot_sentence_to_GUI(sentence)
 
     def speech_to_text_callback(self, data):
-        rospy.logdebug(f"Got STT: {data}")
+        rospy.logdebug(f"Got STT:\n{data}")
         self.last_received_sentence_timestamp = data.timestamp
         self.last_received_sentence = data.data
         self.send_human_sentence_to_GUI(data.data)
