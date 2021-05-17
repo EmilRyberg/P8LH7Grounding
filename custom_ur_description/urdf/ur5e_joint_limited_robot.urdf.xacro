@@ -22,7 +22,7 @@
 
   <joint name="world_joint" type="fixed">
     <parent link="world" />
-    <child link = "base_link" />
+    <child link="base_link" />
     <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
   </joint>
 
@@ -33,7 +33,7 @@
   </joint>
 
   <xacro:property name="box_size" value="3 3 1" />
-  <xacro:property name="box_translation" value="0 0 -0.5" />
+  <xacro:property name="box_translation" value="0 0 -0.55" />
 
   <link name="box_link">
     <visual>
@@ -60,7 +60,7 @@
   </joint>
 
   <xacro:property name="cylinder_radius" value="0.06" />
-  <xacro:property name="cylinder_length" value="0.191" />
+  <xacro:property name="cylinder_length" value="0.2" />
   <xacro:property name="cylinder_translation" value="0 0 ${cylinder_length/2}" />
   <xacro:property name="cylinder_rotation" value="0 0 ${pi/2}" />
 

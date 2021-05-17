@@ -123,7 +123,7 @@ class SpatialRelation:
         if previous_spatial_description is None:
             return None, None
 
-        for instance in reversed(spatial_descriptions):
+        for instance in spatial_descriptions:
             object_name = instance.object_entity.name
             matching_objects = []
             if instance.spatial_type != SpatialType.OTHER:
