@@ -123,9 +123,7 @@ class Grounding:
             return None, None
         return coordinates, status
 
-    def learn_new_object(self, object_entity):
-        entity_name = object_entity.name
-
+    def learn_new_object(self, entity_name):
         db_features = self.db.get_feature(entity_name)
         if db_features is None:
             features = self.vision.get_masks_with_features()

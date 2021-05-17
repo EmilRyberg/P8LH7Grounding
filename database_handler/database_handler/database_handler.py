@@ -124,7 +124,7 @@ class DatabaseHandler:
         if object_exists.fetchone():
             already_known = True
         if not already_known:
-            self.conn.execute("INSERT INTO FEATURES (NAME,FEATURE_VECTOR) VALUES (?,?);", (object_name, feature_vector))
+            self.conn.execute("INSERT INTO FEATURES (NAME,FEATURE_VECTOR) VALUES (?,?);", (object_name, ",".join([str(x) for x in feature_vector])))
             self.conn.commit()
         object_id = self.get_feature(object_name)
         return object_id, already_known
@@ -137,7 +137,7 @@ class DatabaseHandler:
             raise Exception("Unable to add word:", word, " to task: ", task_id)
 
     def update(self, name, feature_vector):
-        self.conn.execute("UPDATE FEATURES set FEATURE_VECTOR = ? where NAME = ?;", (",".join([str(x) for x in feature_vector]),name))
+        self.conn.execute("UPDATE FEATURES set FEATURE_VECTOR = ? where NAME = ?;", (",".join([str(x) for x in feature_vector]), name))
         self.conn.commit()
 
     def delete(self, name):
