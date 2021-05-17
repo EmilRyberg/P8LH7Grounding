@@ -815,7 +815,8 @@ class AskClearTableState(State):
             affirmation = any([x[0] == EntityType.AFFIRMATION for x in entities])
             denial = any([x[0] == EntityType.DENIAL for x in entities])
             if denial:
-                self.container.speak(f"Okay, please clear the table of all objects except for one {self.object_name}")
+                self.container.speak(f"Okay, please clear the table of all objects except for one {self.object_name}. Let me know when you have done that")
+                self.is_first_call = True
                 return self.wait_for_state
             elif affirmation:
                 return VerifyCorrectObjectOnTableState(self.state_dict, self.container, self.object_name, self)
