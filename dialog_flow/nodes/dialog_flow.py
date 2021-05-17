@@ -80,7 +80,7 @@ class DependencyContainer:
                  grounding: Grounding, speak,
                  send_human_sentence_to_gui,
                  camera: ROSCamera, ui_interface: UIInterface, task_grounding: TaskGrounding,
-                 robot: RobotController):
+                 robot: RobotController, vision_controller: VisionController):
         self.ner = ner
         self.command_builder = command_builder
         self.grounding = grounding
@@ -90,6 +90,7 @@ class DependencyContainer:
         self.ui_interface = ui_interface
         self.task_grounding = task_grounding
         self.robot = robot
+        self.vision_controller = vision_controller
 
 
 class StateMachine:
@@ -178,13 +179,18 @@ class GreetState(State):
             if self.state_dict["last_received_sentence"] is not None:
                 entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
                 is_teach = any([x[0] == EntityType.TEACH for x in entities])
-                has_task = any([x[0] == EntityType.TASK for x in entities])
-                if not is_teach and has_task:
+                has_object = any(x[0] == EntityType.OBJECT for x in entities)
+                has_task = any(x[0] == EntityType.TASK for x in entities)
+                teach_task_state = StartTeachState(self.state_dict, self.container, self)
+                if is_teach and has_object and has_task:
+                    return teach_task_state
+                elif is_teach and has_object:
+                    return StartTeachObjectState(self.state_dict, self.container, self)
+                elif not is_teach and has_task:
                     verify_command_state = VerifyCommandState(self.state_dict, self.container, self)
                     return verify_command_state
                 elif is_teach:
-                    teach_state = StartTeachState(self.state_dict, self.container, self)
-                    return teach_state
+                    return teach_task_state
             ask_for_command_state = AskForCommandState(self.state_dict, self.container, self)
             return ask_for_command_state
 
@@ -215,11 +221,16 @@ class AskForCommandState(State):
                 entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
                 is_teach = any([x[0] == EntityType.TEACH for x in entities])
                 has_task = any([x[0] == EntityType.TASK for x in entities])
-                if not is_teach and has_task:
+                has_object = any([x[0] == EntityType.OBJECT for x in entities])
+                start_teach_state = StartTeachState(self.state_dict, self.container, self)
+                if is_teach and has_task and has_object:
+                    return start_teach_state
+                elif is_teach and has_object:
+                    return StartTeachObjectState(self.state_dict, self.container, self)
+                elif not is_teach and has_task:
                     verify_command_state = VerifyCommandState(self.state_dict, self.container, self)
                     return verify_command_state
                 elif is_teach:
-                    start_teach_state = StartTeachState(self.state_dict, self.container, self)
                     return start_teach_state
                 elif not is_teach: # Assumes that the user responded to whether the robot should do a task
                     affirmation = any([x[0] == EntityType.AFFIRMATION for x in entities])
@@ -248,13 +259,19 @@ class VerifyCommandState(State):
         if self.is_first_call:
             self.is_first_call = False
             is_teach = any([x[0] == EntityType.TEACH for x in entities])
-            if not is_teach:
+            has_object = any(x[0] == EntityType.OBJECT for x in entities)
+            has_task = any(x[0] == EntityType.TASK for x in entities)
+            start_teach_state = StartTeachState(self.state_dict, self.container, self)
+            if is_teach and has_object and has_task:
+                return start_teach_state
+            elif is_teach and has_object:
+                return StartTeachObjectState(self.state_dict, self.container, self)
+            elif not is_teach:
                 self.state_dict["base_task"] = self.container.command_builder.get_task(self.state_dict["last_received_sentence"])
                 log_string = f"Ok, just to be sure. You want me to execute the task {self.state_dict['base_task'].name}?"
                 self.container.speak(log_string)
                 return self.wait_for_response
             else:
-                start_teach_state = StartTeachState(self.state_dict, self.container, self)
                 return start_teach_state
         else:  # Got response
             affirmation = any([x[0] == EntityType.AFFIRMATION for x in entities])
@@ -475,15 +492,13 @@ class ClarifyObjects(State):
             self.is_first_run = False
             if self.error == GroundingErrorType.UNKNOWN:
                 self.container.speak(f"Sorry master, I don't know the object: {self.state_dict['task_grounding_return'].task_info[0].objects_to_execute_on[0].name}."
-                                     f" Please make sure I know it") # TODO add support for teaching objects.
-                return wait_for_greet_state
+                                     f" Please make sure I know it")
+                return StartTeachObjectState(self.state_dict, self.container, self)
             elif self.error == GroundingErrorType.CANT_FIND:
                 self.container.speak(f"Sorry master, I could not find the object: {self.state_dict['task_grounding_return'].task_info[0].objects_to_execute_on[0].name}."
                                      f" Please make sure it is on the table. If it is, I think I need to get my feature database updated.")
                 self.container.speak("Is the object clearly visible on the table now?")
                 return self.wait_response_state
-            elif self.error == GroundingErrorType.ALREADY_KNOWN:
-                pass # TODO use this when adding support for teaching objects.
             else:
                 self.container.speak("Got unknown error from visual grounding. Please fix my code master.")
                 return wait_for_greet_state
@@ -734,13 +749,164 @@ class AskIfMoreStepsState(State):
                 return self
 
 
+class StartTeachObjectState(State):
+    def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
+        super().__init__(state_dict, container, previous_state)
+        self.ask_for_object_name_state = AskForObjectNameState(state_dict, container, self)
+        self.is_first_call = True
+
+    def execute(self):
+        entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
+        object_name_entities = [x[1] for x in entities if x[0] == EntityType.OBJECT or x[0] == EntityType.COLOUR]
+        if len(object_name_entities) > 0:
+            object_name = " ".join(object_name_entities)
+            self.container.speak(f"Do you want me to learn the object {object_name}?")
+            return VerifyObjectNameState(self.state_dict, self.container, object_name)
+        else:
+            self.container.speak("What is the name of the new object you want to teach me?")
+            return self.ask_for_object_name_state
+
+
+class AskForObjectNameState(State):
+    def __init__(self, state_dict, container: DependencyContainer, previous_state=None):
+        super().__init__(state_dict, container, previous_state)
+        self.wait_for_state = WaitForResponseState(state_dict, container, self)
+        self.is_first_call = True
+
+    def execute(self):
+        if self.is_first_call:
+            self.is_first_call = False
+            return self.wait_for_state
+        else:
+            entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
+            object_words = [x[1] for x in entities if x[0] == EntityType.OBJECT or x[0] == EntityType.COLOUR]
+            if len(object_words) == 0:
+                self.container.speak("No object words found in what you said, please try again")
+                self.is_first_call = True
+                return self
+            object_name = " ".join([x.lower() for x in object_words])
+            object_exists = self.container.grounding.db.object_exists(object_name)
+            if object_exists:
+                self.container.speak(f"That object name, {object_name}, is already associated with an object. Please try a new one")
+                self.is_first_call = True
+                return self
+            self.container.speak(f"I recognised the word, {object_name}, which will be be the name of the new object. Is this correct?")
+            return VerifyObjectNameState(self.state_dict, self.container, object_name, self)
+
+
+class VerifyObjectNameState(State):
+    def __init__(self, state_dict, container: DependencyContainer, object_name, previous_state=None):
+        super().__init__(state_dict, container, previous_state)
+        self.wait_for_state = WaitForResponseState(state_dict, container, self)
+        self.is_first_call = True
+        self.object_name = object_name
+
+    def execute(self):
+        if self.is_first_call:
+            self.is_first_call = False
+            return self.wait_for_state
+        else:
+            entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
+            affirmation = any([x[0] == EntityType.AFFIRMATION for x in entities])
+            denial = any([x[0] == EntityType.DENIAL for x in entities])
+            if denial:
+                self.container.speak(f"Okay, please say the name of the object again")
+                return AskForObjectNameState(self.state_dict, self.container, self)
+            elif affirmation:
+                return AskClearTableState(self.state_dict, self.container, self.object_name, self)
+            else:
+                self.container.speak(f"I didn't get whether you said yes or no. Please confirm if {self.object_name} is correct.")
+                return self.wait_for_state
+
+
+class AskClearTableState(State):
+    def __init__(self, state_dict, container: DependencyContainer, object_name, previous_state=None):
+        super().__init__(state_dict, container, previous_state)
+        self.wait_for_state = WaitForResponseState(state_dict, container, self)
+        self.object_name = object_name
+        self.is_first_call = True
+
+    def execute(self):
+        if self.is_first_call:
+            self.is_first_call = False
+            self.container.speak(f"Is the table clear of all objects except from one {self.object_name}?")
+            return self.wait_for_state
+        else:
+            entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
+            affirmation = any([x[0] == EntityType.AFFIRMATION for x in entities])
+            denial = any([x[0] == EntityType.DENIAL for x in entities])
+            if denial:
+                self.container.speak(f"Okay, please clear the table of all objects except for one {self.object_name}")
+                return self.wait_for_state
+            elif affirmation:
+                return VerifyCorrectObjectOnTableState(self.state_dict, self.container, self.object_name, self)
+            else:
+                self.container.speak(f"I didn't understand. Please clear the table of all objects except for one {self.object_name}, then reply yes if you have done so.")
+                return self.wait_for_state
+
+
+class VerifyCorrectObjectOnTableState(State):
+    def __init__(self, state_dict, container: DependencyContainer, object_name, previous_state=None):
+        super().__init__(state_dict, container, previous_state)
+        self.wait_for_response_state = WaitForResponseState(state_dict, container, self)
+        self.ask_clear_table_state = AskClearTableState(self.state_dict, self.container, object_name, self)
+        self.object_name = object_name
+        self.is_first_call = True
+
+    def execute(self):
+        if self.is_first_call:
+            self.is_first_call = False
+            self.container.robot.move_out_of_view()
+            objects = self.container.vision_controller.get_masks_with_features()
+            if len(objects) > 1:
+                self.container.speak("I found more than one object on the table, please remove all other items")
+                return self.ask_clear_table_state
+            elif len(objects) == 0:
+                self.container.speak("I found no objects")
+                return self.ask_clear_table_state
+            self.container.speak("I will now point to the object you want to teach me")
+            object_info = objects[0]
+            rgb_np = self.container.vision_controller.get_rgb()
+            depth_np = self.container.vision_controller.get_depth()
+            self.container.robot.point_at(object_info, rgb_np, depth_np)
+            self.container.speak("Is this the correct item?")
+            return self.wait_for_response_state
+        else:
+            entities = self.container.ner.get_entities(self.state_dict["last_received_sentence"])
+            affirmation = any([x[0] == EntityType.AFFIRMATION for x in entities])
+            denial = any([x[0] == EntityType.DENIAL for x in entities])
+            if affirmation:
+                self.container.speak(f"Okay, I will try to remember how this {self.object_name} looks for next time")
+                self.container.robot.move_out_of_view()
+                response = self.container.grounding.learn_new_object(self.object_name)
+                if response.is_success:
+                    self.container.speak(f"Object learned successfully. I should be able to start recognising {self.object_name}")
+                    ask_for_command_state = AskForCommandState(self.state_dict, self.container, self)
+                    return ask_for_command_state
+                else:
+                    if response.error_code == GroundingErrorType.ALREADY_KNOWN:
+                        self.container.speak(f"Object is already known. Please try the teach object again from beginning.")
+                        return StartTeachObjectState(self.state_dict, self.container, self)
+                    elif response.error_code == GroundingErrorType.MULTIPLE_REF:
+                        self.container.speak(f"Multiple objects detected. Have you cleared the table?")
+                        return self.ask_clear_table_state
+            elif denial:
+                self.container.speak("Please try to move the item and make sure that no other objects are on the table")
+                self.is_first_call = True
+                return self
+            else:
+                self.container.speak("You did not say yes or no. Please confirm if it is the correct item")
+                return self.wait_for_response_state
+
+
 class DialogFlow:
     def __init__(self, ner_model_path, ner_tag_path, feature_weights_path, db_path, background_image_file, websocket_uri, debug=False):
         rospy.init_node('dialog_controller', log_level=(rospy.DEBUG if debug else rospy.INFO))
         self.database_handler = DatabaseHandler(db_path=db_path)
+        self.vision_controller = VisionController(background_image_file=background_image_file,
+                                                                      weights_path=feature_weights_path)
         self.grounding = Grounding(db=self.database_handler,
-                                   vision_controller=VisionController(background_image_file=background_image_file,
-                                                                      weights_path=feature_weights_path),
+                                   vision_controller=self.vision_controller,
                                    spatial=SpatialRelation(database_handler=self.database_handler))
         self.task_grounding = TaskGrounding(self.database_handler)
         self.sentence = ""
@@ -758,7 +924,8 @@ class DialogFlow:
         self.ui_interface = UIInterface(websocket_uri)
         self.websocket_is_connected = self.ui_interface.connect()
         self.container = DependencyContainer(self.ner, self.command_builder, self.grounding, self.speak,
-                                             self.send_human_sentence_to_GUI, self.camera, self.ui_interface, self.task_grounding, self.robot)
+                                             self.send_human_sentence_to_GUI, self.camera, self.ui_interface,
+                                             self.task_grounding, self.robot, self.vision_controller)
         self.state_machine = StateMachine(self.container, self.websocket_is_connected)
 
     def start(self):

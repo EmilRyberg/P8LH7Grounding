@@ -17,7 +17,6 @@ class UIInterface:
 
     def connect(self):
         try:
-            websockets.connect(tim)
             self.websocket = self.loop.run_until_complete(websockets.connect(self.uri))
             self.is_connected = True
             return True
