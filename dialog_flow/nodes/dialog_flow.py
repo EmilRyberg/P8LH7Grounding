@@ -6,6 +6,7 @@ from find_objects_lib.find_objects import ObjectInfo
 from ner_lib.command_builder import CommandBuilder, SpatialType, Task, TaskType, ObjectEntity as ObjectEntityType, SpatialDescription
 from ner_lib.ner import NER, EntityType
 from vision_lib.ros_camera_interface import ROSCamera
+from robot_control.robot_control import RobotController
 from grounding_lib.grounding import Grounding, GroundingErrorType, GroundingReturn
 from vision_lib.vision_controller import VisionController
 from grounding_lib.spatial import SpatialRelation
@@ -78,7 +79,8 @@ class DependencyContainer:
     def __init__(self, ner: NER, command_builder: CommandBuilder,
                  grounding: Grounding, speak,
                  send_human_sentence_to_gui,
-                 camera: ROSCamera, ui_interface: UIInterface, task_grounding: TaskGrounding):
+                 camera: ROSCamera, ui_interface: UIInterface, task_grounding: TaskGrounding,
+                 robot: RobotController):
         self.ner = ner
         self.command_builder = command_builder
         self.grounding = grounding
@@ -87,6 +89,7 @@ class DependencyContainer:
         self.camera = camera
         self.ui_interface = ui_interface
         self.task_grounding = task_grounding
+        self.robot = robot
 
 
 class StateMachine:
@@ -823,7 +826,7 @@ class DialogFlow:
         self.task_grounding = TaskGrounding(self.database_handler)
         self.sentence = ""
         self.object_info = ObjectInfo()
-        '''self.robot = RobotController()'''
+        self.robot = RobotController()
         self.camera = ROSCamera()
         self.ner = NER(ner_model_path, ner_tag_path)
         self.command_builder = CommandBuilder(self.ner)
