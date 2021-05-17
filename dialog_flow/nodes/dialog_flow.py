@@ -769,7 +769,7 @@ class AskForObjectNameState(State):
                 self.container.speak(f"That object name, {object_name}, is already associated with an object. Please try a new one")
                 self.is_first_call = True
                 return self
-            self.container.speak(f"I recognised the word, {object_name}, which will be be the name of the new object. Is this correct?")
+            self.container.speak(f"I recognised, {object_name} which will be the name of the new object. Is this correct?")
             return VerifyObjectNameState(self.state_dict, self.container, object_name, self)
 
 
