@@ -19,23 +19,24 @@ from little_helper_interfaces.msg import StringWithTimestamp
 from text_to_speech.srv import TextToSpeech
 
 
+def tasks_to_human_sentence(tasks: List[Task]):
+    sentence = task_to_human_sentence(tasks[0])
+    if len(tasks) > 1:
+        for i, other_task in enumerate(tasks[1:]):
+            if i == len(tasks[1:]) - 1:
+                sentence += f", finally {task_to_human_sentence(other_task)}"
+            else:
+                sentence += f", then {task_to_human_sentence(other_task)}"
+    return sentence
+
+
 def task_to_human_sentence(task: Task):
     # example: pick up the blue cover which is next to the black cover, then place it in the top right corner
     sentence = task.name
     if not task.task_type == TaskType.PLACE:
-        #if task.task_type == TaskType.PICK:
-            # add "up"
-        #    sentence += " up"
         sentence += f" the {build_object_sentence(task.objects_to_execute_on[0])}"
     else:
         sentence += f" it{build_object_sentence(task.objects_to_execute_on[0], skip_main_object=True)}"
-
-    if len(task.child_tasks) > 0:
-        for i, child_task in enumerate(task.child_tasks):
-            if i == len(task.child_tasks) - 1:
-                sentence += f", finally {task_to_human_sentence(child_task)}"
-            else:
-                sentence += f", then {task_to_human_sentence(child_task)}"
 
     return sentence
 
@@ -49,7 +50,10 @@ def build_object_sentence(main_object: ObjectEntityType, skip_main_object=False)
     ]
     for spatial_description in main_object.spatial_descriptions:
         if spatial_description.spatial_type == SpatialType.OTHER:
-            sentence += f" in the {spatial_description.object_entity.name}"
+            if "in the" not in spatial_description.object_entity.name:
+                sentence += f" in the {spatial_description.object_entity.name}"
+            else:
+                sentence += f" {spatial_description.object_entity.name}"
         else:
             spatial_type_word = spatial_type_to_human_adjective(spatial_description.spatial_type)
             sentence += f" {random.choice(connection_variants)} {spatial_type_word} the {spatial_description.object_entity.name}"
@@ -399,36 +403,16 @@ class PerformTaskState(State):
     def execute(self):
         if self.state_dict["task_grounding_return"].task_info:
             task = self.state_dict['task_grounding_return'].task_info[0]
-            processed_child_tasks = []
-            child_task_error = False
-            if len(task.child_tasks) > 0:
-                for child_task in task.child_tasks:
-                    task_grounding_return = self.container.task_grounding.get_specific_task_from_task(child_task)
-                    if not task_grounding_return.is_success:
-                        self.container.speak("There is an invalid child task")
-                        child_task_error = True
-                        break
-                    else:
-                        processed_child_tasks.extend(task_grounding_return.task_info)
-            if len(processed_child_tasks) > 0:
-                task.child_tasks = processed_child_tasks
 
             if not self.has_started_performing_task:
                 log_string = f"I will now {task_to_human_sentence(task)}."
                 self.container.speak(log_string)
                 self.has_started_performing_task = True
 
-            success = False
-            if not child_task_error:
-                success = self.perform_task(task)
-                if not success:
-                    clarify_objects_state = ClarifyObjects(self.state_dict, self.container, self)
-                    return clarify_objects_state
-                if len(task.child_tasks) > 0:
-                    for child_task in task.child_tasks:
-                        success = self.perform_task(child_task)
-                        if not success:
-                            break
+            success = self.perform_task(task)
+            if not success:
+                clarify_objects_state = ClarifyObjects(self.state_dict, self.container, self)
+                return clarify_objects_state
 
             if success:
                 del self.state_dict['task_grounding_return'].task_info[0] # Removing the task from the list, we just completed
@@ -681,13 +665,8 @@ class AskForClarificationTeachState(State):
 
     def execute(self):
         if self.is_first_run:
-            human_task_text = None
+            human_task_text = tasks_to_human_sentence(self.tasks)
             self.is_first_run = False
-            for task in self.tasks:
-                if human_task_text is None:
-                    human_task_text = task_to_human_sentence(task)
-                else:
-                    human_task_text += f", then {task_to_human_sentence(task)}"
             self.container.speak(f"I have constructed the task sequence you told me to perform: {human_task_text}. Is this correct?")
             return self.wait_for_response_state
         else:
