@@ -11,6 +11,7 @@ class GroundingErrorType(Enum):
     CANT_FIND = "cant find object"
     ALREADY_KNOWN = "known object"
     TWO_REF = "two reference objects"
+    MULTIPLE_REF = "multiple reference objects"
 
 
 class GroundingReturn:
@@ -122,15 +123,17 @@ class Grounding:
             return None, None
         return coordinates, status
 
-    def learn_new_object(self, object_entity):
-        entity_name = object_entity.name
-
+    def learn_new_object(self, entity_name):
         db_features = self.db.get_feature(entity_name)
         if db_features is None:
             features = self.vision.get_masks_with_features()
             if not features:
                 raise Exception("Failed to get features")
             else:
+                if len(features)>1:
+                    self.return_object.is_success = False
+                    self.return_object.error_code = GroundingErrorType.MULTIPLE_REF
+                    return self.return_object
                 self.db.insert_feature(entity_name, features[0].features)
                 self.return_object.is_success = True
                 return self.return_object

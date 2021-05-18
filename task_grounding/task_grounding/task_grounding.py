@@ -44,6 +44,17 @@ class TaskGrounding:
         else:
             return_object.is_success = True
             return_object.task_info = tasks
+            if len(task.child_tasks) > 0:
+                for child_task in task.child_tasks:
+                    child_task_name_lower = child_task.name.lower().replace(".", "")
+                    child_task_id, child_task_name = self.db.get_task(child_task_name_lower)
+                    child_sub_tasks, error = self.task_switch(child_task_id, child_task_name, child_task)
+                    if error:
+                        return_object.error = error
+                        return_object.is_success = False
+                        break
+                    else:
+                        tasks.extend(child_sub_tasks)
         return return_object
 
     def task_switch(self, task_id, task_name, task: Task):

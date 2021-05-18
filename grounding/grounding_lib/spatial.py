@@ -16,6 +16,8 @@ class StatusEnum(Enum):
 class SpatialRelation:
     def __init__(self, database_handler: DatabaseHandler):
         self.database_handler = database_handler
+        if not hasattr(math, "dist"):
+            math.dist = lambda p1, p2: math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
 
     def locate_specific_object(self, object_entity, objects):
         local_objects = copy.deepcopy(objects)
@@ -123,7 +125,7 @@ class SpatialRelation:
         if previous_spatial_description is None:
             return None, None
 
-        for instance in reversed(spatial_descriptions):
+        for instance in spatial_descriptions:
             object_name = instance.object_entity.name
             matching_objects = []
             if instance.spatial_type != SpatialType.OTHER:
