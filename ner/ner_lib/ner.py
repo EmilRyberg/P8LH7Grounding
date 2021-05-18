@@ -33,6 +33,7 @@ class NER:
         entities = []
         current_entity_word = ""
         current_entity = ""
+        last_offset = 0
         for token_index in range(logits_softmax.shape[1]):
             max_id = torch.argmax(logits_softmax[0, token_index, :]).numpy()
             max_id_value = logits_softmax[0, token_index, max_id].numpy()
@@ -41,19 +42,22 @@ class NER:
             tag_name = self.id_to_tag[max_id]
             #print(f"{word} - {tag_name} - {max_id_value}")
             entity_name = tag_name if tag_name == "O" else tag_name[2:]
-            if (current_offsets[0] == 0 and current_offsets[1] == 0) or self.id_to_tag[max_id] == "O" or word == "to":
+            if current_offsets[0] != 0 and self.id_to_tag[max_id] == "O" and current_entity_word != "" and last_offset == current_offsets[0] and word != ".":
+                current_entity_word += word
+            elif (current_offsets[0] == 0 and current_offsets[1] == 0) or self.id_to_tag[max_id] == "O" or word == "to":
                 if current_entity_word != "":
                     entities.append((EntityType(current_entity), current_entity_word))
                     current_entity_word = ""
-                continue
-            if tag_name[0] == "B":
-                if current_entity_word != "" and current_entity != entity_name:
-                    entities.append((EntityType(current_entity), current_entity_word))
-                if current_entity == entity_name:
-                    current_entity_word += f"{word}"
-                else:
-                    current_entity_word = word
-                    current_entity = entity_name
-            elif tag_name[0] == "I":
-                current_entity_word += f" {word}"
+            else:
+                if tag_name[0] == "B":
+                    if current_entity_word != "" and current_entity != entity_name:
+                        entities.append((EntityType(current_entity), current_entity_word))
+                    if current_entity == entity_name:
+                        current_entity_word += f"{word}"
+                    else:
+                        current_entity_word = word
+                        current_entity = entity_name
+                elif tag_name[0] == "I":
+                    current_entity_word += f" {word}"
+            last_offset = current_offsets[1]
         return entities
