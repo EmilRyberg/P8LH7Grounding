@@ -696,7 +696,7 @@ class AskIfMoreStepsState(State):
 
     def execute(self):
         if self.is_first_run:
-            self.container.speak("Is there more steps you want to add to this task?")
+            self.container.speak("Are there more steps you want to add to this task?")
             self.is_first_run = False
             return self.wait_for_response_state
         else:
