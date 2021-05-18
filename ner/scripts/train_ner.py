@@ -58,20 +58,20 @@ def encode_tags(tags, encodings, tag_to_id):
 
 def train(dataset_path, tag_path, model_save_path):
     texts, tags = read_dataset(dataset_path)
-    train_texts, val_texts, train_tags, val_tags = train_test_split(texts, tags, test_size=.2)
+    #train_texts, val_texts, train_tags, val_tags = train_test_split(texts, tags, test_size=.2, shuffle=True)
     with open(tag_path, "r") as tag_file:
         content = tag_file.read().strip()
         unique_tags = content.splitlines()
     tag_to_id = {tag: id for id, tag in enumerate(unique_tags)}
     tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-cased')
-    train_encodings = tokenizer(train_texts, is_split_into_words=True, return_offsets_mapping=True, padding=True, truncation=True)
-    val_encodings = tokenizer(val_texts, is_split_into_words=True, return_offsets_mapping=True, padding=True, truncation=True)
-    train_labels = encode_tags(train_tags, train_encodings, tag_to_id)
-    val_labels = encode_tags(val_tags, val_encodings, tag_to_id)
+    train_encodings = tokenizer(texts, is_split_into_words=True, return_offsets_mapping=True, padding=True, truncation=True)
+    #val_encodings = tokenizer(val_texts, is_split_into_words=True, return_offsets_mapping=True, padding=True, truncation=True)
+    train_labels = encode_tags(tags, train_encodings, tag_to_id)
+    #val_labels = encode_tags(val_tags, val_encodings, tag_to_id)
     train_encodings.pop("offset_mapping") # we don't want to pass this to the model
-    val_encodings.pop("offset_mapping")
+    #val_encodings.pop("offset_mapping")
     train_dataset = NERDataset(train_encodings, train_labels)
-    val_dataset = NERDataset(val_encodings, val_labels)
+    #val_dataset = NERDataset(val_encodings, val_labels)
     model = DistilBertForTokenClassification.from_pretrained('distilbert-base-cased', num_labels=len(unique_tags))
 
     training_args = TrainingArguments(
@@ -83,20 +83,20 @@ def train(dataset_path, tag_path, model_save_path):
         warmup_steps=500,                # number of warmup steps for learning rate scheduler
         weight_decay=0.01,               # strength of weight decay
         logging_dir='./logs',            # directory for storing logs
-        logging_steps=10,
+        logging_steps=10
     )
 
     trainer = Trainer(
         model=model,                         # the instantiated 🤗 Transformers model to be trained 💋
         args=training_args,                  # training arguments, defined above
         train_dataset=train_dataset,         # training dataset
-        eval_dataset=val_dataset             # evaluation dataset
+        #eval_dataset=val_dataset             # evaluation dataset
     )
     model.train()
     trainer.train()
-    trainer.evaluate()
+    #print("eval", trainer.evaluate())
     trainer.save_model(model_save_path)
 
 
 if __name__ == "__main__":
-    train("NER_4/dataset_processed.txt", "NER_4/tags.txt", "NER_4")
+    train("NER_5/dataset_processed.txt", "NER_5/tags.txt", "NER_6")
