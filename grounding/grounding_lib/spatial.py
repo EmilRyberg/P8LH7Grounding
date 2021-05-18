@@ -10,6 +10,7 @@ class StatusEnum(Enum):
     SUCCESS = "SUCCESS"
     NO_VALID_OBJECTS = "ERROR_TWO_REF"
     ERROR_CANT_FIND = "ERROR_CANT_FIND"
+    ERROR_CANT_FIND_RELATION = "ERROR_CANT_FIND_RELATION"
     STATIC_LOCATION = "STATIC_LOCATION"
 
 
@@ -47,7 +48,10 @@ class SpatialRelation:
                     if correct_bbox_index is not None:
                         (idx, name, bbox) = matching_objects[correct_bbox_index]
                         correct_indices.append(idx)
-            return correct_indices, StatusEnum.SUCCESS
+            if len(correct_indices) == 0: #if no matching object is found
+                return None, StatusEnum.ERROR_CANT_FIND_RELATION
+            else:
+                return correct_indices, StatusEnum.SUCCESS
         elif matching_objects:
             (id, name, bbox) = matching_objects[0]
             correct_index = id

@@ -176,7 +176,7 @@ class GreetState(State):
     def execute(self):
         if self.is_first_call:
             self.is_first_call = False
-            spoken_sentence = "Hello."
+            spoken_sentence = "G'day mate"
             self.container.speak(spoken_sentence)
             return self.wait_for_command_state
         else:
@@ -475,16 +475,21 @@ class ClarifyObjects(State):
         if self.is_first_run:
             self.is_first_run = False
             if self.error == GroundingErrorType.UNKNOWN:
-                self.container.speak(f"Sorry master, I don't know the object: {self.state_dict['task_grounding_return'].task_info[0].objects_to_execute_on[0].name}."
+                self.container.speak(f"Sorry mate, I don't know the object: {self.state_dict['task_grounding_return'].task_info[0].objects_to_execute_on[0].name}."
                                      f" Please make sure I know it")
                 return StartTeachObjectState(self.state_dict, self.container, self)
             elif self.error == GroundingErrorType.CANT_FIND:
-                self.container.speak(f"Sorry master, I could not find the object: {self.state_dict['task_grounding_return'].task_info[0].objects_to_execute_on[0].name}."
+                self.container.speak(f"Sorry my guy, I could not find the object: {self.state_dict['task_grounding_return'].task_info[0].objects_to_execute_on[0].name}."
                                      f" Please make sure it is on the table. If it is, I think I need to get my feature database updated.")
                 self.container.speak("Is the object clearly visible on the table now?")
                 return self.wait_response_state
+            elif self.error == GroundingErrorType.CANT_FIND_RELATION:
+                self.container.speak(f"Sorry mate, I couldn't find the object {self.state_dict['task_grounding_return'].task_info[0].objects_to_execute_on[0].name} "
+                                     f"that matches the specified spatial relation.")
+                self.container.speak("Do you want to retry?")
+                return self.wait_response_state
             else:
-                self.container.speak("Got unknown error from visual grounding. Please fix my code master.")
+                self.container.speak("Got unknown error from visual grounding. This is your fault.")
                 return wait_for_greet_state
         else:
             # Got response
@@ -493,7 +498,7 @@ class ClarifyObjects(State):
             if denial and not self.asked_for_restart:
                 self.container.speak("Okay, since you said the object is not visible I can't perform my task. I will now restart.")
                 return wait_for_greet_state
-            elif self.error == GroundingErrorType.CANT_FIND and not self.asked_for_restart:
+            elif (self.error == GroundingErrorType.CANT_FIND or self.error == GroundingErrorType.CANT_FIND_RELATION) and not self.asked_for_restart:
                 self.container.speak("I will check if I can find the object now.")
                 task = self.state_dict['task_grounding_return'].task_info[0]
                 self.container.robot.move_out_of_view()
@@ -501,9 +506,9 @@ class ClarifyObjects(State):
                 if grounding_return.is_success:
                     self.container.speak("I could find the object now. I will resume my task.")
                     return perform_task_state
-                elif grounding_return.error_code == GroundingErrorType.CANT_FIND:
+                elif grounding_return.error_code == GroundingErrorType.CANT_FIND or self.error == GroundingErrorType.CANT_FIND_RELATION:
                     self.container.speak(
-                        f"Sorry master, I could still not find the object: {self.state_dict['task_grounding_return'].task_info[0].objects_to_execute_on[0].name}."
+                        f"Sorry matey, I could still not find the object: {self.state_dict['task_grounding_return'].task_info[0].objects_to_execute_on[0].name}."
                         f" I think I need to get my features updated. I will now restart.") # TODO add support for updating features.
                     return wait_for_greet_state
                 else:

@@ -9,6 +9,7 @@ from enum import Enum
 class GroundingErrorType(Enum):
     UNKNOWN = "unknown object"
     CANT_FIND = "cant find object"
+    CANT_FIND_RELATION = "can't find object with matching relation"
     ALREADY_KNOWN = "known object"
     TWO_REF = "two reference objects"
     MULTIPLE_REF = "multiple reference objects"
@@ -68,9 +69,16 @@ class Grounding:
                     self.return_object.is_success = False
                     self.return_object.error_code = GroundingErrorType.CANT_FIND
                     return self.return_object
+                elif status == StatusEnum.ERROR_CANT_FIND_RELATION:
+                    self.return_object.is_success = False
+                    self.return_object.error_code = GroundingErrorType.CANT_FIND_RELATION
+                    return self.return_object
                 elif object_infos is not None and len(object_infos) > 0:
                     self.return_object.object_infos = object_infos
                     self.return_object.is_success = True
+                    return self.return_object
+                else: #this should not happen
+                    self.return_object.error_code = GroundingErrorType.UNKNOWN
                     return self.return_object
 
         # This part of the code will be executed if there is only 1 of the requested objects in the scene or
