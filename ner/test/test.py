@@ -6,7 +6,7 @@ from ner_lib.command_builder import CommandBuilder, SpatialType, Task, TaskType
 
 class NERTestCase(unittest.TestCase):
     def setUp(self):
-        self.ner = NER("ner_model.bin", "tags.txt")
+        self.ner = NER("ner_model.bin", "../scripts/NER_4/tags.txt")
 
     def test_get_entities__sentence_with_pick_up_task__returns_all_entities(self):
         sentence = "Please pick up the blue cover next to the black bottom cover"
@@ -275,7 +275,7 @@ class CommandBuilderTestCase(unittest.TestCase):
 
 class NERIntegrationTestCase(unittest.TestCase):
     def setUp(self):
-        self.ner = NER("ner_model.bin", "tags.txt")
+        self.ner = NER("ner_model.bin", "../scripts/NER_4/tags.txt")
         self.cmd_builder = CommandBuilder(self.ner)
 
     def test_get_task__sentence_with_pick_up_task__returns_pick_up_task_and_locations(self):
@@ -298,3 +298,125 @@ class NERIntegrationTestCase(unittest.TestCase):
         self.assertEqual(task.objects_to_execute_on[0].spatial_descriptions[0].spatial_type, SpatialType.NEXT_TO)
         self.assertIsNotNone(task.objects_to_execute_on[0].spatial_descriptions[0].object_entity)
         self.assertEqual(task.objects_to_execute_on[0].spatial_descriptions[0].object_entity.name, "yellow bottom cover")
+
+    def test_get_task__sentence_with_pick_up_task__returns_pick_up_task_and_locations(self):
+        task = self.cmd_builder.get_task(
+            "Please pick up the blue cover that is next to the black bottom cover which is above a bottom cover")
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual(task.objects_to_execute_on[0].name, "blue cover")
+        self.assertEqual(len(task.objects_to_execute_on[0].spatial_descriptions), 2)
+        self.assertEqual(task.objects_to_execute_on[0].spatial_descriptions[0].spatial_type, SpatialType.NEXT_TO)
+        self.assertIsNotNone(task.objects_to_execute_on[0].spatial_descriptions[0].object_entity)
+        self.assertEqual("black bottom cover",
+                         task.objects_to_execute_on[0].spatial_descriptions[0].object_entity.name)
+        self.assertEqual(task.objects_to_execute_on[0].spatial_descriptions[1].spatial_type, SpatialType.ABOVE)
+        self.assertIsNotNone(task.objects_to_execute_on[0].spatial_descriptions[1].object_entity)
+        self.assertEqual("bottom cover", task.objects_to_execute_on[0].spatial_descriptions[1].object_entity.name)
+
+    def test_get_task__sentence_with_pick_up_task__returns_pick_up_test1(self):
+        task = self.cmd_builder.get_task(
+            "Please pick up the black bottom cover")
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual(task.objects_to_execute_on[0].name, "black bottom cover")
+        self.assertTrue(task.name == "pick up")
+
+
+    def test_get_task__sentence_with_pick_up_task__returns_pick_up_test2(self):
+        task = self.cmd_builder.get_task(
+            "Please pick up the screwdriver")
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual(task.objects_to_execute_on[0].name, "screwdriver")
+        self.assertEqual(task.name,"get")
+
+    def test_get_task__sentence_with_pick_up_task__returns_pick_up_test3(self):
+        task = self.cmd_builder.get_task(
+            "Please move the hammer")
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual(task.objects_to_execute_on[0].name, "hammer")
+        self.assertEqual(task.name,"move")
+
+    def test_get_task__sentence_with_pick_up_task__returns_pick_up_test4(self):
+        task = self.cmd_builder.get_task(
+            "Please pick up the fuse next to the book")
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual(task.objects_to_execute_on[0].name, "fuse")
+        self.assertEqual(task.name, "pick up")
+
+    def test_get_task__sentence_with_pick_up_task__returns_pick_up_test5(self):
+        task = self.cmd_builder.get_task(
+            "Please pick up the green cover on top of the table")
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual(task.objects_to_execute_on[0].name, "green cover")
+        self.assertEqual(task.name, "pick up")
+
+    def test_get_task__sentence_with_pick_up_task__returns_pick_up_test6(self):
+        task = self.cmd_builder.get_task(
+            "Please place the blue cover on top of the black bottom cover")
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual(task.objects_to_execute_on[0].name, "blue cover")
+        self.assertEqual(task.name, "place")
+
+    def test_get_task__sentence_with_pick_up_task__returns_pick_up_test7(self):
+        task = self.cmd_builder.get_task(
+            "Please find the white bottom cover")
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual(task.objects_to_execute_on[0].name, "white bottom cover")
+        self.assertEqual(task.name, "find")
+
+    def test_get_task__sentence_with_pick_up_task__returns_pick_up_test8(self):
+        task = self.cmd_builder.get_task(
+            "Please find the fuse")
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual(task.objects_to_execute_on[0].name, "fuse")
+        self.assertEqual(task.name, "find")
+
+    def test_get_task__sentence_with_pick_up_task__returns_pick_up_test9(self):
+        task = self.cmd_builder.get_task(
+            "Please weld the cover")
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual(task.objects_to_execute_on[0].name, "cover")
+        self.assertEqual(task.name, "weld")
+
+
+    def test_get_task__sentence_with_pick_up_task__returns_pick_up_test10(self):
+        task = self.cmd_builder.get_task(
+            "Please put the fuse on top of the white cover")
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual(task.objects_to_execute_on[0].name, "fuse")
+        self.assertEqual(task.name, "put")
+
+    def test_get_task__sentence_with_pick_up_task__returns_pick_up_test11(self):
+        task = self.cmd_builder.get_task(
+            "Please place the black bottom cover on top of the white cover")
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual(task.objects_to_execute_on[0].name, "black bottom cover")
+        self.assertEqual(task.name, "place")
+
+    def test_get_task__sentence_with_pick_up_task__returns_pick_up_test12(self):
+        task = self.cmd_builder.get_task(
+            "Please place the white cover on top of the black bottom cover")
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual(task.objects_to_execute_on[0].name, "white cover")
+        self.assertEqual(task.name, "place")
+
+
+    def test_get_task__sentence_with_pick_up_task__returns_pick_up_test13(self):
+        task = self.cmd_builder.get_task(
+            "Hey robot, could you destroy the car for me?")
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual(task.objects_to_execute_on[0].name, "car")
+        self.assertEqual(task.name, "destroy")
+
+    def test_get_task__sentence_with_pick_up_task__returns_pick_up_test14(self):
+        task = self.cmd_builder.get_task(
+            "Hey robot, could you fly to the moon?")
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual(task.objects_to_execute_on[0].name, "moon")
+        self.assertEqual(task.name, "fly")
+
+    def test_get_task__sentence_with_pick_up_task__returns_pick_up_test15(self):
+        task = self.cmd_builder.get_task(
+            "Hey robot, could you turn the tool?")
+        self.assertIsNotNone(task.objects_to_execute_on[0])
+        self.assertEqual(task.objects_to_execute_on[0].name, "tool")
+        self.assertEqual(task.name, "turn")
