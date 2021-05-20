@@ -226,6 +226,8 @@ class AskForCommandState(State):
                 is_teach = any([x[0] == EntityType.TEACH for x in entities])
                 has_task = any([x[0] == EntityType.TASK for x in entities])
                 has_object = any([x[0] == EntityType.OBJECT for x in entities])
+                affirmation = any([x[0] == EntityType.AFFIRMATION for x in entities])
+                denial = any([x[0] == EntityType.DENIAL for x in entities])
                 start_teach_state = StartTeachState(self.state_dict, self.container, self)
                 if is_teach and has_task and has_object:
                     return start_teach_state
@@ -236,9 +238,7 @@ class AskForCommandState(State):
                     return verify_command_state
                 elif is_teach:
                     return start_teach_state
-                elif not is_teach: # Assumes that the user responded to whether the robot should do a task
-                    affirmation = any([x[0] == EntityType.AFFIRMATION for x in entities])
-                    denial = any([x[0] == EntityType.DENIAL for x in entities])
+                elif affirmation or denial: # Assumes that the user responded to whether the robot should do a task
                     if affirmation:
                         self.container.speak("Okay, what would you like me to do?")
                         return self.wait_for_command_state
@@ -246,10 +246,15 @@ class AskForCommandState(State):
                         self.container.speak("Okay, goodbye for now master skywalker")
                         wait_for_greet_state = WaitForGreetingState(self.state_dict, self.container, self)
                         return wait_for_greet_state
-
-            spoken_sentence = "Sorry I did not get that, what can I do for you?"
-            self.container.speak(spoken_sentence)
-            return self.wait_for_command_state
+                else:  # The user did not give a valid input
+                    self.container.speak("I'm not sure what you wanted me to do. You have three options. I can "
+                                         "perform one of my known tasks or you can teach me a new task or you can "
+                                         "teach me how to recognise a new object. What would you like me to do?")
+                    return self.wait_for_command_state
+            else:
+                spoken_sentence = "Sorry I did not get that, what can I do for you?"
+                self.container.speak(spoken_sentence)
+                return self.wait_for_command_state
 
 
 class VerifyCommandState(State):
