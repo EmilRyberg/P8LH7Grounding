@@ -29,9 +29,11 @@ To get up and running:
    - You have to build from source. Make a new catkin workspace and build it there.
    - Remember to install for the correct ROS distro
 
-5. Make sure that the catkin workspace that **this** project/package is inside is built and sourced.
+5. Compile cv_bridge to work with Python 3 (https://github.com/ros-perception/vision_opencv/tree/melodic)
 
-6. (Re)build the main workspace with the UR-ROS ws sourced.
+6. Make sure that the catkin workspace that **this** project/package is inside is built and sourced.
+
+7. (Re)build the main workspace with the UR-ROS and cv_bridge ws sourced.
 
 ### Test that you got it right / it is working
 1. Start roscore
@@ -43,6 +45,21 @@ To get up and running:
 7. The last command should open up RViz with MoveIt! The robot in WeBots and RViz should have the same pose, if everything worked as expected. You can now play around with planning trajectories in RViz, which should move the "real" WeBots simulation.
 
 Note that the controller in WeBots have to be set to `<extern>`. There is also a `ros` controller which enables interfacing directly with WeBots objects using topics / services. 
+
+## Speech to text
+To get speech to text working, several libraries need to be installed - some compiled from source.
+
+For Azure Cognitive Services (what we are using now):
+1. `pip install azure-cognitiveservices-speech`
+
+## Running the code
+Make sure that ROS, cv_bridge, UR-ROS and this workspace is sourced when running the code. It is very important that cv_bridge is BEFORE ROS in PYTHONPATH environment variable (ROS should preferably be the last).
+1. `roslaunch dialog_flow hri_backbone_launch.launch azure_key:=[api key to Azure]`
+2. `rosrun bin_picking moveit_interface_node.py` - IMPORTANT: Needs to be python 2!
+3. `Run dialog_flow.py` NOTE: The import paths for the dialog_flow.py does not allow it to be run from terminal, without the correct PYTHONPATH set. 
+To be able to run it without updating the import paths, source the ROS, cv_bridge and this workspace and start PyCharm and set all packages as "Sources root". Then run dialog_flow.py from PyCharm.
+
+If you want to visualize the robot in RViz: `roslaunch ur5_moveit_config moveit_rviz.launch config:=true`
 
 ### Examples of controlling WeBots directly using ROS
 These examples needs to have the controller in WeBots set to the `ros` controller.
@@ -60,39 +77,3 @@ Type: std_msgs/Bool
 
 Value: 1 = close gripper/start suction
 	   0 = open gripper/stop suction
-
-## Speech to text
-To get speech to text working, several libraries need to be installed - some compiled from source.
-
-For Azure Cognitive Services (what we are using now):
-1. `pip install azure-cognitiveservices-speech`
-
-Below is for using SpeechRecognition python library:
-
-To setup using Sphinx:
-1. Download PCRE from here: https://ftp.pcre.org/pub/pcre/ - select version pcre-8.44 (**make sure you dont take pcre2-xxx!!!**)
-   1. Run `./configure --prefix=/usr` in the pcre folder
-   2. Run `make` then `sudo make install`
-2. Download SWIG from here: http://www.swig.org/download.html
-   1. Run `./configure`, then `make` and finally `(sudo) make install`
-   2. Test that it works by running `swig` in a new terminal. If installed correctly it should say "*Must specify an input file. Use -help for available options.*". If it complains about libpcre.so.1, you did something wrong in the previous step.
-3. Run `sudo apt install libpulse-dev portaudio19-dev` - these dependencies are need for PyAudio and PocketSphinx.
-4. Run `pip install PyAudio`
-5. Run `pip install --upgrade pocketsphinx`
-6. Run `pip install SpeechRecognition`
-
-To setup for Google Speech API:
-1. Run `sudo apt install libpulse-dev portaudio19-dev` - these dependencies are need for PyAudio and PocketSphinx.
-2. Run `pip install PyAudio`
-3. Run `pip install SpeechRecognition`
-4. Run `pip install oauth2client`
-5. Run `pip install google-api-python-client`
-
-Note: You will probably get a lot of warnings when running the code, in the form of *ALSA lib pcm.c:2495:(snd_pcm_open_noupdate) Unknown PCM cards.pcm.rear*. This is a common issue, but are just warnings, and can be disabled by uncommenting lines in some config files.
-
-## Running the code
-1. `roslaunch dialog_flow hri_backbone_launch.launch azure_key:=[api key to Azure]`
-2. `rosrun bin_picking moveit_interface_node.py` - IMPORTANT: Needs to be python 2!
-3. `Run dialog_flow.py`
-
-If you want to visualize the robot in RViz: `roslaunch ur5_moveit_config moveit_rviz.launch config:=true`
