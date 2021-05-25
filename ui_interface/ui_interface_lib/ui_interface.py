@@ -21,23 +21,40 @@ class UIInterface:
             self.is_connected = True
             return True
         except ConnectionRefusedError as e:
+            self.is_connected = False
             return False
 
     def send_as_robot(self, message):
         try:
             self.loop.run_until_complete(asyncio.wait_for(self.websocket.send(f"rob||{message}"), timeout))
         except TimeoutError as e:
-            rospy.logerr("Websocket timed out", e)
+            rospy.logerr("Websocket timed out")
+            self.connect()
+        except asyncio.exceptions.CancelledError as e:
+            rospy.logerr("Sending cancelled")
+            self.connect()
         except Exception as e:
-            rospy.logerr("Some other error occurred", e)
+            rospy.logerr("Some other error occurred")
+            self.connect()
+        except BaseException as e:
+            rospy.logerr("Some other error occurred")
+            self.connect()
 
     def send_as_user(self, message):
         try:
             self.loop.run_until_complete(asyncio.wait_for(self.websocket.send(f"usr||{message}"), timeout))
         except TimeoutError as e:
-            rospy.logerr("Websocket timed out", e)
+            rospy.logerr("Websocket timed out")
+            self.connect()
+        except asyncio.exceptions.CancelledError as e:
+            rospy.logerr("Sending cancelled")
+            self.connect()
         except Exception as e:
-            rospy.logerr("Some other error occurred", e)
+            rospy.logerr("Some other error occurred")
+            self.connect()
+        except BaseException as e:
+            rospy.logerr("Some other error occurred")
+            self.connect()
 
     def send_images(self, image_full, image_cutout):
         image_full_resized = cv2.resize(image_full, (960, 540))
@@ -47,9 +64,17 @@ class UIInterface:
             self.loop.run_until_complete(asyncio.wait_for(self.websocket.send(f"img1||{base64.b64encode(buffer_cutout).decode()}"), timeout))
             self.loop.run_until_complete(asyncio.wait_for(self.websocket.send(f"img2||{base64.b64encode(buffer_full).decode()}"), timeout))
         except TimeoutError as e:
-            rospy.logerr("Websocket timed out", e)
+            rospy.logerr("Websocket timed out")
+            self.connect()
+        except asyncio.exceptions.CancelledError as e:
+            rospy.logerr("Sending cancelled")
+            self.connect()
         except Exception as e:
-            rospy.logerr("Some other error occurred", e)
+            rospy.logerr("Some other error occurred")
+            self.connect()
+        except BaseException as e:
+            rospy.logerr("Some other error occurred")
+            self.connect()
 
     def __del__(self):
         if self.is_connected:

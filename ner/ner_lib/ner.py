@@ -37,7 +37,7 @@ class NER:
         for token_index in range(logits_softmax.shape[1]):
             max_id = torch.argmax(logits_softmax[0, token_index, :]).numpy()
             max_id_value = logits_softmax[0, token_index, max_id].numpy()
-            current_offsets = encoded.offset_mapping[0, token_index, :]
+            current_offsets = encoded.offset_mapping[0, token_index, :].detach().cpu().numpy()
             word = sentence[current_offsets[0]:current_offsets[1]]
             tag_name = self.id_to_tag[max_id]
             #print(f"{word} - {tag_name} - {max_id_value}")
@@ -50,9 +50,9 @@ class NER:
                     current_entity_word = ""
             else:
                 if tag_name[0] == "B":
-                    if current_entity_word != "" and current_entity != entity_name:
+                    if current_entity_word != "" and (current_entity != entity_name or last_offset != current_offsets[0]):
                         entities.append((EntityType(current_entity), current_entity_word))
-                    if current_entity == entity_name:
+                    if current_entity == entity_name and last_offset == current_offsets[0]:
                         current_entity_word += f"{word}"
                     else:
                         current_entity_word = word
